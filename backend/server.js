@@ -5,13 +5,17 @@ const dotenv = require('dotenv');
 const session = require('express-session');
 const passport = require('passport');
 const cookieParser = require('cookie-parser'); // NEW: Import cookie-parser
+const path = require('path');
 
 dotenv.config();
 
 require('./config/passport-setup');
 
-const assetRoutes = require('./routes/asset.js');
 const authRoutes = require('./routes/authRoutes');
+const assetRoutes = require('./routes/asset.js');
+const userRoutes = require('./routes/userRoutes');
+const departmentRoutes = require('./routes/departmentRoutes');
+const locationRoutes = require('./routes/locationRoutes');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -25,6 +29,9 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); // NEW: Use cookie-parser middleware
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.use(session({
   secret: process.env.JWT_SECRET,
@@ -43,6 +50,9 @@ app.use(passport.session());
 
 app.use('/api/assets', assetRoutes);
 app.use('/api/auth', authRoutes);
+app.use('/api', userRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/locations', locationRoutes);
 
 app.get('/', (req, res) => {
   res.send('Asset Audit System Backend is running!');

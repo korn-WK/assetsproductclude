@@ -2,28 +2,30 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage = () => {
   const router = useRouter();
   const { error } = router.query;
+  const { user, loading } = useAuth();
 
   useEffect(() => {
-    // Optional: Redirect if user is already logged in (e.g., has a token)
-    // In the HttpOnly cookie approach, you might check this on the server-side
-    // or try to fetch user data immediately on /dashboard.
-    // This frontend check might be less reliable for HttpOnly cookies.
-  }, []);
-
-  const handleGoogleLogin = () => {
-    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/google`;
-  };
+    // Redirect based on user role after authentication
+    if (!loading && user) {
+      if (user.role === 'admin' || user.email === 'admin@mfu.ac.th' || user.email?.includes('admin')) {
+        router.push('/admin/dashboard');
+      } else {
+        router.push('/user/asset-browser');
+      }
+    }
+  }, [user, loading, router]);
 
   // MFU SSO - For demonstration, this will also link to Google OAuth
   // In a real scenario, MFU SSO would have its own OAuth/SAML flow
   const handleMFUSSO = () => {
     // For now, link it to Google OAuth as an example.
     // In a real scenario, this would be a separate SSO integration.
-    window.location.href = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/auth/google`;
+    window.location.href = '/api/auth/google';
   };
 
   return (
@@ -216,7 +218,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   eyeIcon: {
     position: 'absolute',
-    right: '15px',
+    right: '40px',
     cursor: 'pointer',
     color: '#888',
   },

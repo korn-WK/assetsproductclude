@@ -1,0 +1,405 @@
+.assetsSection {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: var(--shadow-sm);
+}
+
+.assetsHeader {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.assetsHeader h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+    color: var(--text-color-primary);
+}
+
+.totalAssets {
+    font-size: 1rem;
+    color: var(--text-color-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.listOfEquipment {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-color-primary);
+}
+
+.createButton {
+    background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+    color: var(--button-primary-text);
+    border: none;
+    border-radius: 12px;
+    padding: 0.9rem 2rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    transition: all 0.25s cubic-bezier(.4,2,.3,1);
+    box-shadow: var(--shadow-md);
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+.createButton::after {
+    content: '';
+    position: absolute;
+    left: -100%;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.5s;
+    z-index: 0;
+}
+.createButton:hover {
+    background: linear-gradient(135deg, var(--button-primary-hover) 0%, #3730a3 100%);
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: var(--shadow-lg);
+}
+.createButton:hover::after {
+    left: 100%;
+}
+
+.loadingState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: var(--text-color-secondary);
+}
+
+.loadingState p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+}
+
+.errorState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: #ef4444;
+}
+
+.errorState p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.assetsControls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.searchAndFilters {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.searchBox {
+    position: relative;
+}
+
+.searchInput {
+    background-color: var(--main-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+    color: var(--text-color-primary);
+    width: 250px;
+    transition: all 0.2s ease-in-out;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: var(--button-primary-bg);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.searchInput::placeholder {
+    color: var(--text-color-secondary);
+}
+
+.statusFilters {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--main-bg);
+    border-radius: 12px;
+    padding: 0.4rem 0.5rem;
+    box-shadow: var(--shadow-xs);
+}
+
+.filterButton {
+    background: none;
+    border: none;
+    padding: 0.8rem 1.2rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-color-secondary);
+    transition: all 0.2s cubic-bezier(.4,2,.3,1);
+    position: relative;
+    z-index: 1;
+}
+.filterButton.active {
+    background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+    color: var(--button-primary-text);
+    box-shadow: var(--shadow-sm);
+    transform: scale(1.08);
+}
+.filterButton:hover:not(.active) {
+    background: #f3f4f6;
+    color: var(--text-color-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transform: scale(1.04);
+}
+
+.rightControls {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.iconButton {
+    background-color: var(--main-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    font-size: 1.2rem;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-in-out;
+}
+
+.iconButton:hover {
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    border-color: var(--button-primary-bg);
+}
+
+.filterDropdown {
+    background-color: var(--main-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.filterDropdown:hover {
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    border-color: var(--button-primary-bg);
+}
+
+.dropdownIcon {
+    font-size: 0.8rem;
+}
+
+.assetsTableContainer {
+    overflow-x: auto;
+    margin-bottom: 1.5rem;
+}
+
+.assetsTable {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.assetsTable thead th {
+    text-align: left;
+    padding: 1rem 1.5rem;
+    font-size: 0.9rem;
+    color: var(--text-color-secondary);
+    text-transform: uppercase;
+    font-weight: 600;
+    border-bottom: 2px solid var(--border-color);
+    background-color: var(--main-bg);
+}
+
+.assetsTable tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background-color 0.2s ease-in-out;
+}
+
+.assetsTable tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.assetsTable tbody td {
+    padding: 1.2rem 1.5rem;
+    font-size: 1rem;
+    color: var(--text-color-primary);
+    vertical-align: middle;
+}
+
+.assetImage {
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.assetImage:hover {
+    transform: scale(1.05);
+}
+
+.assetName {
+    font-weight: 600;
+    color: var(--text-color-primary);
+}
+
+.assetDescription {
+    font-size: 0.9rem;
+    color: var(--text-color-secondary);
+}
+
+.statusBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 20px;
+    font-weight: 500;
+    font-size: 0.9rem;
+}
+
+.statusActive {
+    background-color: #dcfce7;
+    color: #166534;
+}
+.statusTransferring {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+.statusAudited {
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+.statusMissing {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+.statusBroken {
+    background-color: #ffedd5;
+    color: #9a3412;
+}
+.statusDisposed {
+    background-color: #e5e7eb;
+    color: #374151;
+}
+
+.actionButtons {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.actionButton {
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 0.5rem;
+    font-size: 1.2rem;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease-in-out;
+}
+
+.actionButton:hover {
+    color: var(--button-primary-bg);
+    background-color: #f3f4f6;
+}
+
+.deleteButton:hover {
+    color: #ef4444;
+    background-color: #fee2e2;
+}
+
+.clickableRow {
+    cursor: pointer;
+}
+
+@media (max-width: 1024px) {
+    .assetsTable thead th, .assetsTable tbody td {
+        padding: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .assetsSection {
+        padding: 1rem;
+    }
+    .assetsHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .assetsControls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .statusFilters {
+        width: 100%;
+        overflow-x: auto;
+        padding-bottom: 0.5rem; /* For scrollbar */
+    }
+    .assetsTableContainer {
+        overflow-x: auto;
+    }
+    .assetsTable thead {
+        display: none;
+    }
+    .assetsTable tbody, .assetsTable tr, .assetsTable td {
+        display: block;
+        width: 100%;
+    }
+    .assetsTable tr {
+        margin-bottom: 1rem;
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 1rem;
+    }
+    .assetsTable td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border: none;
+    }
+    .assetsTable td::before {
+        content: attr(data-label);
+        font-weight: 600;
+        color: var(--text-color-secondary);
+        margin-right: 1rem;
+    }
+    .assetImage {
+        width: 40px;
+        height: 40px;
+    }
+}

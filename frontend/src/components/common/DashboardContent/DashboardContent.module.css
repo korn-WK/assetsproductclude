@@ -1,0 +1,4 @@
+/* src/components/DashboardContent/DashboardContent.module.css */
+.dashboardContent {
+    padding: 0;
+    /* DashboardContent ไม่ต้องมี padding เพิ่ม เพราะ mainContent มีแล้ว */ }

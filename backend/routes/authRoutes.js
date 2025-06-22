@@ -31,4 +31,10 @@ router.get('/admin-only', authController.verifyToken, authController.authorizeRo
 // New: Logout route
 router.post('/logout', authController.logout);
 
+// Route to get current user's data if a valid token is present
+router.get('/me', authController.verifyToken, authController.getMe);
+
+// Route to update user's department_id
+router.put('/department', authController.verifyToken, authController.updateUserDepartment);
+
 module.exports = router;

@@ -1,0 +1,46 @@
+/* src/components/DashboardContent/DashboardCards.module.css */
+.cardsContainer {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    /* ปรับตามขนาดจอ */
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.card {
+    background-color: var(--card-bg);
+    /* จะถูก override ด้วย style prop */
+    color: white;
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: var(--shadow-sm);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px;
+}
+
+.cardTitle {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.8rem;
+    opacity: 0.9;
+}
+
+.cardBody {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cardIcon {
+    font-size: 2.5rem;
+    /* ขนาดใหญ่ขึ้นเหมือนในรูป */
+    opacity: 0.7;
+}
+
+.cardValue {
+    font-size: 2.5rem;
+    /* ขนาดใหญ่ขึ้นเหมือนในรูป */
+    font-weight: 700;
+}

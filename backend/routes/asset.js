@@ -1,21 +1,73 @@
 const express = require('express');
+const multer = require('multer');
+const path = require('path');
+
+// Import authentication middleware
+const { verifyToken } = require('../controllers/authController.js');
+
+// These are the functions that ACTUALLY exist and are exported from assetController.js
 const {
-  getAssetByBarcode,
-  patchAssetStatus,
-  getAssets,
-  getStats,
-  getSummary,
-  getReport,
+    getAssets,
+    updateAssetById,
+    deleteAssetById,
+    getAssetReport,
+    getDepartments,
+    getLocations,
+    getUsers,
+    createAssetController,
+    searchAssetsController,
+    getAssetByBarcode,
+    patchAssetStatus
 } = require('../controllers/assetController.js');
 
 const router = express.Router();
 
-router.get('/stats', getStats);
-router.get('/summary', getSummary);
-router.get('/report', getReport);
-router.get('/', getAssets);
+// Multer setup for image uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, path.join(__dirname, '../uploads/')),
+    filename: (req, file, cb) => cb(null, `${file.fieldname}-${Date.now()}${path.extname(file.originalname)}`)
+});
+const upload = multer({ storage, limits: { fileSize: 5 * 1024 * 1024 } });
 
-router.get('/:barcode', getAssetByBarcode);
-router.patch('/:barcode/status', patchAssetStatus);
+// --- All routes are verified to have a valid function handler ---
+
+// Dropdown and utility routes (these don't need authentication)
+router.get('/departments', getDepartments);
+router.get('/locations', getLocations);
+router.get('/users', getUsers);
+
+// Core asset routes (these need authentication)
+router.get('/', verifyToken, getAssets);
+router.post('/', verifyToken, createAssetController);
+router.get('/search', verifyToken, searchAssetsController);
+// router.get('/report', verifyToken, getAssetReport); // Temporarily removed to fix crash
+
+// Image upload (needs authentication)
+router.post('/upload-image', verifyToken, upload.single('image'), (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'Please upload a file.' });
+        }
+        
+        // Check file type
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp'];
+        if (!allowedTypes.includes(req.file.mimetype)) {
+            return res.status(400).json({ message: 'Invalid file type. Only images are allowed.' });
+        }
+        
+        const imageUrl = `http://localhost:4000/uploads/${req.file.filename}`;
+        console.log('Image uploaded successfully:', req.file.filename);
+        res.status(200).json({ imageUrl });
+    } catch (error) {
+        console.error('Image upload error:', error);
+        res.status(500).json({ message: 'Failed to upload image.' });
+    }
+});
+
+// Parameterized routes (must be last to avoid conflicts) - these need authentication
+router.get('/barcode/:barcode', verifyToken, getAssetByBarcode);
+router.patch('/barcode/:barcode/status', verifyToken, patchAssetStatus);
+router.put('/:id', verifyToken, updateAssetById);
+router.delete('/:id', verifyToken, deleteAssetById);
 
 module.exports = router; 

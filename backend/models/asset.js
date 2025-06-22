@@ -1,57 +1,483 @@
 const pool = require('../lib/db.js');
 
-async function findAssetByBarcode(barcode) {
-  const [rows] = await pool.query('SELECT * FROM assets WHERE barcode = ?', [barcode]);
-  return rows[0];
+// Valid status values for assets
+const VALID_STATUSES = ['active', 'transferring', 'audited', 'missing', 'broken', 'disposed'];
+
+// Validate asset status
+function validateAssetStatus(status) {
+  return VALID_STATUSES.includes(status);
 }
 
-async function updateAssetStatus(barcode, status) {
-  const [result] = await pool.query('UPDATE assets SET status = ? WHERE barcode = ?', [status, barcode]);
-  return result.affectedRows > 0;
-}
-
+// Get all assets with department and owner information
 async function getAllAssets() {
-  const [rows] = await pool.query('SELECT * FROM assets ORDER BY id ASC');
+  const query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    ORDER BY a.id ASC
+  `;
+  const [rows] = await pool.query(query);
   return rows;
 }
 
+// Get assets filtered by user's department_id
+async function getAssetsByUserDepartment(userDepartmentId) {
+  let query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+  `;
+  
+  const params = [];
+  
+  // If user has department_id, filter by it. If NULL, show all assets
+  if (userDepartmentId !== null && userDepartmentId !== undefined) {
+    query += ` WHERE a.department_id = ?`;
+    params.push(userDepartmentId);
+  }
+  
+  query += ` ORDER BY a.id ASC`;
+  
+  const [rows] = await pool.query(query, params);
+  return rows;
+}
+
+// Get asset by ID with full details
+async function getAssetById(id) {
+  const query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    WHERE a.id = ?
+  `;
+  const [rows] = await pool.query(query, [id]);
+  return rows[0];
+}
+
+// Get asset by asset code
+async function getAssetByCode(assetCode) {
+  const query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    WHERE a.asset_code = ?
+  `;
+  const [rows] = await pool.query(query, [assetCode]);
+  return rows[0];
+}
+
+// Search assets by a single query string across multiple fields
+async function searchAssets(query) {
+  const searchQuery = `%${query}%`;
+  const sql = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    WHERE a.asset_code LIKE ? 
+       OR a.name LIKE ? 
+       OR d.name_th LIKE ?
+       OR al.name LIKE ?
+    ORDER BY a.id ASC
+  `;
+  const params = [searchQuery, searchQuery, searchQuery, searchQuery];
+  
+  const [rows] = await pool.query(sql, params);
+  return rows;
+}
+
+// Search assets filtered by user's department_id
+async function searchAssetsByUserDepartment(query, userDepartmentId) {
+  const searchQuery = `%${query}%`;
+  let sql = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    WHERE (a.asset_code LIKE ? 
+       OR a.name LIKE ? 
+       OR d.name_th LIKE ?
+       OR al.name LIKE ?)
+  `;
+  
+  const params = [searchQuery, searchQuery, searchQuery, searchQuery];
+  
+  // If user has department_id, filter by it. If NULL, show all assets
+  if (userDepartmentId !== null && userDepartmentId !== undefined) {
+    sql += ` AND a.department_id = ?`;
+    params.push(userDepartmentId);
+  }
+  
+  sql += ` ORDER BY a.id ASC`;
+  
+  const [rows] = await pool.query(sql, params);
+  return rows;
+}
+
+// Get assets by department
+async function getAssetsByDepartment(departmentId) {
+  const query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    WHERE a.department_id = ?
+    ORDER BY a.id ASC
+  `;
+  const [rows] = await pool.query(query, [departmentId]);
+  return rows;
+}
+
+// Get asset statistics
 async function getAssetStats() {
   const [rows] = await pool.query('SELECT status, COUNT(*) as count FROM assets GROUP BY status');
   return rows;
 }
 
+// Get asset summary
 async function getAssetSummary() {
   const [[total]] = await pool.query('SELECT COUNT(*) as total FROM assets');
   const [statusRows] = await pool.query('SELECT status, COUNT(*) as count FROM assets GROUP BY status');
+  const [departmentRows] = await pool.query(`
+    SELECT d.name_th, COUNT(a.id) as count 
+    FROM departments d 
+    LEFT JOIN assets a ON d.id = a.department_id 
+    GROUP BY d.id, d.name_th
+  `);
+  
   return {
     total: total.total,
-    statuses: statusRows.reduce((acc, s) => ({ ...acc, [s.status]: s.count }), {})
+    statuses: statusRows.reduce((acc, s) => ({ ...acc, [s.status]: s.count }), {}),
+    departments: departmentRows
   };
 }
 
-async function getAssetReport() {
-  // Mock ข้อมูลรายงาน (เช่น รายได้, กราฟ)
-  return {
-    propertyIncome: 120923,
-    propertySold: 234125,
-    propertyOutcome: 26237,
-    propertyClient: 34012,
-    sellingReports: [
-      { month: 'Jan', value: 12000 },
-      { month: 'Feb', value: 15000 },
-      { month: 'Mar', value: 18000 },
-      { month: 'Apr', value: 14000 },
-      { month: 'May', value: 20000 },
-      { month: 'Jun', value: 17000 },
-    ]
+// Get all departments
+async function getAllDepartments() {
+  const [rows] = await pool.query('SELECT * FROM departments ORDER BY name_th');
+  return rows;
+}
+
+// Get all locations
+async function getAllLocations() {
+  const [rows] = await pool.query('SELECT * FROM asset_locations ORDER BY name');
+  return rows;
+}
+
+// Get transfer logs for an asset
+async function getAssetTransferLogs(assetId) {
+  const query = `
+    SELECT 
+      tl.*,
+      a.asset_code,
+      a.name as asset_name,
+      fd.name_th as from_department,
+      td.name_th as to_department,
+      u1.name as transferred_by_name,
+      u2.name as approved_by_name
+    FROM transfer_logs tl
+    JOIN assets a ON tl.asset_id = a.id
+    LEFT JOIN departments fd ON tl.from_department_id = fd.id
+    LEFT JOIN departments td ON tl.to_department_id = td.id
+    LEFT JOIN users u1 ON tl.transferred_by = u1.id
+    LEFT JOIN users u2 ON tl.approved_by = u2.id
+    WHERE tl.asset_id = ?
+    ORDER BY tl.transfer_date DESC
+  `;
+  const [rows] = await pool.query(query, [assetId]);
+  return rows;
+}
+
+// Get monthly transfer report
+async function getMonthlyTransferReport(year, month) {
+  const query = `
+    SELECT 
+      tl.*,
+      a.asset_code,
+      a.name as asset_name,
+      fd.name_th as from_department,
+      td.name_th as to_department,
+      u1.name as transferred_by_name,
+      u2.name as approved_by_name
+    FROM transfer_logs tl
+    JOIN assets a ON tl.asset_id = a.id
+    LEFT JOIN departments fd ON tl.from_department_id = fd.id
+    LEFT JOIN departments td ON tl.to_department_id = td.id
+    LEFT JOIN users u1 ON tl.transferred_by = u1.id
+    LEFT JOIN users u2 ON tl.approved_by = u2.id
+    WHERE YEAR(tl.transfer_date) = ? AND MONTH(tl.transfer_date) = ?
+    ORDER BY tl.transfer_date DESC
+  `;
+  const [rows] = await pool.query(query, [year, month]);
+  return rows;
+}
+
+// Get department assets report
+async function getDepartmentAssetsReport(departmentId = null) {
+  let query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+  `;
+  
+  const params = [];
+  if (departmentId) {
+    query += ` WHERE a.department_id = ?`;
+    params.push(departmentId);
+  }
+  
+  query += ` ORDER BY d.name_th, a.asset_code`;
+  
+  const [rows] = await pool.query(query, params);
+  return rows;
+}
+
+// Update asset status
+async function updateAssetStatus(assetId, status) {
+  // Validate status
+  if (!validateAssetStatus(status)) {
+    throw new Error(`Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(', ')}`);
+  }
+  
+  const [result] = await pool.query('UPDATE assets SET status = ?, updated_at = NOW() WHERE id = ?', [status, assetId]);
+  return result.affectedRows > 0;
+}
+
+// Create new asset
+async function createAsset(assetData) {
+  // Validate status if provided
+  if (assetData.status && !validateAssetStatus(assetData.status)) {
+    throw new Error(`Invalid status: ${assetData.status}. Valid statuses are: ${VALID_STATUSES.join(', ')}`);
+  }
+  
+  const query = `
+    INSERT INTO assets (
+      asset_code, name, description, location_id, location, 
+      status, department_id, owner_id, image_url, acquired_date
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+  const params = [
+    assetData.asset_code,
+    assetData.name,
+    assetData.description,
+    assetData.location_id,
+    assetData.location,
+    assetData.status || 'active',
+    assetData.department_id,
+    assetData.owner_id,
+    assetData.image_url,
+    assetData.acquired_date
+  ];
+  
+  const [result] = await pool.query(query, params);
+  return result.insertId;
+}
+
+// Update asset
+async function updateAsset(assetId, assetData) {
+  // Validate status if provided
+  if (assetData.status && !validateAssetStatus(assetData.status)) {
+    throw new Error(`Invalid status: ${assetData.status}. Valid statuses are: ${VALID_STATUSES.join(', ')}`);
+  }
+  
+  // Build the query dynamically based on provided fields
+  const fields = [];
+  const params = [];
+
+  const addField = (key, value) => {
+    if (value !== undefined) {
+      fields.push(`${key} = ?`);
+      params.push(value);
+    }
   };
+
+  addField('asset_code', assetData.asset_code);
+  addField('name', assetData.name);
+  addField('description', assetData.description);
+  addField('location_id', assetData.location_id);
+  addField('status', assetData.status);
+  addField('department_id', assetData.department_id);
+  addField('owner_id', assetData.owner_id);
+  addField('acquired_date', assetData.acquired_date);
+  
+  if (assetData.image_url !== undefined) {
+    fields.push('image_url = ?');
+    params.push(assetData.image_url);
+  }
+
+  if (fields.length === 0) {
+    return false; // No fields to update
+  }
+
+  fields.push('updated_at = NOW()');
+  
+  const query = `UPDATE assets SET ${fields.join(', ')} WHERE id = ?`;
+  params.push(assetId);
+
+  const [result] = await pool.query(query, params);
+  return result.affectedRows > 0;
+}
+
+// Delete asset by ID
+async function deleteAsset(assetId) {
+  try {
+    const [result] = await pool.query('DELETE FROM assets WHERE id = ?', [assetId]);
+    return result.affectedRows > 0;
+  } catch (error) {
+    console.error('Error deleting asset:', error);
+    return false;
+  }
+}
+
+// Get department ID by name
+async function getDepartmentIdByName(departmentName) {
+  if (!departmentName) return null;
+  
+  try {
+    // Try to find by Thai name first
+    let [rows] = await pool.query('SELECT id FROM departments WHERE name_th = ?', [departmentName]);
+    
+    // If not found, try English name
+    if (rows.length === 0) {
+      [rows] = await pool.query('SELECT id FROM departments WHERE name_en = ?', [departmentName]);
+    }
+    
+    return rows.length > 0 ? rows[0].id : null;
+  } catch (error) {
+    console.error('Error getting department ID by name:', error);
+    return null;
+  }
+}
+
+// Get user ID by name
+async function getUserIdByName(userName) {
+  if (!userName) return null;
+  
+  try {
+    const [rows] = await pool.query('SELECT id FROM users WHERE name = ?', [userName]);
+    return rows.length > 0 ? rows[0].id : null;
+  } catch (error) {
+    console.error('Error getting user ID by name:', error);
+    return null;
+  }
+}
+
+// Get department name by ID
+async function getDepartmentNameById(departmentId) {
+  if (!departmentId) return null;
+  
+  try {
+    const [rows] = await pool.query('SELECT name_th FROM departments WHERE id = ?', [departmentId]);
+    return rows.length > 0 ? rows[0].name_th : null;
+  } catch (error) {
+    console.error('Error getting department name by ID:', error);
+    return null;
+  }
+}
+
+// Get user name by ID
+async function getUserNameById(userId) {
+  if (!userId) return null;
+  
+  try {
+    const [rows] = await pool.query('SELECT name FROM users WHERE id = ?', [userId]);
+    return rows.length > 0 ? rows[0].name : null;
+  } catch (error) {
+    console.error('Error getting user name by ID:', error);
+    return null;
+  }
+}
+
+// Get location ID by name
+async function getLocationIdByName(locationName) {
+  if (!locationName) return null;
+  
+  try {
+    const [rows] = await pool.query('SELECT id FROM asset_locations WHERE name = ?', [locationName]);
+    return rows.length > 0 ? rows[0].id : null;
+  } catch (error) {
+    console.error('Error getting location ID by name:', error);
+    return null;
+  }
+}
+
+// Get location name by ID
+async function getLocationNameById(locationId) {
+  if (!locationId) return null;
+  const [rows] = await pool.query('SELECT name FROM asset_locations WHERE id = ?', [locationId]);
+  return rows[0]?.name || null;
 }
 
 module.exports = {
-  findAssetByBarcode,
-  updateAssetStatus,
   getAllAssets,
+  getAssetsByUserDepartment,
+  getAssetById,
+  getAssetByCode,
+  searchAssets,
+  searchAssetsByUserDepartment,
+  getAssetsByDepartment,
   getAssetStats,
   getAssetSummary,
-  getAssetReport,
+  getAllDepartments,
+  getAllLocations,
+  getAssetTransferLogs,
+  getMonthlyTransferReport,
+  getDepartmentAssetsReport,
+  updateAssetStatus,
+  createAsset,
+  updateAsset,
+  deleteAsset,
+  getDepartmentIdByName,
+  getUserIdByName,
+  getDepartmentNameById,
+  getUserNameById,
+  getLocationIdByName,
+  getLocationNameById,
+  validateAssetStatus,
+  VALID_STATUSES,
 }; 

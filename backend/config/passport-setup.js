@@ -17,14 +17,23 @@ passport.use(
       let user = rows[0];
 
       if (user) {
-        // User exists
-        console.log('User found:', user.email);
+        // User exists, update their name and picture in case they've changed.
+        const pictureUrl = profile.photos && profile.photos.length > 0 ? profile.photos[0].value : user.picture;
+        await db.execute(
+          'UPDATE users SET name = ?, picture = ? WHERE id = ?',
+          [profile.displayName, pictureUrl, user.id]
+        );
+        // Re-fetch the user to get the updated info
+        const [updatedRows] = await db.execute('SELECT * FROM users WHERE id = ?', [user.id]);
+        user = updatedRows[0];
+        console.log('User found and updated:', user.email);
         done(null, user);
       } else {
         // User does not exist, create new user (default role 'user')
+        const pictureUrl = profile.photos && profile.photos.length > 0 ? profile.photos[0].value : null;
         const [result] = await db.execute(
-          'INSERT INTO users (username, email, name, role, password_hash, is_active) VALUES (?, ?, ?, ?, ?, ?)',
-          [profile.emails[0].value, profile.emails[0].value, profile.displayName, 'user', '', 1] // password_hash can be empty for OAuth users
+          'INSERT INTO users (username, email, name, role, password_hash, is_active, picture) VALUES (?, ?, ?, ?, ?, ?, ?)',
+          [profile.emails[0].value, profile.emails[0].value, profile.displayName, 'user', '', 1, pictureUrl] // password_hash can be empty for OAuth users
         );
         user = {
           id: result.insertId,
@@ -32,7 +41,8 @@ passport.use(
           email: profile.emails[0].value,
           name: profile.displayName,
           role: 'user',
-          is_active: 1
+          is_active: 1,
+          picture: pictureUrl
         };
         console.log('New user created:', user.email);
         done(null, user);
@@ -54,7 +64,11 @@ passport.deserializeUser(async (id, done) => {
   try {
     const [rows] = await db.execute('SELECT * FROM users WHERE id = ?', [id]);
     const user = rows[0];
-    done(null, user);
+    if (user) {
+      done(null, user);
+    } else {
+      done(null, false); // Tell passport the user does not exist
+    }
   } catch (err) {
     done(err, null);
   }

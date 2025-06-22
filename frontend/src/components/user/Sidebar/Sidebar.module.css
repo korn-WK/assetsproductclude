@@ -1,0 +1,111 @@
+.sidebar {
+    width: 280px;
+    height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 0;
+    position: fixed;
+    left: 0;
+    top: 0;
+    overflow-y: auto;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+}
+
+.header {
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.logo {
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.universityName {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: white;
+    flex: 1;
+}
+
+.nav {
+    padding: 20px 0;
+}
+
+.nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.navItem {
+    margin: 0;
+}
+
+.navLink {
+    display: flex;
+    align-items: center;
+    padding: 16px 24px;
+    color: rgba(255, 255, 255, 0.8);
+    text-decoration: none;
+    transition: all 0.3s ease;
+    border-left: 3px solid transparent;
+    gap: 12px;
+}
+
+.navLink:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-left-color: rgba(255, 255, 255, 0.5);
+}
+
+.navLink.active {
+    background: rgba(255, 255, 255, 0.15);
+    color: white;
+    border-left-color: white;
+    font-weight: 600;
+}
+
+.icon {
+    font-size: 20px;
+    flex-shrink: 0;
+}
+
+.navLink span {
+    font-size: 14px;
+    font-weight: 500;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        height: auto;
+        position: relative;
+    }
+    
+    .header {
+        padding: 15px 20px;
+    }
+    
+    .universityName {
+        font-size: 12px;
+    }
+    
+    .navLink {
+        padding: 12px 20px;
+    }
+    
+    .icon {
+        font-size: 18px;
+    }
+    
+    .navLink span {
+        font-size: 13px;
+    }
+}

@@ -1,0 +1,14 @@
+/* src/components/DashboardContent/DashboardChart.module.css */
+.chartCard {
+    background-color: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 15px;
+    box-shadow: var(--shadow-sm);
+}
+
+.chartTitle {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    color: var(--text-color-primary);
+}

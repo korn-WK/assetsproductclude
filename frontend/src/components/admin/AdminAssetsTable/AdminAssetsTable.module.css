@@ -1,0 +1,538 @@
+.assetsSection {
+    background-color: var(--card-bg);
+    padding: 2rem;
+    border-radius: 15px;
+    box-shadow: var(--shadow-sm);
+}
+
+.assetsHeader {
+    margin-bottom: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.assetsHeader h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 0.2rem;
+    color: var(--text-color-primary);
+}
+
+.totalAssets {
+    font-size: 1rem;
+    color: var(--text-color-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.listOfEquipment {
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--text-color-primary);
+}
+
+.createButton {
+    background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+    color: var(--button-primary-text);
+    border: none;
+    border-radius: 12px;
+    padding: 0.9rem 2rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    transition: all 0.25s cubic-bezier(.4,2,.3,1);
+    box-shadow: var(--shadow-md);
+    letter-spacing: 0.5px;
+    position: relative;
+    overflow: hidden;
+}
+.createButton::after {
+    content: '';
+    position: absolute;
+    left: -100%;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    transition: left 0.5s;
+    z-index: 0;
+}
+.createButton:hover {
+    background: linear-gradient(135deg, var(--button-primary-hover) 0%, #3730a3 100%);
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: var(--shadow-lg);
+}
+.createButton:hover::after {
+    left: 100%;
+}
+
+.loadingState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: var(--text-color-secondary);
+}
+
+.loadingState p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+}
+
+.errorState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem;
+    color: #ef4444;
+}
+
+.errorState p {
+    margin-top: 1rem;
+    font-size: 1.1rem;
+    text-align: center;
+}
+
+.assetsControls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+}
+
+.searchAndFilters {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.searchBox {
+    position: relative;
+}
+
+.searchInput {
+    background-color: var(--main-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+    color: var(--text-color-primary);
+    width: 250px;
+    transition: all 0.2s ease-in-out;
+}
+
+.searchInput:focus {
+    outline: none;
+    border-color: var(--button-primary-bg);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.searchInput::placeholder {
+    color: var(--text-color-secondary);
+}
+
+.statusFilters {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--main-bg);
+    border-radius: 12px;
+    padding: 0.4rem 0.5rem;
+    box-shadow: var(--shadow-xs);
+}
+
+.filterButton {
+    background: none;
+    border: none;
+    padding: 0.8rem 1.2rem;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    color: var(--text-color-secondary);
+    transition: all 0.2s cubic-bezier(.4,2,.3,1);
+    position: relative;
+    z-index: 1;
+}
+.filterButton.active {
+    background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+    color: var(--button-primary-text);
+    box-shadow: var(--shadow-sm);
+    transform: scale(1.08);
+}
+.filterButton:hover:not(.active) {
+    background: #f3f4f6;
+    color: var(--text-color-primary);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    transform: scale(1.04);
+}
+
+.rightControls {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.iconButton {
+    background-color: var(--main-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    font-size: 1.2rem;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease-in-out;
+}
+
+.iconButton:hover {
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    border-color: var(--button-primary-bg);
+}
+
+.filterDropdown {
+    background-color: var(--main-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease-in-out;
+}
+
+.filterDropdown:hover {
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    border-color: var(--button-primary-bg);
+}
+
+.dropdownIcon {
+    font-size: 0.8rem;
+}
+
+.assetsTableContainer {
+    margin-top: 1.5rem;
+    border-radius: 15px;
+    overflow-x: auto;
+    background: var(--card-bg);
+    box-shadow: var(--shadow-xs);
+}
+
+.assetsTable {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--card-bg);
+    border-radius: 15px;
+    overflow: hidden;
+}
+.assetsTable thead th {
+    font-weight: 700;
+    color: var(--text-color-primary);
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    padding: 1.1rem 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+    text-align: left;
+    font-size: 0.9rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.assetsTable tbody tr {
+    transition: background 0.2s, box-shadow 0.2s;
+    border-bottom: 1px solid var(--border-color);
+}
+.assetsTable tbody tr:hover {
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.assetsTable tbody td {
+    padding: 1.1rem 1.5rem;
+    color: var(--text-color-primary);
+    vertical-align: middle;
+    font-size: 0.9rem;
+}
+.assetImage {
+    border-radius: 12px;
+    object-fit: cover;
+    width: 60px;
+    height: 60px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    border: 2px solid var(--border-color);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.assetImage:hover {
+    transform: scale(1.08);
+    box-shadow: var(--shadow-md);
+}
+.assetName {
+    font-weight: 600;
+    color: var(--text-color-primary);
+    font-size: 0.95rem;
+    margin-bottom: 0.2rem;
+}
+.assetDescription {
+    color: var(--text-color-secondary);
+    font-size: 0.8rem;
+}
+.statusBadge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+}
+.statusActive {
+    background-color: #dcfce7;
+    color: #16a34a;
+    border-color: #86efac;
+}
+.statusTransferring {
+    background-color: #fef9c3;
+    color: #ca8a04;
+    border-color: #fde047;
+}
+.statusAudited {
+    background-color: #dbeafe;
+    color: #2563eb;
+    border-color: #93c5fd;
+}
+.statusMissing {
+    background-color: #fee2e2;
+    color: #dc2626;
+    border-color: #fca5a5;
+}
+.statusBroken {
+    background-color: #ffedd5;
+    color: #f97316;
+    border-color: #fdba74;
+}
+.statusDisposed {
+    background-color: #f3f4f6;
+    color: #6b7280;
+    border-color: #d1d5db;
+}
+.actionButtons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: center;
+}
+.actionButton {
+    background: none;
+    border: none;
+    border-radius: 10px;
+    padding: 0.7rem 1.1rem;
+    font-size: 1.1rem;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, transform 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow-xs);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.actionButton:hover {
+    background: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    transform: scale(1.08);
+    box-shadow: var(--shadow-md);
+}
+.deleteButton:hover {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #fff;
+    box-shadow: var(--shadow-md);
+}
+
+/* Popup/modal styles */
+.assetPopupOverlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s;
+    backdrop-filter: blur(2px);
+}
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+.assetPopup {
+    background: var(--card-bg);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideIn 0.3s;
+    border: 1px solid var(--border-color);
+    padding: 2rem;
+    position: relative;
+}
+@keyframes slideIn {
+    from { opacity: 0; transform: translateY(-20px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.assetPopupHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+}
+.assetPopupTitle {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-color-primary);
+}
+.assetPopupClose {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-color-secondary);
+    cursor: pointer;
+    border-radius: 8px;
+    padding: 8px;
+    transition: background 0.2s, color 0.2s, transform 0.2s;
+}
+.assetPopupClose:hover {
+    background: var(--button-danger-bg);
+    color: #fff;
+    transform: rotate(90deg);
+}
+.assetPopupContent {
+    margin-bottom: 2rem;
+}
+.assetPopupActions {
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    margin-top: 2rem;
+}
+.assetPopupButton {
+    padding: 0.9rem 2rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    min-width: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+.assetPopupButton.save {
+    background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+    color: var(--button-primary-text);
+    box-shadow: var(--shadow-sm);
+}
+.assetPopupButton.save:hover {
+    background: linear-gradient(135deg, var(--button-primary-hover) 0%, #3730a3 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+.assetPopupButton.delete {
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    color: #fff;
+    box-shadow: var(--shadow-sm);
+}
+.assetPopupButton.delete:hover {
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+.assetPopupButton.cancel {
+    background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+    color: var(--text-color-primary);
+    border: 2px solid var(--border-color);
+}
+.assetPopupButton.cancel:hover {
+    background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .assetsHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .assetsTable thead th, .assetsTable tbody td {
+        padding: 0.8rem 1rem;
+    }
+}
+@media (max-width: 768px) {
+    .assetsSection {
+        padding: 1.2rem;
+        border-radius: 10px;
+    }
+    .assetsHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+    }
+    .assetsControls {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    .statusFilters {
+        flex-wrap: wrap;
+        gap: 0.3rem;
+    }
+    .assetsTableContainer {
+        margin-top: 1rem;
+        border-radius: 8px;
+    }
+    .assetsTable thead th, .assetsTable tbody td {
+        padding: 0.7rem 0.7rem;
+        font-size: 0.92rem;
+    }
+    .assetImage {
+        width: 40px;
+        height: 40px;
+    }
+    .assetPopup {
+        padding: 1.2rem;
+        border-radius: 12px;
+    }
+}
+@media (max-width: 480px) {
+    .assetsSection {
+        padding: 0.5rem;
+    }
+    .assetsHeader h2 {
+        font-size: 1.2rem;
+    }
+    .assetsTable thead th, .assetsTable tbody td {
+        padding: 0.5rem 0.5rem;
+        font-size: 0.85rem;
+    }
+    .assetPopup {
+        padding: 0.7rem;
+        border-radius: 8px;
+    }
+} 
