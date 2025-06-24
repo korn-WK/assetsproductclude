@@ -2,10 +2,12 @@
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
     "@types/js-cookie": "^3.0.6",
+    "dayjs": "^1.11.13",
     "js-cookie": "^3.0.5",
     "jspdf": "^2.5.1",
     "jspdf-autotable": "^3.5.28",
     "jwt-decode": "^4.0.0",
+    "react-datepicker": "^8.4.0",
     "sweetalert2": "^11.22.0"
   }
 }

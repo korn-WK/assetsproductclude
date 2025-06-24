@@ -17,7 +17,7 @@ interface AssetContextType {
   assets: Asset[];
   loading: boolean;
   error: string | null;
-  fetchAssets: () => void;
+  fetchAssets: (params?: Record<string, string>) => void;
   searchAssets: (query: string) => void;
 }
 
@@ -28,16 +28,14 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchAssets = useCallback(async () => {
-    console.log('AssetContext: fetchAssets called');
+  const fetchAssets = useCallback(async (params = {}) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch('/api/assets', {
-        credentials: 'include'
-      });
-      console.log('AssetContext: fetchAssets response status:', response.status);
-      
+      // สร้าง query string จาก params
+      const query = new URLSearchParams(params).toString();
+      const url = query ? `/api/assets?${query}` : '/api/assets';
+      const response = await fetch(url, { credentials: 'include' });
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error('Authentication required. Please login again.');
@@ -47,19 +45,13 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
           throw new Error(`Failed to fetch assets: ${response.statusText}`);
         }
       }
-      
       const data = await response.json();
-      console.log('AssetContext: fetchAssets data length:', data.length);
       setAssets(data);
     } catch (err) {
-      console.error('AssetContext: fetchAssets error:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      
-      // Retry after 3 seconds for network errors
       if (err instanceof Error && !err.message.includes('Authentication') && !err.message.includes('Access denied')) {
         setTimeout(() => {
-          console.log('AssetContext: Retrying fetchAssets...');
-          fetchAssets();
+          fetchAssets(params);
         }, 3000);
       }
     } finally {

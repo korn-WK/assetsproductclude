@@ -21,9 +21,9 @@ const {
   createAsset,
   validateAssetStatus,
   VALID_STATUSES,
-} = require('../models/asset.js');
+} = require("../models/asset.js");
 
-const { pool } = require('../lib/db.js');
+const { pool } = require("../lib/db.js");
 
 // Helper function to transform asset data consistently for the frontend
 const transformAsset = (asset) => {
@@ -31,11 +31,16 @@ const transformAsset = (asset) => {
   let imageUrl = null;
   if (asset.image_url) {
     // Check if the URL already has a protocol (http:// or https://)
-    if (asset.image_url.startsWith('http://') || asset.image_url.startsWith('https://')) {
+    if (
+      asset.image_url.startsWith("http://") ||
+      asset.image_url.startsWith("https://")
+    ) {
       imageUrl = asset.image_url;
     } else {
       // If it's just a path, add the base URL
-      imageUrl = `${process.env.SERVER_URL || 'http://localhost:4000'}${asset.image_url}`;
+      imageUrl = `${process.env.SERVER_URL || "http://localhost:4000"}${
+        asset.image_url
+      }`;
     }
   }
 
@@ -44,9 +49,9 @@ const transformAsset = (asset) => {
     asset_code: asset.asset_code,
     name: asset.name,
     description: asset.description,
-    location: asset.location_name || asset.location || 'N/A',
-    department: asset.department_name || 'N/A',
-    owner: asset.owner_name || 'N/A',
+    location: asset.location_name || asset.location || "N/A",
+    department: asset.department_name || "N/A",
+    owner: asset.owner_name || "N/A",
     status: asset.status,
     image_url: imageUrl,
     acquired_date: asset.acquired_date,
@@ -57,23 +62,23 @@ const transformAsset = (asset) => {
 
 // Helper to format datetime string for DB insertion to avoid timezone conversion
 const formatDateTimeForDB = (dateString) => {
-  if (!dateString || typeof dateString !== 'string') {
+  if (!dateString || typeof dateString !== "string") {
     return null;
   }
   // The input from the frontend is 'YYYY-MM-DDTHH:mm'.
   // We explicitly format it to 'YYYY-MM-DD HH:mm:ss' to ensure
   // the database driver interprets it as a literal datetime string.
-  return dateString.replace('T', ' ') + ':00';
+  return dateString.replace("T", " ") + ":00";
 };
 
 async function getAssetByBarcode(req, res) {
   const { barcode } = req.params;
   if (!barcode || barcode.length !== 15) {
-    return res.status(400).json({ error: 'Barcode must be 15 digits' });
+    return res.status(400).json({ error: "Barcode must be 15 digits" });
   }
   const asset = await findAssetByBarcode(barcode);
   if (!asset) {
-    return res.status(404).json({ error: 'Asset not found' });
+    return res.status(404).json({ error: "Asset not found" });
   }
   res.json(asset);
 }
@@ -82,31 +87,35 @@ async function patchAssetStatus(req, res) {
   try {
     const { barcode } = req.params;
     const { status } = req.body;
-    
+
     if (!barcode || barcode.length !== 15) {
-      return res.status(400).json({ error: 'Barcode must be 15 digits' });
+      return res.status(400).json({ error: "Barcode must be 15 digits" });
     }
-    
+
     if (!status) {
-      return res.status(400).json({ error: 'Status is required' });
+      return res.status(400).json({ error: "Status is required" });
     }
-    
+
     // Validate status
     if (!validateAssetStatus(status)) {
-      return res.status(400).json({ 
-        error: `Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(', ')}` 
+      return res.status(400).json({
+        error: `Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(
+          ", "
+        )}`,
       });
     }
-    
+
     const success = await updateAssetStatus(barcode, status);
     if (!success) {
-      return res.status(404).json({ error: 'Asset not found or status not updated' });
+      return res
+        .status(404)
+        .json({ error: "Asset not found or status not updated" });
     }
-    
-    res.json({ message: 'Status updated successfully' });
+
+    res.json({ message: "Status updated successfully" });
   } catch (error) {
-    console.error('Error updating asset status:', error);
-    res.status(500).json({ error: 'Failed to update asset status' });
+    console.error("Error updating asset status:", error);
+    res.status(500).json({ error: "Failed to update asset status" });
   }
 }
 
@@ -114,20 +123,113 @@ async function getAssets(req, res) {
   try {
     // Get user's department_id from the JWT token
     const userDepartmentId = req.user.department_id;
-    
-    // Use the new function that filters by user's department
-    const assets = await getAssetsByUserDepartment(userDepartmentId);
+    const { acquired_date, department } = req.query;
+
+    let assets;
+    // ถ้ามี query department (ชื่อแผนก) ให้ filter ด้วย department นั้น
+    if (department && department !== "All") {
+      // แปลงชื่อแผนกเป็น id
+      const departmentId = await getDepartmentIdByName(department);
+      if (!departmentId) {
+        return res.status(400).json({ error: "Invalid department name" });
+      }
+      assets = await getAssetsByUserDepartment(departmentId);
+    } else {
+      assets = await getAssetsByUserDepartment(userDepartmentId);
+    }
+
+    // filter acquired_date ถ้ามี
+    if (acquired_date) {
+      assets = assets.filter(
+        (asset) =>
+          asset.acquired_date && asset.acquired_date.startsWith(acquired_date)
+      );
+    }
+
     const transformedAssets = assets.map(transformAsset);
     res.json(transformedAssets);
   } catch (error) {
-    console.error('Error fetching assets:', error);
-    res.status(500).json({ error: 'Failed to fetch assets' });
+    console.error("Error fetching assets:", error);
+    res.status(500).json({ error: "Failed to fetch assets" });
   }
 }
 
 async function getStats(req, res) {
-  const stats = await getAssetStats();
-  res.json(stats);
+  try {
+    // Get user's department_id and role from the JWT token
+    const userDepartmentId = req.user.department_id;
+    const userRole = req.user.role;
+    const { year } = req.query;
+
+    let assets;
+
+    // If user is admin, get all assets; otherwise filter by department
+    if (userRole === "admin") {
+      assets = await getAllAssets();
+    } else {
+      assets = await getAssetsByUserDepartment(userDepartmentId);
+    }
+
+    // Calculate stats
+    const totalAssets = assets.length;
+    const activeAssets = assets.filter(
+      (asset) => asset.status === "active"
+    ).length;
+    const brokenAssets = assets.filter(
+      (asset) => asset.status === "broken"
+    ).length;
+    const missingAssets = assets.filter(
+      (asset) => asset.status === "missing"
+    ).length;
+    const transferringAssets = assets.filter(
+      (asset) => asset.status === "transferring"
+    ).length;
+    const auditedAssets = assets.filter(
+      (asset) => asset.status === "audited"
+    ).length;
+    const disposedAssets = assets.filter(
+      (asset) => asset.status === "disposed"
+    ).length;
+
+    // Calculate monthly data for chart (12 months of selected year)
+    let targetYear = parseInt(year);
+    if (isNaN(targetYear)) {
+      targetYear = new Date().getFullYear();
+    }
+    const monthlyData = [];
+    for (let m = 0; m < 12; m++) {
+      const date = new Date(targetYear, m, 1);
+      const monthName = date.toLocaleDateString("en-US", { month: "short" });
+      // Count assets acquired in this month of the selected year
+      const assetsInMonth = assets.filter((asset) => {
+        const acquiredDate = new Date(asset.acquired_date);
+        return (
+          acquiredDate.getFullYear() === targetYear &&
+          acquiredDate.getMonth() === m
+        );
+      }).length;
+      monthlyData.push({
+        month: monthName,
+        count: assetsInMonth,
+      });
+    }
+
+    const stats = {
+      totalAssets,
+      activeAssets,
+      brokenAssets,
+      missingAssets,
+      transferringAssets,
+      auditedAssets,
+      disposedAssets,
+      monthlyData,
+    };
+
+    res.json(stats);
+  } catch (error) {
+    console.error("Error fetching asset stats:", error);
+    res.status(500).json({ error: "Failed to fetch asset stats" });
+  }
 }
 
 async function getSummary(req, res) {
@@ -143,29 +245,29 @@ async function getReport(req, res) {
 // Controller for searching assets
 async function searchAssetsController(req, res) {
   try {
-    const query = req.query.q || '';
+    const query = req.query.q || "";
     const userDepartmentId = req.user.department_id;
-    
-    console.log('Search request received:');
-    console.log('- Query:', query);
-    console.log('- User department ID:', userDepartmentId);
-    console.log('- User object:', req.user);
-    
+
+    console.log("Search request received:");
+    console.log("- Query:", query);
+    console.log("- User department ID:", userDepartmentId);
+    console.log("- User object:", req.user);
+
     if (!query) {
-      console.log('Empty query, returning all assets for user department');
+      console.log("Empty query, returning all assets for user department");
       // Return all assets filtered by user's department if search is empty
       const allAssets = await getAssetsByUserDepartment(userDepartmentId);
-      console.log('Found', allAssets.length, 'assets for user department');
+      console.log("Found", allAssets.length, "assets for user department");
       return res.json(allAssets.map(transformAsset));
     }
-    
-    console.log('Searching assets with query:', query);
+
+    console.log("Searching assets with query:", query);
     const assets = await searchAssetsByUserDepartment(query, userDepartmentId);
-    console.log('Search found', assets.length, 'assets');
+    console.log("Search found", assets.length, "assets");
     res.json(assets.map(transformAsset));
   } catch (error) {
-    console.error('Error searching assets:', error);
-    res.status(500).json({ error: 'Failed to search assets' });
+    console.error("Error searching assets:", error);
+    res.status(500).json({ error: "Failed to search assets" });
   }
 }
 
@@ -174,31 +276,31 @@ async function updateAssetById(req, res) {
   try {
     const { id } = req.params;
     const updateData = req.body;
-    
+
     // Explicitly format acquired_date to prevent driver timezone conversion
     if (updateData.acquired_date) {
       updateData.acquired_date = formatDateTimeForDB(updateData.acquired_date);
     }
-    
-    console.log('Updating asset:', id, 'with data:', updateData);
-    
+
+    console.log("Updating asset:", id, "with data:", updateData);
+
     // Remove fields that shouldn't be updated
     delete updateData.id;
     delete updateData.created_at;
     delete updateData.updated_at;
-    
+
     // Map frontend fields to database fields
-    console.log('Mapping department:', updateData.department);
+    console.log("Mapping department:", updateData.department);
     const departmentId = await getDepartmentIdByName(updateData.department);
-    console.log('Mapped department ID:', departmentId);
-    
-    console.log('Mapping owner:', updateData.owner);
+    console.log("Mapped department ID:", departmentId);
+
+    console.log("Mapping owner:", updateData.owner);
     const ownerId = await getUserIdByName(updateData.owner);
-    console.log('Mapped owner ID:', ownerId);
-    
-    console.log('Mapping location:', updateData.location);
+    console.log("Mapped owner ID:", ownerId);
+
+    console.log("Mapping location:", updateData.location);
     const locationId = await getLocationIdByName(updateData.location);
-    console.log('Mapped location ID:', locationId);
+    console.log("Mapped location ID:", locationId);
 
     const mappedData = {
       ...updateData,
@@ -206,25 +308,25 @@ async function updateAssetById(req, res) {
       owner_id: ownerId,
       location_id: locationId,
     };
-    
-    console.log('Mapped data for update:', mappedData);
-    
+
+    console.log("Mapped data for update:", mappedData);
+
     const success = await updateAsset(id, mappedData);
-    
+
     if (success) {
       // Get the updated asset
       const updatedAsset = await getAssetById(id);
       if (updatedAsset) {
         res.json(transformAsset(updatedAsset));
       } else {
-        res.status(404).json({ error: 'Asset not found after update' });
+        res.status(404).json({ error: "Asset not found after update" });
       }
     } else {
-      res.status(404).json({ error: 'Asset not found or update failed' });
+      res.status(404).json({ error: "Asset not found or update failed" });
     }
   } catch (error) {
-    console.error('Error updating asset:', error);
-    res.status(500).json({ error: 'Failed to update asset' });
+    console.error("Error updating asset:", error);
+    res.status(500).json({ error: "Failed to update asset" });
   }
 }
 
@@ -232,19 +334,19 @@ async function updateAssetById(req, res) {
 async function deleteAssetById(req, res) {
   try {
     const { id } = req.params;
-    
-    console.log('Deleting asset:', id);
-    
+
+    console.log("Deleting asset:", id);
+
     const success = await deleteAsset(id);
-    
+
     if (success) {
-      res.json({ message: 'Asset deleted successfully' });
+      res.json({ message: "Asset deleted successfully" });
     } else {
-      res.status(404).json({ error: 'Asset not found or delete failed' });
+      res.status(404).json({ error: "Asset not found or delete failed" });
     }
   } catch (error) {
-    console.error('Error deleting asset:', error);
-    res.status(500).json({ error: 'Failed to delete asset' });
+    console.error("Error deleting asset:", error);
+    res.status(500).json({ error: "Failed to delete asset" });
   }
 }
 
@@ -254,8 +356,8 @@ async function getDepartments(req, res) {
     const departments = await getAllDepartments();
     res.json(departments);
   } catch (error) {
-    console.error('Error fetching departments:', error);
-    res.status(500).json({ error: 'Failed to fetch departments' });
+    console.error("Error fetching departments:", error);
+    res.status(500).json({ error: "Failed to fetch departments" });
   }
 }
 
@@ -265,24 +367,27 @@ async function getLocations(req, res) {
     const locations = await getAllLocations();
     res.json(locations);
   } catch (error) {
-    console.error('Error fetching locations:', error);
-    res.status(500).json({ error: 'Failed to fetch locations' });
+    console.error("Error fetching locations:", error);
+    res.status(500).json({ error: "Failed to fetch locations" });
   }
 }
 
 // Get all users for dropdown
 async function getUsers(req, res) {
   try {
-    pool.query('SELECT id, name FROM users WHERE is_active = 1 ORDER BY name', (error, results) => {
-      if (error) {
-        console.error('Error fetching users from DB:', error);
-        return res.status(500).json({ error: 'Failed to fetch users' });
+    pool.query(
+      "SELECT id, name FROM users WHERE is_active = 1 ORDER BY name",
+      (error, results) => {
+        if (error) {
+          console.error("Error fetching users from DB:", error);
+          return res.status(500).json({ error: "Failed to fetch users" });
+        }
+        res.json(results);
       }
-      res.json(results);
-    });
+    );
   } catch (error) {
-    console.error('Error in getUsers controller:', error);
-    res.status(500).json({ error: 'Failed to fetch users' });
+    console.error("Error in getUsers controller:", error);
+    res.status(500).json({ error: "Failed to fetch users" });
   }
 }
 
@@ -299,13 +404,17 @@ async function createAssetController(req, res) {
 
     // Basic validation
     if (!assetData.name || !assetData.asset_code) {
-      return res.status(400).json({ error: 'Asset name and code are required' });
+      return res
+        .status(400)
+        .json({ error: "Asset name and code are required" });
     }
 
     // Validate status if provided
     if (assetData.status && !validateAssetStatus(assetData.status)) {
-      return res.status(400).json({ 
-        error: `Invalid status: ${assetData.status}. Valid statuses are: ${VALID_STATUSES.join(', ')}` 
+      return res.status(400).json({
+        error: `Invalid status: ${
+          assetData.status
+        }. Valid statuses are: ${VALID_STATUSES.join(", ")}`,
       });
     }
 
@@ -319,17 +428,71 @@ async function createAssetController(req, res) {
       owner_id: creatorId, // Use the creator's ID as the owner
       location_id: locationId,
     };
-    
+
     // The owner name from the body is ignored for security
-    delete mappedData.owner; 
+    delete mappedData.owner;
 
     const newAssetId = await createAsset(mappedData);
     const newAsset = await getAssetById(newAssetId);
-    
+
     res.status(201).json(transformAsset(newAsset));
   } catch (error) {
-    console.error('Error creating asset:', error);
-    res.status(500).json({ error: 'Failed to create asset' });
+    console.error("Error creating asset:", error);
+    res.status(500).json({ error: "Failed to create asset" });
+  }
+}
+
+// Dashboard Graphs API (Line, Bar, Donut)
+async function getDashboardGraphs(req, res) {
+  try {
+    const assets = await getAllAssets();
+    // Line Chart: Assets acquired per month
+    const months = Array.from({ length: 12 }, (_, i) =>
+      new Date(0, i).toLocaleString("en-US", { month: "short" })
+    );
+    const lineData = months.map(
+      (_, m) =>
+        assets.filter((a) => {
+          if (!a.acquired_date) return false;
+          const d = new Date(a.acquired_date);
+          return d.getMonth() === m;
+        }).length
+    );
+    // Bar Chart: Status per month
+    const statuses = [
+      "active",
+      "broken",
+      "transferring",
+      "audited",
+      "missing",
+      "disposed",
+    ];
+    const barSeries = statuses.map((status) => ({
+      name: status.charAt(0).toUpperCase() + status.slice(1),
+      data: months.map(
+        (_, m) =>
+          assets.filter((a) => {
+            if (!a.acquired_date) return false;
+            const d = new Date(a.acquired_date);
+            return d.getMonth() === m && a.status === status;
+          }).length
+      ),
+    }));
+    // Donut Chart: Status distribution
+    const donutData = statuses.map(
+      (status) => assets.filter((a) => a.status === status).length
+    );
+    res.json({
+      line: { labels: months, data: lineData },
+      bar: { labels: months, series: barSeries },
+      donut: {
+        labels: statuses.map((s) => s.charAt(0).toUpperCase() + s.slice(1)),
+        data: donutData,
+      },
+    });
+  } catch (error) {
+    console.error("Error in getDashboardGraphs:", error);
+    res.status(500).json({ error: "Failed to fetch dashboard graphs data" });
   }
 }
 
@@ -338,6 +501,7 @@ module.exports = {
   patchAssetStatus,
   getAssets,
   getStats,
+  getAssetStats: getStats,
   getSummary,
   getAssetReport,
   searchAssetsController,
@@ -347,4 +511,5 @@ module.exports = {
   getLocations,
   getUsers,
   createAssetController,
-}; 
+  getDashboardGraphs,
+};

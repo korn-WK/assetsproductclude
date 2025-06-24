@@ -1,14 +1,47 @@
 /* src/components/DashboardContent/DashboardChart.module.css */
 .chartCard {
-    background-color: var(--card-bg);
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 2px 12px 0 rgba(31, 38, 135, 0.06);
+    max-width: 100%;
+    width: 100%;
     padding: 1.5rem;
-    border-radius: 15px;
-    box-shadow: var(--shadow-sm);
+    border: 1px solid #f1f5f9;
 }
 
 .chartTitle {
     font-size: 1.5rem;
-    font-weight: 600;
+    font-weight: 700;
     margin-bottom: 1.5rem;
-    color: var(--text-color-primary);
+    background: linear-gradient(90deg, #64748b 0%, #a5b4fc 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-fill-color: transparent;
+    border-bottom: 2px solid #f1f5f9;
+    display: inline-block;
+    padding-bottom: 0.2rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .chartCard {
+        padding: 1rem;
+    }
+    
+    .chartTitle {
+        font-size: 1.3rem;
+        margin-bottom: 1rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .chartCard {
+        padding: 0.8rem;
+    }
+    
+    .chartTitle {
+        font-size: 1.2rem;
+        margin-bottom: 0.8rem;
+    }
 }

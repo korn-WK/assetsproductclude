@@ -1,8 +1,20 @@
 import Head from 'next/head';
+import { useEffect } from 'react';
 import Sidebar from '../../components/user/Sidebar/index';
 import Navbar from '../../components/common/Navbar';
 import DashboardContent from '../../components/common/DashboardContent';
+import { DashboardProvider, useDashboard } from '../../contexts/DashboardContext';
 import styles from '../../../styles/Home.module.css';
+
+const DashboardContentWrapper: React.FC = () => {
+  const { fetchStats } = useDashboard();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  return <DashboardContent />;
+};
 
 const UserDashboardPage: React.FC = () => {
   return (
@@ -17,7 +29,9 @@ const UserDashboardPage: React.FC = () => {
 
       <main className={styles.mainContent} style={{ marginLeft: '280px' }}>
         <Navbar title="Dashboard" />
-        <DashboardContent />
+        <DashboardProvider>
+          <DashboardContentWrapper />
+        </DashboardProvider>
       </main>
     </div>
   );

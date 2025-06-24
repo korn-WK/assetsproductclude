@@ -1,4 +1,141 @@
 /* src/components/DashboardContent/DashboardContent.module.css */
+
 .dashboardContent {
-    padding: 0;
-    /* DashboardContent ไม่ต้องมี padding เพิ่ม เพราะ mainContent มีแล้ว */ }
+  padding: 20px;
+  background-color: #f4f7f6;
+  min-height: calc(100vh - var(--navbar-height, 0px)); /* ปรับตามความสูงของ Navbar ของคุณ */
+  box-sizing: border-box;
+}
+
+.cardsSection {
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+}
+
+.cardsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.cardsHeader h3 {
+  font-size: 1.25rem; /* 20px */
+  font-weight: 600;
+  color: #333;
+}
+
+.scrollControls {
+  display: flex;
+  gap: 10px;
+}
+
+.scrollButton {
+  background-color: #f0f0f0;
+  border: none;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease-in-out;
+  color: #555;
+}
+
+.scrollButton:hover:not(.disabled) {
+  background-color: #e0e0e0;
+}
+
+.scrollButton.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cardsWrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch; /* เพื่อการเลื่อนที่ราบรื่นขึ้นบน iOS */
+}
+
+.cardsContainer {
+  display: flex;
+  gap: 20px;
+  padding-bottom: 10px; /* เพื่อป้องกัน Scrollbar ทับเนื้อหา */
+}
+
+.card {
+  flex: 0 0 auto; /* ป้องกันไม่ให้ Card หดตัว */
+  min-width: 220px; /* ความกว้างขั้นต่ำสำหรับแต่ละ Card */
+  background-color: #fff;
+  border-left: 5px solid; /* สีจะถูกตั้งค่าโดย JS */
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.cardIcon {
+  font-size: 2.5rem; /* ปรับขนาดไอคอน */
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+}
+
+.cardTitle {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.cardValue {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.graphsGrid2col {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+  margin-top: 2.5rem;
+  align-items: stretch;
+}
+.graphsColLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+.graphsColRight {
+  display: flex;
+  flex-direction: column;
+  justify-content: stretch;
+}
+.graphCard {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 12px 0 rgba(31, 38, 135, 0.06);
+  padding: 1.5rem;
+  border: 1px solid #f1f5f9;
+  height: 100%;
+  min-height: 220px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+@media (max-width: 1100px) {
+  .graphsGrid2col {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .graphsColLeft, .graphsColRight {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+}

@@ -7,6 +7,7 @@ import Pagination from '../../common/Pagination';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
 import { useAssets } from '../../../contexts/AssetContext';
 import { formatDate } from '../../../lib/utils';
+import dayjs from 'dayjs';
 
 interface Asset {
   id: string;
@@ -31,13 +32,14 @@ const AdminAssetsTable: React.FC = () => {
   const [isPopupOpen, setIsPopupOpen] = useState<boolean>(false);
   const [isCreating, setIsCreating] = useState<boolean>(false);
   const itemsPerPage = 10; // Admin can see more items per page
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
   // Fetch assets from context when the component mounts
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
 
-  // Filter assets based on status filter only (search is handled by Navbar)
+  // Filter assets based on status and date
   const filteredAssets = assets.filter(asset => {
     const matchesStatus = activeFilter === 'All' || 
       (activeFilter === 'Active' && asset.status === 'active') ||
@@ -47,7 +49,10 @@ const AdminAssetsTable: React.FC = () => {
       (activeFilter === 'Broken' && asset.status === 'broken') ||
       (activeFilter === 'Disposed' && asset.status === 'disposed');
 
-    return matchesStatus;
+    const matchesDate = !selectedDate ||
+      (asset.acquired_date && asset.acquired_date.slice(0, 10) === selectedDate);
+
+    return matchesStatus && matchesDate;
   });
 
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
@@ -218,9 +223,65 @@ const AdminAssetsTable: React.FC = () => {
             </div>
           </div>
           <div className={styles.rightControls}>
-            <button className={styles.iconButton}>
+            <button
+              className={styles.iconButton}
+              onClick={async () => {
+                const result = await Swal.fire({
+                  title: `<div style='display:flex;align-items:center;gap:10px;justify-content:center;'>`
+                    + `<span style='font-size:2rem;color:#6366f1;'><svg width='1.5em' height='1.5em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' ry='4'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line></svg></span>`
+                    + `</div>`
+                    + (selectedDate ? `<div style='margin-top:10px;font-size:1rem;color:#6366f1;'>วันที่เลือก: <b>${dayjs(selectedDate).format('YYYY-MM-DD')}</b></div>` : ''),
+                  html:
+                    `<div style='display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;'>`
+                    + `<input id="swal-date" type="date" value="${selectedDate || ''}" style="padding:0.7rem 1.2rem;font-size:1.1rem;border-radius:8px;border:1.5px solid #a5b4fc;width:220px;outline:none;box-shadow:0 2px 8px rgba(99,102,241,0.07)">`
+                    + `<div style='font-size:0.95rem;color:#6b7280;'>กรุณาเลือกวัน/เดือน/ปี ที่ต้องการค้นหา</div>`
+                    + `</div>`,
+                  showCancelButton: true,
+                  focusConfirm: false,
+                  confirmButtonText: '<span style="font-size:1.1rem;font-weight:500;">เลือก</span>',
+                  cancelButtonText: '<span style="font-size:1.1rem;">ยกเลิก</span>',
+                  customClass: {
+                    popup: 'swal2-calendar-popup',
+                    confirmButton: 'swal2-calendar-confirm',
+                    cancelButton: 'swal2-calendar-cancel',
+                  },
+                  preConfirm: () => {
+                    // @ts-ignore
+                    return (document.getElementById('swal-date') as HTMLInputElement)?.value;
+                  },
+                  didOpen: () => {
+                    const input = document.getElementById('swal-date') as HTMLInputElement;
+                    if (input) input.focus();
+                  },
+                  background: '#f8fafc',
+                  width: 370,
+                  padding: '2.2em 1.5em 1.5em 1.5em',
+                });
+                if (result.isConfirmed && result.value) {
+                  setSelectedDate(result.value);
+                }
+              }}
+              title="Filter by date"
+              style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
+            >
               <AiOutlineCalendar />
             </button>
+            {selectedDate && (
+              <button
+                className={styles.iconButton}
+                style={{
+                  height: '40px',
+                  fontSize: '1.1rem',
+                  padding: '0.8rem 1.2rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                }}
+                onClick={() => setSelectedDate(null)}
+                title="Clear date filter"
+              >
+                Clear
+              </button>
+            )}
           </div>
         </div>
 
