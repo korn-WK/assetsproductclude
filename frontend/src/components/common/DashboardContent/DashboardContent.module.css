@@ -19,6 +19,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
+  margin-top: 40px !important;
 }
 
 .cardsHeader h3 {
@@ -129,6 +130,142 @@
   flex-direction: column;
   justify-content: center;
 }
+
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+  .dashboardContent {
+    padding: 12px;
+  }
+
+  .cardsSection {
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .cardsHeader {
+    margin-bottom: 12px;
+    margin-top: 40px !important;
+  }
+
+  .cardsHeader h3 {
+    font-size: 1rem;
+  }
+
+  .scrollControls {
+    gap: 6px;
+  }
+
+  .scrollButton {
+    width: 24px;
+    height: 24px;
+    font-size: 12px;
+  }
+
+  .cardsContainer {
+    gap: 12px;
+  }
+
+  .card {
+    min-width: 180px;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  .cardIcon {
+    font-size: 1.8rem;
+  }
+
+  .cardTitle {
+    font-size: 0.8rem;
+    margin-bottom: 4px;
+  }
+
+  .cardValue {
+    font-size: 1.4rem;
+  }
+
+  .graphsGrid2col {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+
+  .graphsColLeft,
+  .graphsColRight {
+    gap: 1rem;
+  }
+
+  .graphCard {
+    border-radius: 12px;
+    padding: 1rem;
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboardContent {
+    padding: 8px;
+  }
+
+  .cardsSection {
+    padding: 10px;
+  }
+
+  .cardsHeader {
+    margin-bottom: 10px;
+    margin-top: 40px !important;
+  }
+
+  .cardsHeader h3 {
+    font-size: 0.9rem;
+  }
+
+  .scrollButton {
+    width: 20px;
+    height: 20px;
+    font-size: 10px;
+  }
+
+  .cardsContainer {
+    gap: 8px;
+  }
+
+  .card {
+    min-width: 160px;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .cardIcon {
+    font-size: 1.5rem;
+  }
+
+  .cardTitle {
+    font-size: 0.75rem;
+    margin-bottom: 3px;
+  }
+
+  .cardValue {
+    font-size: 1.2rem;
+  }
+
+  .graphsGrid2col {
+    gap: 0.8rem;
+    margin-top: 1rem;
+  }
+
+  .graphsColLeft,
+  .graphsColRight {
+    gap: 0.8rem;
+  }
+
+  .graphCard {
+    border-radius: 8px;
+    padding: 0.8rem;
+    min-height: 160px;
+  }
+}
+
 @media (max-width: 1100px) {
   .graphsGrid2col {
     grid-template-columns: 1fr;

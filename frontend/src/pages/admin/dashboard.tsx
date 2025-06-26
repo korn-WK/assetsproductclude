@@ -1,6 +1,6 @@
 import Head from 'next/head';
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import AdminSidebar from '../../components/admin/AdminSidebar';
 import Navbar from '../../components/common/Navbar';
 import AdminRoute from '../../components/auth/AdminRoute';
@@ -19,6 +19,8 @@ const DashboardContentWrapper: React.FC = () => {
 };
 
 const AdminDashboardPage: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <AdminRoute>
       <div className={styles.container}>
@@ -28,13 +30,13 @@ const AdminDashboardPage: React.FC = () => {
           <link rel="icon" href="/favicon.ico" />
         </Head>
 
-        <AdminSidebar />
+        <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <main 
           className={styles.mainContent}
           style={{ marginLeft: '280px' }}
         >
-          <Navbar title="Admin Dashboard" isAdmin={true} />
+          <Navbar title="Admin Dashboard" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
           <DashboardProvider>
             <DashboardContentWrapper />
           </DashboardProvider>

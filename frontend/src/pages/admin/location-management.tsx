@@ -21,6 +21,7 @@ const LocationManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const fetchLocations = async () => {
     try {
@@ -158,37 +159,11 @@ const LocationManagementPage: React.FC = () => {
           <link rel="icon" href="/favicon.ico" />
         </Head>
 
-        <AdminSidebar />
+        <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
         <main className={styles.mainContent} style={{ marginLeft: '280px' }}>
-          <Navbar title="" isAdmin={true} />
-          <div className={styles.content} style={{ padding: '2rem' }}>
-            <div style={{ 
-              background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-              borderRadius: '20px',
-              padding: '2rem',
-              marginBottom: '2rem',
-              color: 'white',
-              boxShadow: '0 10px 30px rgba(0, 0, 0, 0.1)'
-            }}>
-              <h1 style={{ 
-                fontSize: '2rem', 
-                fontWeight: '700', 
-                margin: '0 0 0.5rem 0',
-                textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)'
-              }}>
-                Location Management
-              </h1>
-              <p style={{ 
-                fontSize: '1.1rem', 
-                margin: '0', 
-                opacity: '0.9',
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.1)'
-              }}>
-                Add, edit, and manage locations in the system
-              </p>
-            </div>
-
+          <Navbar title="Location Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
+          <div className={styles.content}>
             <AdminTable
               title="Locations"
               data={locations}

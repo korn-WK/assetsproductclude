@@ -114,6 +114,7 @@
   border-bottom: 2px solid var(--border-color);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  vertical-align: middle;
 }
 
 .table td {
@@ -122,6 +123,20 @@
   font-size: 0.95rem;
   color: var(--text-color-primary);
   vertical-align: middle;
+}
+
+.table th:last-child,
+.table td:last-child {
+  width: 120px;
+  min-width: 100px;
+  text-align: center;
+}
+
+.table th:nth-child(4),
+.table td:nth-child(4) {
+  width: 120px;
+  min-width: 100px;
+  text-align: center;
 }
 
 .table tbody tr {
@@ -248,6 +263,7 @@
 /* Responsive Design */
 @media (max-width: 768px) {
   .header {
+    margin-top: 40px !important;
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
@@ -305,5 +321,95 @@
   .table th,
   .table td {
     padding: 0.6rem 0.8rem;
+  }
+}
+
+.cardList {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 1.2rem 0.5rem 1.5rem 0.5rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border-radius: 14px;
+  box-shadow: var(--shadow-sm);
+  padding: 1.2rem 1.1rem 1.1rem 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  position: relative;
+  border: 1px solid var(--border-color);
+}
+
+.cardContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cardField {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  font-size: 0.98rem;
+}
+
+.cardLabel {
+  font-weight: 600;
+  color: var(--text-color-secondary);
+  min-width: 90px;
+}
+
+.cardValue {
+  color: var(--text-color-primary);
+  word-break: break-word;
+}
+
+.cardActions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .header {
+    flex-direction: row;
+    align-items: center;
+    padding: 1rem 0.7rem 0.7rem 0.7rem;
+  }
+  .addButton {
+    margin-left: auto;
+    margin-right: 0;
+    padding: 0.6rem 1.1rem;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    min-width: unset;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .tableContainer, .table {
+    display: none !important;
+  }
+  .cardList {
+    display: flex !important;
+  }
+  .cardActions {
+    justify-content: center;
+    margin-top: 0.7rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .table th, .table td {
+    padding: 0.7rem 0.5rem;
+    font-size: 0.92rem;
+  }
+  .table th:last-child, .table td:last-child {
+    width: 80px;
+    min-width: 70px;
   }
 } 

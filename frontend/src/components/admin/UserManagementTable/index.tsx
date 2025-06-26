@@ -205,6 +205,62 @@ const UserManagementTable: React.FC = () => {
         </div>
       </div>
 
+      {/* Card List for Mobile */}
+      <div className={styles.cardList}>
+        {filteredUsers.length === 0 ? (
+          <div className={styles.noDataCard}>No users found</div>
+        ) : (
+          filteredUsers.map((user) => (
+            <div className={styles.userCard} key={user.id}>
+              <div className={styles.cardHeader}>
+                {user.picture ? (
+                  <Image
+                    src={user.picture}
+                    alt={user.name}
+                    width={48}
+                    height={48}
+                    className={styles.userPicture}
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = '/file.svg';
+                    }}
+                  />
+                ) : (
+                  <div className={styles.defaultAvatar}>
+                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                  </div>
+                )}
+                <div className={styles.cardMainInfo}>
+                  <div className={styles.cardName}>{user.name}</div>
+                  <div className={styles.cardEmail}>{user.email}</div>
+                </div>
+              </div>
+              <div className={styles.cardFields}>
+                <div className={styles.cardField}><span>Department:</span> {user.department_name || 'Not Assigned'}</div>
+                <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'admin' ? styles.roleAdmin : styles.roleUser}`}>{user.role === 'admin' ? 'Admin' : 'User'}</span></div>
+              </div>
+              <div className={styles.cardActions}>
+                <button
+                  className={`${styles.iconButton} ${styles.editButton}`}
+                  onClick={() => handleEdit(user)}
+                  title="Edit"
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  className={`${styles.iconButton} ${styles.deleteButton}`}
+                  onClick={() => handleDelete(user.id, user.username)}
+                  title="Delete"
+                >
+                  <FaTrashAlt />
+                </button>
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      {/* Table for Desktop/Tablet */}
       <div className={styles.tableContainer}>
         <div className={styles.header}>
           <h3>Users ({filteredUsers.length})</h3>

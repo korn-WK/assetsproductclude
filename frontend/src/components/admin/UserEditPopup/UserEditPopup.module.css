@@ -269,4 +269,70 @@
   .formGroup label {
     font-size: 0.9rem;
   }
-} 
+}
+
+.assetsTableContainer {
+    margin-top: 1.5rem;
+    border-radius: 15px;
+    background: var(--card-bg);
+    box-shadow: var(--shadow-xs);
+    width: 100% !important;
+    max-width: 100vw !important;
+}
+
+.assetsTable {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--card-bg);
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.assetsTable th, .assetsTable td {
+    padding: 0.7rem 0.5rem !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    white-space: nowrap !important;
+}
+
+.assetsTable th:nth-child(1), .assetsTable td:nth-child(1) { width: 7% !important; }
+.assetsTable th:nth-child(2), .assetsTable td:nth-child(2) { width: 8% !important; }
+.assetsTable th:nth-child(3), .assetsTable td:nth-child(3) { width: 18% !important; }
+.assetsTable th:nth-child(4), .assetsTable td:nth-child(4) { width: 13% !important; }
+.assetsTable th:nth-child(5), .assetsTable td:nth-child(5) { width: 15% !important; }
+.assetsTable th:nth-child(6), .assetsTable td:nth-child(6) { width: 10% !important; }
+.assetsTable th:nth-child(7), .assetsTable td:nth-child(7) { width: 13% !important; }
+.assetsTable th:nth-child(8), .assetsTable td:nth-child(8) { width: 10% !important; }
+
+@media (max-width: 1024px) {
+  .assetsTable th, .assetsTable td {
+    padding: 0.5rem 0.3rem !important;
+    font-size: 0.85rem !important;
+  }
+}
+
+/* ป้องกัน container และตารางเกินขอบจอ */
+.assetsSection,
+.assetsTableContainer {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+  margin-left: calc(-1 * (100vw - 100%) / 2) !important; /* ดึงให้ชิดขอบ */
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* บังคับตารางไม่ให้เกินขอบ */
+.assetsTable {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  min-width: 0 !important;
+}
+
+/* ซ่อน scroll bar แนวนอน (ถ้าจำเป็น) */
+/* body, html {
+  overflow-x: hidden !important;
+}  */ 

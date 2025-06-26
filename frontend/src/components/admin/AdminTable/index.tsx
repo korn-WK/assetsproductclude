@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AiOutlinePlus, AiOutlineEdit, AiOutlineDelete, AiOutlineSearch } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AdminTable.module.css';
+import Pagination from '../../common/Pagination';
 
 interface AdminTableProps {
   title: string;
@@ -30,7 +31,15 @@ const AdminTable: React.FC<AdminTableProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 5;
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Filter data based on search term
   const filteredData = data.filter(item =>
@@ -162,35 +171,27 @@ const AdminTable: React.FC<AdminTableProps> = ({
         </div>
       </div>
 
-      <div className={styles.tableContainer}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th key={column.key}>{column.label}</th>
-              ))}
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
+      {isMobile ? (
+        <>
+          <div className={styles.cardList}>
             {currentData.length === 0 ? (
-              <tr>
-                <td colSpan={columns.length + 1} className={styles.noData}>
-                  No data found
-                </td>
-              </tr>
+              <div className={styles.noData}>No data found</div>
             ) : (
               currentData.map((item, index) => (
-                <tr key={item.id || index}>
-                  {columns.map((column) => (
-                    <td key={column.key}>
-                      {column.render 
-                        ? column.render(item[column.key], item)
-                        : item[column.key] || '-'
-                      }
-                    </td>
-                  ))}
-                  <td className={styles.actions}>
+                <div className={styles.card} key={item.id || index}>
+                  <div className={styles.cardContent}>
+                    {columns.map((column) => (
+                      <div key={column.key} className={styles.cardField}>
+                        <span className={styles.cardLabel}>{column.label}:</span>
+                        <span className={styles.cardValue}>
+                          {column.render
+                            ? column.render(item[column.key], item)
+                            : item[column.key] || '-'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                  <div className={styles.cardActions}>
                     <button
                       className={styles.editButton}
                       onClick={() => onEdit(item)}
@@ -205,34 +206,82 @@ const AdminTable: React.FC<AdminTableProps> = ({
                     >
                       <AiOutlineDelete />
                     </button>
-                  </td>
-                </tr>
+                  </div>
+                </div>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className={styles.pagination}>
-          <button
-            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            disabled={currentPage === 1}
-            className={styles.pageButton}
-          >
-            Previous
-          </button>
-          <span className={styles.pageInfo}>
-            Page {currentPage} of {totalPages}
-          </span>
-          <button
-            onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            disabled={currentPage === totalPages}
-            className={styles.pageButton}
-          >
-            Next
-          </button>
-        </div>
+          </div>
+          {totalPages > 1 && (
+            <div className={styles.paginationWrapper}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <div className={styles.tableContainer}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  {columns.map((column) => (
+                    <th key={column.key}>{column.label}</th>
+                  ))}
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {currentData.length === 0 ? (
+                  <tr>
+                    <td colSpan={columns.length + 1} className={styles.noData}>
+                      No data found
+                    </td>
+                  </tr>
+                ) : (
+                  currentData.map((item, index) => (
+                    <tr key={item.id || index}>
+                      {columns.map((column) => (
+                        <td key={column.key}>
+                          {column.render 
+                            ? column.render(item[column.key], item)
+                            : item[column.key] || '-'}
+                        </td>
+                      ))}
+                      <td className={styles.actions}>
+                        <button
+                          className={styles.editButton}
+                          onClick={() => onEdit(item)}
+                          title="Edit"
+                        >
+                          <AiOutlineEdit />
+                        </button>
+                        <button
+                          className={styles.deleteButton}
+                          onClick={() => handleDelete(item.id)}
+                          title="Delete"
+                        >
+                          <AiOutlineDelete />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {totalPages > 1 && (
+            <div className={styles.paginationWrapper}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,21 +1,24 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { AiOutlineMenu, AiOutlineSearch, AiOutlineUser } from 'react-icons/ai';
+import { AiOutlineMenu, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from 'react-icons/ai';
 import styles from './Navbar.module.css';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAssets } from '../../../contexts/AssetContext';
+import Link from 'next/link';
 
 interface NavbarProps {
   title?: string;
   isAdmin?: boolean;
+  onMenuClick?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false }) => {
+const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick }) => {
   const { user, loading, logout } = useAuth();
   const { searchAssets, fetchAssets } = useAssets();
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
   const handleSearch = () => {
     console.log('Search triggered with query:', searchQuery);
@@ -55,60 +58,82 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false }) => {
     };
   }, [dropdownRef]);
 
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const handleNavClick = () => {
+    if (typeof onMenuClick === 'function') {
+      onMenuClick();
+    }
+  };
+
   return (
     <header className={styles.navbar}>
-      <button className={styles.menuToggle}>
+      <button className={styles.menuToggle} onClick={handleNavClick}>
         <AiOutlineMenu />
       </button>
       <div className={styles.assetsTitle}>
-        <Image src="/icontitle.png" alt="Assets Logo" width={40} height={40} />
-        <h1>{title}</h1>
-      </div>
-      <div className={styles.searchContainer}>
-        <input
-          type="text"
-          placeholder="Search by code, name, department..."
-          className={styles.searchInput}
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-        />
-        <button 
-          className={styles.searchButton}
-          onClick={handleSearch}
-          title="Search"
-        >
-          <AiOutlineSearch className={styles.searchIcon} />
-        </button>
-        {searchQuery && (
-          <button 
-            className={styles.clearButton}
-            onClick={handleClearSearch}
-            title="Clear search"
-          >
-            ×
-          </button>
+        {isMobile ? (
+          <h1 className={styles.mobileTitle}>{title}</h1>
+        ) : (
+          <>
+            <Image src="/icontitle.png" alt="Assets Logo" width={40} height={40} />
+            <h1>{title}</h1>
+          </>
         )}
       </div>
+      {!isMobile && (
+        <div className={styles.searchContainer}>
+          <input
+            type="text"
+            placeholder="Search by code, name, department..."
+            className={styles.searchInput}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <button 
+            className={styles.searchButton}
+            onClick={handleSearch}
+            title="Search"
+          >
+            <AiOutlineSearch className={styles.searchIcon} />
+          </button>
+          {searchQuery && (
+            <button 
+              className={styles.clearButton}
+              onClick={handleClearSearch}
+              title="Clear search"
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
       <div className={styles.userProfile} ref={dropdownRef}>
         {loading ? (
           <p>Loading...</p>
         ) : user ? (
           <button className={styles.profileButton} onClick={() => setDropdownOpen(!isDropdownOpen)}>
             {user.picture ? (
-              <Image src={user.picture} alt={user.name} width={40} height={40} className={styles.userAvatar} />
+              <Image src={user.picture} alt={user.name} width={isMobile ? 28 : 40} height={isMobile ? 28 : 40} className={isMobile ? styles.userAvatarMobile : styles.userAvatar} />
             ) : (
               <AiOutlineUser className={styles.userIcon} />
             )}
-            <div className={styles.userInfo}>
-              <span className={styles.userName}>{user.name}</span>
-              {isAdmin && <div className={styles.adminBadge}>Admin</div>}
-            </div>
+            {!isMobile && (
+              <div className={styles.userInfo}>
+                <span className={styles.userName}>{user.name}</span>
+                {isAdmin && <div className={styles.adminBadge}>Admin</div>}
+              </div>
+            )}
           </button>
         ) : (
           <AiOutlineUser className={styles.userIcon} />
         )}
-        
         {isDropdownOpen && user && (
           <div className={styles.profileDropdown}>
             <div className={styles.dropdownHeader}>

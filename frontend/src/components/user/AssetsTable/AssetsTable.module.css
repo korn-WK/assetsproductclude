@@ -3,6 +3,7 @@
     padding: 2rem;
     border-radius: 15px;
     box-shadow: var(--shadow-sm);
+    margin-top: 30px !important; /* เพิ่มบรรทัดนี้ */
 }
 
 .assetsHeader {
@@ -385,4 +386,193 @@
         width: 40px;
         height: 40px;
     }
+}
+
+@media (max-width: 600px) {
+    .assetCardList {
+        margin-bottom: 1.2rem;
+        gap: 1.1rem;
+    }
+    .assetCard {
+        margin-bottom: 0.7rem;
+    }
+    .assetCard {
+        display: flex;
+        background: #fff;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        padding: 0.7rem 0.7rem 0.6rem 0.7rem;
+        align-items: flex-start;
+        gap: 0.7rem;
+        cursor: pointer;
+        transition: box-shadow 0.2s;
+        min-height: 60px;
+    }
+    .assetCard:hover {
+        box-shadow: 0 8px 28px rgba(60,60,130,0.13), 0 2px 10px rgba(0,0,0,0.10);
+    }
+    .assetCardImage {
+        width: 70px;
+        height: 70px;
+        border-radius: 9px;
+        object-fit: cover;
+        flex-shrink: 0;
+        margin-right: 1rem;
+        margin-top: 1.25rem;
+        box-shadow: 0 2px 8px rgba(60,60,130,0.08);
+    }
+    .assetCardContent {
+        font-size: 0.97rem;
+        line-height: 1.32;
+        display: flex;
+        flex-direction: column;
+        gap: 0.18rem;
+        align-items: flex-start;
+    }
+    .assetCardTitle {
+        font-size: 1.08rem;
+        font-weight: 700;
+        color: var(--text-color-primary);
+        margin-bottom: 0.08rem;
+        line-height: 1.2;
+    }
+    .assetCardMetaRow {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        font-size: 0.93rem;
+        color: #444;
+        margin-bottom: 0.03rem;
+    }
+    .assetId {
+        color: #6b7280;
+        font-size: 0.91rem;
+        font-weight: 500;
+        letter-spacing: 0.01em;
+    }
+    .statusBadge {
+        font-size: 0.82rem !important;
+        padding: 0.13rem 0.7rem !important;
+        border-radius: 8px !important;
+        margin-top: 0.05rem;
+        font-weight: 600;
+        box-shadow: 0 1px 4px rgba(60,60,130,0.10);
+        letter-spacing: 0.01em;
+    }
+    .iconButton, .statusDropdown, .filterDropdown {
+        height: 36px !important;
+        min-width: 36px;
+        font-size: 0.97rem;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 4px rgba(60,60,130,0.08);
+        background: #f8fafc;
+        border: 1.2px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.18s, box-shadow 0.18s;
+        margin: 0;
+        padding: 0 0.8rem;
+    }
+    .iconButton:hover, .filterDropdown:hover {
+        background: #eef2ff;
+        box-shadow: 0 2px 8px rgba(60,60,130,0.13);
+    }
+    .statusDropdown:focus, .filterDropdown:focus {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+    .mobileSearchInput {
+        height: 36px;
+        border-radius: 8px;
+        font-size: 0.97rem;
+        box-shadow: 0 1px 4px rgba(60,60,130,0.08);
+        border: 1.2px solid #e5e7eb;
+        padding: 0 1rem;
+        background: #fff;
+        margin: 0;
+    }
+    .statusDropdown {
+        height: 36px !important;
+        min-width: 36px;
+        font-size: 0.97rem;
+        border-radius: 8px !important;
+        box-shadow: 0 1px 4px rgba(60,60,130,0.08);
+        background: #f8fafc;
+        border: 1.2px solid #e5e7eb;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.18s, box-shadow 0.18s;
+        margin: 0;
+        padding: 0 0.8rem;
+        appearance: none;
+        outline: none;
+        color: #222;
+    }
+    .statusDropdown:focus, .statusDropdown:hover {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+}
+
+.viewOnlyNotice {
+    margin-top: 40px;
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    max-width: 350px;
+}
+
+.viewOnlyNoticeContent {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
+    animation: slideInRight 0.5s ease-out;
+    position: relative;
+}
+
+.viewOnlyNoticeContent p {
+    margin: 0;
+    color: #92400e;
+    font-size: 0.9rem;
+    line-height: 1.4;
+    text-align: center;
+}
+
+.viewOnlyNoticeContent strong {
+    color: #78350f;
+}
+
+@keyframes slideInRight {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.noticeCloseBtn {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    background: none;
+    border: none;
+    color: #92400e;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.2rem;
+    border-radius: 50%;
+    transition: background 0.2s;
+    z-index: 2;
+}
+.noticeCloseBtn:hover {
+    background: #fde68a;
+    color: #b45309;
 }

@@ -25,18 +25,27 @@ const iconMap: Record<string, ReactElement> = {
 };
 
 const DashboardCards = forwardRef<HTMLDivElement, DashboardCardsProps>(({ cards }, ref) => {
+  // ตัวอย่าง progress (mock): สุ่มหรือคำนวณจาก value
+  const getProgress = (value: number) => {
+    if (value > 100) return 100;
+    if (value < 0) return 0;
+    return Math.round((value / 200) * 100); // สมมติ max 200
+  };
   return (
     <div ref={ref} className={styles.cardsContainer}>
       {cards.map((card, index) => (
         <div
           key={index}
           className={styles.card}
-          style={{ borderLeftColor: card.color }}
         >
           <div className={styles.cardIcon}>{iconMap[card.title] || null}</div>
-          <div className={styles.cardContent}>
-            <h3 className={styles.cardTitle}>{card.title}</h3>
-            <span className={styles.cardValue}>{card.value}</span>
+          <div className={styles.cardTitle}>{card.title}</div>
+          <div className={styles.cardValue}>{card.value}</div>
+          <div className={styles.progressBar}>
+            <div
+              className={styles.progressInner}
+              style={{ width: `${getProgress(card.value)}%` }}
+            />
           </div>
         </div>
       ))}

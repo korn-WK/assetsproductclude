@@ -40,7 +40,7 @@ const FormModal: React.FC<FormModalProps> = ({
   }, [isOpen, JSON.stringify(initialData)]);
 
   const handleInputChange = (name: string, value: string) => {
-    setFormData(prev => ({
+    setFormData((prev: any) => ({
       ...prev,
       [name]: value
     }));

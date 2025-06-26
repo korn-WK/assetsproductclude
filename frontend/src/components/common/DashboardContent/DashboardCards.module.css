@@ -78,6 +78,131 @@
     font-weight: 700;
 }
 
+/* Mobile Responsive Design */
+@media (max-width: 768px) {
+    .cardsContainer {
+        gap: 0.8rem;
+        margin-bottom: 1rem;
+    }
+
+    .card {
+        padding: 1rem;
+        border-radius: 12px;
+        min-height: 90px;
+        min-width: calc((100% - 2.4rem) / 3);
+        max-width: calc((100% - 2.4rem) / 3);
+    }
+
+    .cardTitle {
+        font-size: 0.8rem;
+        margin-bottom: 0.6rem;
+    }
+
+    .cardIcon {
+        font-size: 1.6rem;
+    }
+
+    .cardValue {
+        font-size: 1.6rem;
+    }
+}
+
+@media (max-width: 600px) {
+    .cardsContainer {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.7rem;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.2rem;
+    }
+    .card {
+        width: 100%;
+        min-width: 0;
+        max-width: 100%;
+        padding: 0.9rem 0.7rem 0.7rem 0.7rem;
+        min-height: 70px;
+        border-radius: 14px;
+        box-shadow: 0 2px 8px 0 rgba(31,38,135,0.07);
+        gap: 0.3rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        background: #fff;
+        border: none;
+        position: relative;
+        overflow: hidden;
+    }
+    .card:nth-child(1) {
+        background: #fff;
+        color: #222;
+    }
+    .card:nth-child(1) .progressInner {
+        background: linear-gradient(90deg, #6366f1 0%, #38bdf8 100%);
+    }
+    .cardTitle {
+        font-size: 0.78rem;
+        margin-bottom: 0.2rem;
+        font-weight: 500;
+        opacity: 0.85;
+        color: inherit;
+    }
+    .cardValue {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: inherit;
+        margin-bottom: 0.2rem;
+    }
+    .cardIcon {
+        font-size: 1.1rem;
+        opacity: 0.7;
+        position: absolute;
+        top: 0.7rem;
+        right: 0.7rem;
+        color: #a1a1aa;
+    }
+    .progressBar {
+        width: 100%;
+        height: 6px;
+        border-radius: 4px;
+        background: #e5e7eb;
+        margin-top: 0.3rem;
+        margin-bottom: 0.1rem;
+        overflow: hidden;
+    }
+    .progressInner {
+        height: 100%;
+        border-radius: 4px;
+        background: linear-gradient(90deg, #6366f1 0%, #38bdf8 100%);
+        transition: width 0.3s;
+    }
+}
+
+@media (max-width: 400px) {
+    .cardsContainer {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    .card {
+        padding: 0.7rem 0.5rem 0.5rem 0.5rem;
+        min-height: 54px;
+        border-radius: 8px;
+    }
+    .cardTitle {
+        font-size: 0.7rem;
+    }
+    .cardValue {
+        font-size: 1.1rem;
+    }
+    .cardIcon {
+        font-size: 0.9rem;
+        top: 0.5rem;
+        right: 0.5rem;
+    }
+    .progressBar {
+        height: 5px;
+    }
+}
+
 /* Tablet: แสดง 2 ใบต่อ viewport */
 @media (max-width: 900px) {
     .card {
@@ -96,3 +221,4 @@
         gap: 0.8rem;
     }
 }
+

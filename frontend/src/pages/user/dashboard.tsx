@@ -1,5 +1,5 @@
+import React, { useState } from 'react';
 import Head from 'next/head';
-import { useEffect } from 'react';
 import Sidebar from '../../components/user/Sidebar/index';
 import Navbar from '../../components/common/Navbar';
 import DashboardContent from '../../components/common/DashboardContent';
@@ -9,7 +9,7 @@ import styles from '../../../styles/Home.module.css';
 const DashboardContentWrapper: React.FC = () => {
   const { fetchStats } = useDashboard();
 
-  useEffect(() => {
+  React.useEffect(() => {
     fetchStats();
   }, [fetchStats]);
 
@@ -17,6 +17,8 @@ const DashboardContentWrapper: React.FC = () => {
 };
 
 const UserDashboardPage: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className={styles.container}>
       <Head>
@@ -25,10 +27,10 @@ const UserDashboardPage: React.FC = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className={styles.mainContent} style={{ marginLeft: '280px' }}>
-        <Navbar title="Dashboard" />
+      <main className={styles.mainContent} style={{ marginLeft: sidebarOpen ? '280px' : undefined }}>
+        <Navbar title="Dashboard" onMenuClick={() => setSidebarOpen(true)} />
         <DashboardProvider>
           <DashboardContentWrapper />
         </DashboardProvider>

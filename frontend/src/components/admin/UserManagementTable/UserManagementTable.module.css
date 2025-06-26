@@ -192,6 +192,7 @@
   border-radius: 15px;
   border: 1px solid var(--border-color);
   box-shadow: var(--shadow-sm);
+  margin-top: 40px !important;
 }
 
 .leftControls {
@@ -338,7 +339,7 @@
 
 @media (max-width: 768px) {
   .tableContainer {
-    padding: 1.5rem;
+    padding: 0rem !important;
     border-radius: 12px;
   }
 
@@ -383,7 +384,7 @@
 
 @media (max-width: 480px) {
   .tableContainer {
-    padding: 1rem;
+    padding: 0rem !important;
   }
 
   .header h3 {
@@ -413,4 +414,93 @@
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+
+.cardList {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .cardList {
+    display: flex;
+    flex-direction: column;
+    gap: 1.1rem;
+    margin-bottom: 1.5rem;
+  }
+  .userCard {
+    background: var(--card-bg);
+    border-radius: 12px;
+    box-shadow: var(--shadow-sm);
+    padding: 1.1rem 1rem 0.7rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.7rem;
+    position: relative;
+  }
+  .cardHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+  }
+  .cardMainInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+  .cardName {
+    font-weight: 600;
+    font-size: 1.08rem;
+    color: var(--text-color-primary);
+  }
+  .cardEmail {
+    font-size: 0.97rem;
+    color: var(--text-color-secondary);
+    word-break: break-all;
+  }
+  .cardFields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.97rem;
+  }
+  .cardField {
+    color: var(--text-color-primary);
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+  }
+  .cardField span:first-child {
+    color: var(--text-color-secondary);
+    font-weight: 500;
+    min-width: 30px;
+  }
+  .cardActions {
+    display: flex;
+    gap: 0.7rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+    margin-bottom: 0.2rem;
+  }
+  .noDataCard {
+    background: var(--main-bg);
+    border-radius: 10px;
+    color: var(--text-color-secondary);
+    text-align: center;
+    padding: 1.5rem 0.5rem;
+    font-size: 1.05rem;
+    font-style: italic;
+    box-shadow: var(--shadow-xs);
+  }
+  .tableContainer {
+    display: none;
+  }
+}
+
+@media (min-width: 769px) {
+  .cardList {
+    display: none !important;
+  }
+  .tableContainer {
+    display: block;
+  }
 } 

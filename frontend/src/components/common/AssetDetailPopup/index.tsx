@@ -43,6 +43,12 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const { user } = useAuth();
   const { departments, locations, loading: dropdownLoading } = useDropdown();
 
+  // Check if user can edit (admin or user with department)
+  const canEdit = isAdmin || (user && user.department_id !== null);
+
+  // Check if user can only view (user without department)
+  const canOnlyView = !isAdmin && user && user.department_id === null;
+
   useEffect(() => {
     if (asset) {
       const initialAsset = { ...asset };
@@ -426,10 +432,15 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         <div className={styles.header}>
           <h2>{headerText}</h2>
           <div className={styles.headerActions}>
-            {!isEditing && (
+            {!isEditing && canEdit && (
               <button className={styles.editButton} onClick={() => setIsEditing(true)} title="Edit">
                 <AiOutlineEdit />
               </button>
+            )}
+            {canOnlyView && (
+              <div className={styles.viewOnlyBadge} title="View Only - No Department Assigned">
+                View Only
+              </div>
             )}
             <button className={styles.closeButton} onClick={handleClose} title="Close">
               <AiOutlineClose />

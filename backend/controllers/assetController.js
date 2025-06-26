@@ -87,6 +87,14 @@ async function patchAssetStatus(req, res) {
   try {
     const { barcode } = req.params;
     const { status } = req.body;
+    const user = req.user;
+
+    // Check if user can update status (admin or user with department)
+    if (user.role !== 'admin' && user.department_id === null) {
+      return res.status(403).json({ 
+        error: "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department." 
+      });
+    }
 
     if (!barcode || barcode.length !== 15) {
       return res.status(400).json({ error: "Barcode must be 15 digits" });
@@ -276,6 +284,14 @@ async function updateAssetById(req, res) {
   try {
     const { id } = req.params;
     const updateData = req.body;
+    const user = req.user;
+
+    // Check if user can edit (admin or user with department)
+    if (user.role !== 'admin' && user.department_id === null) {
+      return res.status(403).json({ 
+        error: "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department." 
+      });
+    }
 
     // Explicitly format acquired_date to prevent driver timezone conversion
     if (updateData.acquired_date) {
@@ -334,6 +350,14 @@ async function updateAssetById(req, res) {
 async function deleteAssetById(req, res) {
   try {
     const { id } = req.params;
+    const user = req.user;
+
+    // Check if user can delete (admin only)
+    if (user.role !== 'admin') {
+      return res.status(403).json({ 
+        error: "Access denied. Only administrators can delete assets." 
+      });
+    }
 
     console.log("Deleting asset:", id);
 
@@ -396,6 +420,14 @@ async function createAssetController(req, res) {
   try {
     const assetData = req.body;
     const creatorId = req.user.id; // Get creator's ID from authenticated user token
+    const user = req.user;
+
+    // Check if user can create (admin or user with department)
+    if (user.role !== 'admin' && user.department_id === null) {
+      return res.status(403).json({ 
+        error: "Access denied. Users without department assignment cannot create assets. Please contact your administrator to assign a department." 
+      });
+    }
 
     // Explicitly format acquired_date to prevent driver timezone conversion
     if (assetData.acquired_date) {

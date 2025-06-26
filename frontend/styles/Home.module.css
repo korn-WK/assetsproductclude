@@ -9,4 +9,18 @@
     padding: 2rem;
     display: flex;
     flex-direction: column;
+    margin-left: 280px;
+    transition: margin-left 0.3s;
+}
+
+@media (max-width: 900px) {
+    .mainContent {
+        margin-left: 0 !important;
+        padding: 0rem !important;
+    }
+}@media (max-width: 600px) {
+    .mainContent {
+        margin-left: 0 !important;
+        padding: 0rem !important;
+    }
 }

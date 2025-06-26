@@ -1,9 +1,12 @@
+import React, { useState } from 'react';
 import Head from 'next/head';
 import Sidebar from '../../components/user/Sidebar/index';
 import Navbar from '../../components/common/Navbar';
 import styles from '../../../styles/Home.module.css';
 
 const ReportsPage: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   return (
     <div className={styles.container}>
       <Head>
@@ -12,10 +15,10 @@ const ReportsPage: React.FC = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
 
-      <Sidebar />
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <main className={styles.mainContent} style={{ marginLeft: '280px' }}>
-        <Navbar title="Reports" />
+      <main className={styles.mainContent} style={{ marginLeft: sidebarOpen ? '280px' : undefined }}>
+        <Navbar title="Reports" onMenuClick={() => setSidebarOpen(true)} />
         <div style={{
           padding: '2rem',
           backgroundColor: 'var(--card-bg)',

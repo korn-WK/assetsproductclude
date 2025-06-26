@@ -1,7 +1,7 @@
 .pagination {
     display: flex;
     justify-content: flex-end;
-    /* Align to the right as in the image */
+    margin: 30px !important;
     align-items: center;
     gap: 1rem;
     margin-top: 1.5rem;
@@ -42,4 +42,23 @@
 
 .pageNumbers {
     display: flex;
-    gap: 0.5rem; }
+    gap: 0.5rem;
+}
+
+@media (max-width: 600px) {
+  .pagination {
+    justify-content: center !important;
+    align-items: center !important;
+    margin-top: 0.5rem !important;
+    margin-bottom: 1rem !important;
+    gap: 0.5rem !important;
+  }
+  .pageButton {
+    padding: 0.3rem 0.7rem !important;
+    font-size: 0.92rem !important;
+    border-radius: 7px !important;
+  }
+  .pageNumbers {
+    gap: 0.2rem !important;
+  }
+}

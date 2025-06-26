@@ -31,8 +31,7 @@
 }
 
 .assetsTitle h1 {
-    font-size: 1.8rem;
-    font-weight: 600;
+
     margin: 0;
     color: var(--text-color-primary);
 }
@@ -243,3 +242,123 @@
 }
 .userIcon:hover {
     color: var(--text-color-primary); }
+
+.mobileTitle {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    z-index: 3000;
+    border-radius: 0;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    padding: 0.4rem 0.7rem 0.4rem 0.7rem;
+    margin-bottom: 0.7rem;
+    background: var(--card-bg);
+    flex-direction: row;
+    align-items: center;
+    gap: 0.2rem;
+    min-height: 48px;
+  }
+  .assetsTitle {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .assetsTitle h1 {
+    display: none;
+  }
+  .assetsTitle img {
+    display: none !important;
+  }
+  .searchContainer {
+    margin: 0 0.2rem;
+    max-width: 100vw;
+    flex: 1;
+    gap: 0.1rem;
+    min-width: 0;
+  }
+  .searchInput {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem 0.4rem 1.7rem;
+    border-radius: 6px;
+    padding-right: 2rem;
+  }
+  .searchButton, .clearButton {
+    font-size: 0.95rem;
+    padding: 0.2rem;
+    right: 0.7rem;
+  }
+  .userProfile {
+    gap: 0.2rem;
+  }
+  .profileButton {
+    gap: 0.2rem;
+  }
+  .userAvatar {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 6px;
+  }
+  .userInfo {
+    font-size: 0.9rem;
+  }
+  .adminBadge {
+    font-size: 0.75rem;
+    padding: 0.08rem 0.4rem;
+    border-radius: 5px;
+  }
+  .profileDropdown {
+    width: 130px;
+    font-size: 0.9rem;
+    border-radius: 6px;
+    right: 0;
+    left: auto;
+  }
+  .dropdownHeader {
+    padding: 0.4rem;
+    font-size: 0.8rem;
+  }
+  .dropdownItem {
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  .menuToggle {
+    display: block !important;
+    font-size: 1.1rem;
+    padding: 0.1rem 0.3rem;
+    border-radius: 6px;
+    margin-bottom: 0;
+  }
+  .mobileTitle {
+    display: block !important;
+    font-size: 0.95rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--text-color-primary);
+    letter-spacing: 0.01em;
+    padding: 0;
+  }
+  .searchContainer {
+    display: none !important;
+  }
+  .userInfo, .adminBadge {
+    display: none !important;
+  }
+  .userAvatarMobile {
+    width: 28px !important;
+    height: 28px !important;
+    border-radius: 7px;
+    object-fit: cover;
+  }
+}
+
+@media (max-width: 600px) {
+  .mainContent {
+    margin-top: 52px !important;
+  }
+}

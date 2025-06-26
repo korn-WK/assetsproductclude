@@ -10,6 +10,7 @@ import { formatDate } from '../../../lib/utils';
 import { useDropdown } from '../../../contexts/DropdownContext';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface Asset {
   id: string;
@@ -27,6 +28,7 @@ interface Asset {
 const AssetsTable: React.FC = () => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
+  const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -39,6 +41,25 @@ const AssetsTable: React.FC = () => {
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 180 });
+  const [isMobile, setIsMobile] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const statusOptions = [
+    { value: 'All', label: 'Status' },
+    { value: 'Active', label: 'Active' },
+    { value: 'Transferring', label: 'Transferring' },
+    { value: 'Audited', label: 'Audited' },
+    { value: 'Missing', label: 'Missing' },
+    { value: 'Broken', label: 'Broken' },
+    { value: 'Disposed', label: 'Disposed' },
+  ];
+  const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
+
+  // Check if user can edit (user with department)
+  const canEdit = user && user.department_id !== null;
+
+  // Check if user can only view (user without department)
+  const canOnlyView = user && user.department_id === null;
 
   useEffect(() => {
     fetchAssets();
@@ -93,19 +114,44 @@ const AssetsTable: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDepartmentDropdown]);
 
-  const filteredAssets = activeFilter === 'All'
-    ? assets
-    : assets.filter(asset => {
-        switch (activeFilter) {
-          case 'Active': return asset.status === 'active';
-          case 'Transferring': return asset.status === 'transferring';
-          case 'Audited': return asset.status === 'audited';
-          case 'Missing': return asset.status === 'missing';
-          case 'Broken': return asset.status === 'broken';
-          case 'Disposed': return asset.status === 'disposed';
-          default: return true;
-        }
-      });
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (canOnlyView) {
+      setShowViewOnlyNotice(true);
+      const timer = setTimeout(() => setShowViewOnlyNotice(false), 10000);
+      return () => clearTimeout(timer);
+    }
+  }, [canOnlyView]);
+
+  const filteredAssets = assets.filter(asset => {
+    const matchesStatus = activeFilter === 'All' || 
+      (activeFilter === 'Active' && asset.status === 'active') ||
+      (activeFilter === 'Transferring' && asset.status === 'transferring') ||
+      (activeFilter === 'Audited' && asset.status === 'audited') ||
+      (activeFilter === 'Missing' && asset.status === 'missing') ||
+      (activeFilter === 'Broken' && asset.status === 'broken') ||
+      (activeFilter === 'Disposed' && asset.status === 'disposed');
+
+    const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
+
+    const matchesDate = !selectedDate ||
+      (asset.acquired_date && asset.acquired_date.slice(0, 10) === selectedDate);
+
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q ||
+      asset.asset_code.toLowerCase().includes(q) ||
+      asset.name.toLowerCase().includes(q) ||
+      asset.department.toLowerCase().includes(q) ||
+      asset.location.toLowerCase().includes(q);
+
+    return matchesStatus && matchesDepartment && matchesDate && matchesSearch;
+  });
 
   const totalPages = Math.ceil(filteredAssets.length / itemsPerPage);
   const currentAssets = filteredAssets.slice(
@@ -194,29 +240,12 @@ const AssetsTable: React.FC = () => {
   return (
     <>
       <section className={styles.assetsSection}>
-        <div className={styles.assetsHeader}>
-          <div>
-            <p className={styles.totalAssets}>Total {assets.length} assets</p>
-          </div>
-        </div>
-
-        <div className={styles.assetsControls}>
-          <div className={styles.statusFilters}>
-            {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
-              <button
-                key={status}
-                className={`${styles.filterButton} ${activeFilter === status ? styles.active : ''}`}
-                onClick={() => {
-                  setActiveFilter(status);
-                  setCurrentPage(1);
-                }}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
-          <div className={styles.rightControls} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0 }}>
+        {isMobile ? (
+          <>
+            <div style={{padding: '0.5rem 0.5rem 0 0.5rem'}}>
+              <p className={styles.totalAssets}>Total {assets.length} assets</p>
+            </div>
+            <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
               <button
                 className={styles.iconButton}
                 onClick={async () => {
@@ -256,170 +285,371 @@ const AssetsTable: React.FC = () => {
                   }
                 }}
                 title="Filter by date"
-                style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
+                style={{minWidth: 0}}
               >
                 <AiOutlineCalendar />
+                {selectedDate && (
+                  <span style={{marginLeft: 4, fontSize: '0.9em'}}>{dayjs(selectedDate).format('YYYY-MM-DD')}</span>
+                )}
               </button>
-              {selectedDate && (
+              <div style={{ position: 'relative' }}>
                 <button
-                  className={styles.iconButton}
-                  style={{
-                    height: '40px',
-                    fontSize: '1.1rem',
-                    padding: '0.8rem 1.2rem',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                  }}
-                  onClick={() => setSelectedDate(null)}
-                  title="Clear date filter"
+                  className={styles.filterDropdown}
+                  onClick={() => setShowStatusDropdown(v => !v)}
+                  style={{ minWidth: 0 }}
                 >
-                  Clear
+                  {statusOptions.find(opt => opt.value === activeFilter)?.label || 'Status'}
+                  <AiOutlineDown className={styles.dropdownIcon} />
                 </button>
-              )}
+                {showStatusDropdown && (
+                  <div className={styles.customDropdown} style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
+                    {statusOptions.map(opt => (
+                      <div
+                        key={opt.value}
+                        style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: activeFilter === opt.value ? '#6366f1' : '#222', background: activeFilter === opt.value ? '#f3f4f6' : 'transparent' }}
+                        onClick={() => {
+                          setActiveFilter(opt.value);
+                          setShowStatusDropdown(false);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {opt.label}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                className={styles.filterDropdown}
+                onClick={handleShowDropdown}
+                ref={filterButtonRef}
+                style={{minWidth: 0}}
+              >
+                {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                <AiOutlineDown className={styles.dropdownIcon} />
+              </button>
             </div>
-            <button
-              className={styles.filterDropdown}
-              onClick={handleShowDropdown}
-              ref={filterButtonRef}
-              style={{ position: 'relative' }}
-            >
-              {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-              <AiOutlineDown className={styles.dropdownIcon} />
-            </button>
-            {showDepartmentDropdown &&
-              ReactDOM.createPortal(
+            <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
+              <input
+                type="text"
+                placeholder="Search assets..."
+                className={styles.mobileSearchInput}
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                style={{width: '100%'}}
+              />
+            </div>
+            <div className={styles.assetCardList}>
+              {currentAssets.map(asset => (
+                <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
+                  <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
+                  <div className={styles.assetCardContent}>
+                    <div className={styles.assetCardTitle}>{asset.name}</div>
+                    <div className={styles.assetCardMetaRow}>
+                      <span className={styles.assetId}><b>ID:</b> {asset.asset_code}</span>
+                    </div>
+                    <div className={styles.assetCardMetaRow}>
+                      <span><b>Location:</b> {asset.location}</span>
+                    </div>
+                    <div className={styles.assetCardMetaRow}>
+                      <span><b>Department:</b> {asset.department}</span>
+                    </div>
+                    <div className={styles.assetCardMetaRow}>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>{getStatusDisplay(asset.status)}</span></span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+            {showDepartmentDropdown && (
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: 'absolute',
+                  top: filterButtonRef.current ? filterButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 4 : 0,
+                  left: filterButtonRef.current ? filterButtonRef.current.getBoundingClientRect().left + window.scrollX : 0,
+                  background: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  padding: 8,
+                  zIndex: 9999,
+                  minWidth: filterButtonRef.current ? filterButtonRef.current.offsetWidth : 120,
+                  maxHeight: 300,
+                  overflowY: 'auto',
+                }}
+              >
                 <div
-                  ref={dropdownRef}
                   style={{
-                    position: 'absolute',
-                    top: dropdownPosition.top,
-                    left: dropdownPosition.left,
-                    background: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderRadius: 8,
-                    boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                    padding: 8,
-                    zIndex: 9999,
-                    minWidth: dropdownPosition.width,
-                    maxHeight: 300,
-                    overflowY: 'auto',
+                    padding: '0.5rem 1rem',
+                    cursor: 'pointer',
+                    fontWeight: selectedDepartment === 'All' ? 600 : 400,
+                    background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent',
+                    borderRadius: 6,
+                  }}
+                  onClick={() => {
+                    setSelectedDepartment('All');
+                    setShowDepartmentDropdown(false);
                   }}
                 >
+                  ทุกแผนก (All Departments)
+                </div>
+                {departments.map(dep => (
                   <div
+                    key={dep.id}
                     style={{
                       padding: '0.5rem 1rem',
                       cursor: 'pointer',
-                      fontWeight: selectedDepartment === 'All' ? 600 : 400,
-                      background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent',
+                      fontWeight: selectedDepartment === dep.name_th ? 600 : 400,
+                      background: selectedDepartment === dep.name_th ? '#f3f4f6' : 'transparent',
                       borderRadius: 6,
                     }}
                     onClick={() => {
-                      setSelectedDepartment('All');
+                      setSelectedDepartment(dep.name_th);
                       setShowDepartmentDropdown(false);
                     }}
                   >
-                    ทุกแผนก (All Departments)
+                    {dep.name_th} {dep.name_en ? `(${dep.name_en})` : ''}
                   </div>
-                  {departments.map(dep => (
-                    <div
-                      key={dep.id}
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div className={styles.assetsHeader}>
+              <div>
+                <p className={styles.totalAssets}>Total {assets.length} assets</p>
+              </div>
+            </div>
+
+            <div className={styles.assetsControls}>
+              <div className={styles.statusFilters}>
+                {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
+                  <button
+                    key={status}
+                    className={`${styles.filterButton} ${activeFilter === status ? styles.active : ''}`}
+                    onClick={() => {
+                      setActiveFilter(status);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+              <div className={styles.rightControls} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0 }}>
+                  <button
+                    className={styles.iconButton}
+                    onClick={async () => {
+                      const result = await Swal.fire({
+                        title: `<div style='display:flex;align-items:center;gap:10px;justify-content:center;'>`
+                          + `<span style='font-size:2rem;color:#6366f1;'><svg width='1.5em' height='1.5em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' ry='4'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line></svg></span>`
+                          + `</div>`
+                          + (selectedDate ? `<div style='margin-top:10px;font-size:1rem;color:#6366f1;'>วันที่เลือก: <b>${dayjs(selectedDate).format('YYYY-MM-DD')}</b></div>` : ''),
+                        html:
+                          `<div style='display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;'>`
+                          + `<input id="swal-date" type="date" value="${selectedDate || ''}" style="padding:0.7rem 1.2rem;font-size:1.1rem;border-radius:8px;border:1.5px solid #a5b4fc;width:220px;outline:none;box-shadow:0 2px 8px rgba(99,102,241,0.07)">`
+                          + `<div style='font-size:0.95rem;color:#6b7280;'>กรุณาเลือกวัน/เดือน/ปี ที่ต้องการค้นหา</div>`
+                          + `</div>`,
+                        showCancelButton: true,
+                        focusConfirm: false,
+                        confirmButtonText: '<span style="font-size:1.1rem;font-weight:500;">เลือก</span>',
+                        cancelButtonText: '<span style="font-size:1.1rem;">ยกเลิก</span>',
+                        customClass: {
+                          popup: 'swal2-calendar-popup',
+                          confirmButton: 'swal2-calendar-confirm',
+                          cancelButton: 'swal2-calendar-cancel',
+                        },
+                        preConfirm: () => {
+                          // @ts-ignore
+                          return (document.getElementById('swal-date') as HTMLInputElement)?.value;
+                        },
+                        didOpen: () => {
+                          const input = document.getElementById('swal-date') as HTMLInputElement;
+                          if (input) input.focus();
+                        },
+                        background: '#f8fafc',
+                        width: 370,
+                        padding: '2.2em 1.5em 1.5em 1.5em',
+                      });
+                      if (result.isConfirmed && result.value) {
+                        setSelectedDate(result.value);
+                      }
+                    }}
+                    title="Filter by date"
+                    style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
+                  >
+                    <AiOutlineCalendar />
+                  </button>
+                  {selectedDate && (
+                    <button
+                      className={styles.iconButton}
                       style={{
-                        padding: '0.5rem 1rem',
-                        cursor: 'pointer',
-                        fontWeight: selectedDepartment === dep.name_th ? 600 : 400,
-                        background: selectedDepartment === dep.name_th ? '#f3f4f6' : 'transparent',
-                        borderRadius: 6,
+                        height: '40px',
+                        fontSize: '1.1rem',
+                        padding: '0.8rem 1.2rem',
+                        display: 'inline-flex',
+                        alignItems: 'center',
                       }}
-                      onClick={() => {
-                        setSelectedDepartment(dep.name_th);
-                        setShowDepartmentDropdown(false);
+                      onClick={() => setSelectedDate(null)}
+                      title="Clear date filter"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <button
+                  className={styles.filterDropdown}
+                  onClick={handleShowDropdown}
+                  ref={filterButtonRef}
+                  style={{ position: 'relative' }}
+                >
+                  {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                  <AiOutlineDown className={styles.dropdownIcon} />
+                </button>
+                {showDepartmentDropdown &&
+                  ReactDOM.createPortal(
+                    <div
+                      ref={dropdownRef}
+                      style={{
+                        position: 'absolute',
+                        top: dropdownPosition.top,
+                        left: dropdownPosition.left,
+                        background: 'white',
+                        border: '1px solid #e5e7eb',
+                        borderRadius: 8,
+                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                        padding: 8,
+                        zIndex: 9999,
+                        minWidth: dropdownPosition.width,
+                        maxHeight: 300,
+                        overflowY: 'auto',
                       }}
                     >
-                      {dep.name_th} {dep.name_en ? `(${dep.name_en})` : ''}
-                    </div>
-                  ))}
-                </div>,
-                document.body
-              )
-            }
-          </div>
-        </div>
-
-        <div className={styles.assetsTableContainer}>
-          <table className={styles.assetsTable}>
-            <thead>
-              <tr>
-                <th>Asset Name</th>
-                <th>Asset Code</th>
-                <th>Location</th>
-                <th>Department</th>
-                <th>Acquired Date</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentAssets.map(asset => (
-                <tr 
-                  key={asset.id} 
-                  className={styles.clickableRow}
-                  onClick={() => handleAssetClick(asset)}
-                >
-                  <td data-label="Asset Name">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      {asset.image_url ? (
-                        <Image
-                          src={asset.image_url}
-                          alt={asset.name}
-                          width={60}
-                          height={60}
-                          className={styles.assetImage}
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = '/file.svg';
-                          }}
-                        />
-                      ) : (
-                        <Image
-                          src="/file.svg"
-                          alt="No image"
-                          width={60}
-                          height={60}
-                          className={styles.assetImage}
-                        />
-                      )}
-                      <div>
-                        <div className={styles.assetName}>{asset.name}</div>
-                        <div className={styles.assetDescription}>{asset.description}</div>
+                      <div
+                        style={{
+                          padding: '0.5rem 1rem',
+                          cursor: 'pointer',
+                          fontWeight: selectedDepartment === 'All' ? 600 : 400,
+                          background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent',
+                          borderRadius: 6,
+                        }}
+                        onClick={() => {
+                          setSelectedDepartment('All');
+                          setShowDepartmentDropdown(false);
+                        }}
+                      >
+                        ทุกแผนก (All Departments)
                       </div>
-                    </div>
-                  </td>
-                  <td data-label="Asset Code">{asset.asset_code}</td>
-                  <td data-label="Location">{asset.location}</td>
-                  <td data-label="Department">{asset.department}</td>
-                  <td data-label="Acquired Date">{formatDate(asset.acquired_date)}</td>
-                  <td data-label="Status">
-                    <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>
-                      {getStatusDisplay(asset.status)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          
-          {currentAssets.length === 0 && (
-            <div className={styles.noResults}>
-              <p>No assets found</p>
+                      {departments.map(dep => (
+                        <div
+                          key={dep.id}
+                          style={{
+                            padding: '0.5rem 1rem',
+                            cursor: 'pointer',
+                            fontWeight: selectedDepartment === dep.name_th ? 600 : 400,
+                            background: selectedDepartment === dep.name_th ? '#f3f4f6' : 'transparent',
+                            borderRadius: 6,
+                          }}
+                          onClick={() => {
+                            setSelectedDepartment(dep.name_th);
+                            setShowDepartmentDropdown(false);
+                          }}
+                        >
+                          {dep.name_th} {dep.name_en ? `(${dep.name_en})` : ''}
+                        </div>
+                      ))}
+                    </div>,
+                    document.body
+                  )
+                }
+              </div>
             </div>
-          )}
-        </div>
 
-        {totalPages > 1 && (
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+            <div className={styles.assetsTableContainer}>
+              <table className={styles.assetsTable}>
+                <thead>
+                  <tr>
+                    <th>Asset Name</th>
+                    <th>Asset Code</th>
+                    <th>Location</th>
+                    <th>Department</th>
+                    <th>Acquired Date</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentAssets.map(asset => (
+                    <tr 
+                      key={asset.id} 
+                      className={styles.clickableRow}
+                      onClick={() => handleAssetClick(asset)}
+                    >
+                      <td data-label="Asset Name">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          {asset.image_url ? (
+                            <Image
+                              src={asset.image_url}
+                              alt={asset.name}
+                              width={60}
+                              height={60}
+                              className={styles.assetImage}
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = '/file.svg';
+                              }}
+                            />
+                          ) : (
+                            <Image
+                              src="/file.svg"
+                              alt="No image"
+                              width={60}
+                              height={60}
+                              className={styles.assetImage}
+                            />
+                          )}
+                          <div>
+                            <div className={styles.assetName}>{asset.name}</div>
+                            <div className={styles.assetDescription}>{asset.description}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td data-label="Asset Code">{asset.asset_code}</td>
+                      <td data-label="Location">{asset.location}</td>
+                      <td data-label="Department">{asset.department}</td>
+                      <td data-label="Acquired Date">{formatDate(asset.acquired_date)}</td>
+                      <td data-label="Status">
+                        <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>
+                          {getStatusDisplay(asset.status)}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              
+              {currentAssets.length === 0 && (
+                <div className={styles.noResults}>
+                  <p>No assets found</p>
+                </div>
+              )}
+            </div>
+
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </>
         )}
       </section>
 
@@ -429,7 +659,19 @@ const AssetsTable: React.FC = () => {
           isOpen={isPopupOpen}
           onClose={handleClosePopup}
           onUpdate={handleAssetUpdate}
+          isAdmin={false}
+          isCreating={false}
         />
+      )}
+      {showViewOnlyNotice && canOnlyView && (
+        <div className={styles.viewOnlyNotice}>
+          <div className={styles.viewOnlyNoticeContent}>
+            <button className={styles.noticeCloseBtn} onClick={() => setShowViewOnlyNotice(false)} title="Close notice">
+              <AiOutlineClose />
+            </button>
+            <p><strong>View Only Mode:</strong> You can only view assets. Contact your administrator to assign a department for editing permissions.</p>
+          </div>
+        </div>
       )}
     </>
   );

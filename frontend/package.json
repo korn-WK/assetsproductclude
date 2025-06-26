@@ -23,6 +23,7 @@
     "clsx": "^2.1.1",
     "daisy": "^0.2.0",
     "daisyui": "^5.0.43",
+    "dayjs": "^1.11.13",
     "jspdf": "^3.0.1",
     "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.518.0",
@@ -35,7 +36,7 @@
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.0.0",
     "react-icons": "^5.5.0",
-    "sweetalert2": "^11.22.0",
+    "sweetalert2": "^11.22.1",
     "tailwind-merge": "^3.3.1",
     "tailwindcss": "^4.1.10"
   },
