@@ -45,6 +45,16 @@
     gap: 0.5rem;
 }
 
+.ellipsis {
+    display: inline-block;
+    min-width: 24px;
+    text-align: center;
+    color: #b0b3b8;
+    font-size: 1.1rem;
+    margin: 0 4px;
+    user-select: none;
+}
+
 @media (max-width: 600px) {
   .pagination {
     justify-content: center !important;

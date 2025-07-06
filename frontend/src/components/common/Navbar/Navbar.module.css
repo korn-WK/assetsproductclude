@@ -362,3 +362,28 @@
     margin-top: 52px !important;
   }
 }
+
+.scanBarcodeButton {
+  background: #fff;
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-left: 8px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.scanBarcodeButton:hover {
+  background: #3b82f6;
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.scanBarcodeIcon {
+  font-size: 22px;
+  vertical-align: middle;
+}

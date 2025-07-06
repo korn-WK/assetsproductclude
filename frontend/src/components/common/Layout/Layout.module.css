@@ -18,9 +18,11 @@
         margin-left: 0 !important;
         padding: 0rem !important;
     }
-}@media (max-width: 600px) {
+}
+
+@media (max-width: 600px) {
     .mainContent {
         margin-left: 0 !important;
         padding: 0rem !important;
     }
-}
+} 

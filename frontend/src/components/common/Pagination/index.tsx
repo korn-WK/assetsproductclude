@@ -9,7 +9,18 @@ interface PaginationProps {
 }
 
 const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange }) => {
-  const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1);
+  // Windowed pagination logic
+  const windowSize = 5;
+  let startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
+  let endPage = startPage + windowSize - 1;
+  if (endPage > totalPages) {
+    endPage = totalPages;
+    startPage = Math.max(1, endPage - windowSize + 1);
+  }
+  const pageNumbers = [];
+  for (let i = startPage; i <= endPage; i++) {
+    pageNumbers.push(i);
+  }
 
   return (
     <div className={styles.pagination}>
@@ -22,6 +33,17 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
       </button>
 
       <div className={styles.pageNumbers}>
+        {startPage > 1 && (
+          <>
+            <button
+              onClick={() => onPageChange(1)}
+              className={styles.pageButton}
+            >
+              1
+            </button>
+            {startPage > 2 && <span className={styles.ellipsis}>...</span>}
+          </>
+        )}
         {pageNumbers.map(number => (
           <button
             key={number}
@@ -31,6 +53,17 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
             {number}
           </button>
         ))}
+        {endPage < totalPages && (
+          <>
+            {endPage < totalPages - 1 && <span className={styles.ellipsis}>...</span>}
+            <button
+              onClick={() => onPageChange(totalPages)}
+              className={styles.pageButton}
+            >
+              {totalPages}
+            </button>
+          </>
+        )}
       </div>
 
       <button

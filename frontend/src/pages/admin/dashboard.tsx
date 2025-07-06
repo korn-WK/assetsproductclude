@@ -5,8 +5,8 @@ import AdminSidebar from '../../components/admin/AdminSidebar';
 import Navbar from '../../components/common/Navbar';
 import AdminRoute from '../../components/auth/AdminRoute';
 import DashboardContent from '../../components/common/DashboardContent';
+import Layout from '../../components/common/Layout';
 import { DashboardProvider, useDashboard } from '../../contexts/DashboardContext';
-import styles from '../../../styles/Home.module.css';
 
 const DashboardContentWrapper: React.FC = () => {
   const { fetchStats } = useDashboard();
@@ -23,25 +23,20 @@ const AdminDashboardPage: React.FC = () => {
 
   return (
     <AdminRoute>
-      <div className={styles.container}>
+      <>
         <Head>
           <title>Admin Dashboard - Mae Fah Luang University</title>
           <meta name="description" content="Admin Dashboard" />
           <link rel="icon" href="/favicon.ico" />
         </Head>
 
-        <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-        <main 
-          className={styles.mainContent}
-          style={{ marginLeft: '280px' }}
-        >
+        <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
           <Navbar title="Admin Dashboard" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
           <DashboardProvider>
             <DashboardContentWrapper />
           </DashboardProvider>
-        </main>
-      </div>
+        </Layout>
+      </>
     </AdminRoute>
   );
 };

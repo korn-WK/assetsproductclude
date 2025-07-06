@@ -1,20 +1,26 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag } from 'react-icons/ai';
+import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineDownload } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AssetDetailPopup.module.css';
 import DropdownSelect from '../DropdownSelect';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useDropdown } from '../../../contexts/DropdownContext';
 import { formatDate } from '../../../lib/utils';
+import { generateBarcode, sanitizeBarcodeText, isValidBarcodeText } from '../../../lib/barcodeUtils';
 
 interface Asset {
   id: string;
   asset_code: string;
+  inventory_number?: string;
+  serial_number?: string;
   name: string;
   description: string;
-  location: string;
+  location_id?: string;
+  location?: string;
+  room?: string;
   department: string;
+  department_id?: string;
   owner: string;
   status: string;
   image_url: string | null;
@@ -42,6 +48,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const { user } = useAuth();
   const { departments, locations, loading: dropdownLoading } = useDropdown();
+  const barcodeRef = useRef<SVGSVGElement>(null);
 
   // Check if user can edit (admin or user with department)
   const canEdit = isAdmin || (user && user.department_id !== null);
@@ -80,6 +87,15 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     }
   }, [asset, isCreating, user]);
 
+  useEffect(() => {
+    if (barcodeRef.current && editedAsset?.inventory_number) {
+      generateBarcode(barcodeRef.current, editedAsset.inventory_number);
+    } else if (barcodeRef.current) {
+      // Clear barcode if no inventory_number
+      barcodeRef.current.innerHTML = '';
+    }
+  }, [editedAsset?.inventory_number]);
+
   if (!isOpen || !asset || !editedAsset) return null;
 
   const getStatusDisplay = (status: string) => {
@@ -107,7 +123,40 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     // For acquired_date, we directly use the value from the datetime-local input,
     // which is already in the desired local time format (e.g., "2025-06-21T02:00").
     // This value can be sent directly to the backend.
-    setEditedAsset(prev => prev ? { ...prev, [field]: value } : null);
+    
+    // For asset_code, only allow ASCII characters to prevent barcode generation issues
+    if (field === 'asset_code') {
+      const cleanValue = sanitizeBarcodeText(value);
+      
+      // Limit length to 50 characters
+      const limitedValue = cleanValue.slice(0, 50);
+      
+      if (cleanValue !== value) {
+        // Show warning if non-ASCII characters were removed
+        Swal.fire({
+          title: 'Invalid Characters',
+          text: 'Asset code can only contain English letters, numbers, and basic symbols.',
+          icon: 'warning',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+      
+      if (limitedValue !== cleanValue) {
+        // Show warning if length was truncated
+        Swal.fire({
+          title: 'Asset Code Truncated',
+          text: 'Asset code has been limited to 50 characters for barcode compatibility.',
+          icon: 'warning',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
+      
+      setEditedAsset(prev => prev ? { ...prev, [field]: limitedValue } : null);
+    } else {
+      setEditedAsset(prev => prev ? { ...prev, [field]: value } : null);
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,6 +192,38 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     }
   };
 
+  const handlePrintBarcode = () => {
+    if (!editedAsset.inventory_number) {
+      Swal.fire({
+        title: 'No Inventory Number',
+        text: 'Please enter an inventory number to generate a barcode for printing.',
+        icon: 'warning'
+      });
+      return;
+    }
+    
+    const printWindow = window.open('', '', 'width=400,height=300');
+    if (!printWindow || !barcodeRef.current) return;
+    
+    printWindow.document.write('<html><body>' + barcodeRef.current.outerHTML + '</body></html>');
+    printWindow.document.close();
+    printWindow.print();
+  };
+
+  const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('barcodeImage', file);
+    const res = await fetch('/api/barcode/decode', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (data.code) {
+      setEditedAsset(prev => prev ? { ...prev, inventory_number: data.code } : null);
+    } else {
+      alert('Barcode not detected');
+    }
+  };
+
   const handleSave = async () => {
     if (!editedAsset) return;
     
@@ -160,6 +241,26 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       Swal.fire({
         title: 'Validation Error',
         text: 'Asset code is required.',
+        icon: 'error'
+      });
+      return;
+    }
+
+    // Validate inventory_number format (ASCII characters and common symbols, large set) for barcode
+    if (editedAsset.inventory_number && !isValidBarcodeText(editedAsset.inventory_number)) {
+      Swal.fire({
+        title: 'Invalid Inventory Number',
+        text: `Inventory number contains invalid characters. Please use only English letters, numbers, and common symbols (A-Z, 0-9, -, _, /, ., space, ", *, :, ;, ', (), [], {}, @, #, $, %, &, +, =, !, ?, |, ^, ~, <, >, \\).`,
+        icon: 'error'
+      });
+      return;
+    }
+
+    // Validate inventory_number length (max 50 characters for barcode compatibility)
+    if (editedAsset.inventory_number && editedAsset.inventory_number.length > 50) {
+      Swal.fire({
+        title: 'Inventory Number Too Long',
+        text: 'Inventory number must be 50 characters or less for barcode generation.',
         icon: 'error'
       });
       return;
@@ -330,23 +431,36 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             <span className={styles.readOnlyField}>{value || 'N/A'}</span>
           </div>
         );
-      } else if (field === 'location') {
+      } else if (field === 'location_id') {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
-            {dropdownLoading ? (
-              <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
-            ) : (
-              <DropdownSelect
-                label=""
-                options={locations.map(loc => ({ id: loc.id, name: loc.name }))}
-                value={editedAsset.location}
-                onChange={(value) => handleInputChange('location', value)}
-                placeholder="Select a location"
-                className={styles.editSelect}
-                disabled={dropdownLoading}
-              />
-            )}
+            <label>{icon} Location:</label>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {dropdownLoading ? (
+                <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
+              ) : (
+                <>
+                  <DropdownSelect
+                    label=""
+                    options={locations.map(loc => ({ id: loc.id, name: loc.name }))}
+                    value={editedAsset.location_id ?? ''}
+                    onChange={(value) => handleInputChange('location_id', value)}
+                    placeholder="Select location"
+                    className={styles.editSelect}
+                    disabled={dropdownLoading}
+                    style={{ flex: 1 }}
+                  />
+                  <input
+                    type="text"
+                    value={editedAsset.room || ''}
+                    onChange={(e) => handleInputChange('room', e.target.value)}
+                    className={styles.editInput}
+                    placeholder="Room"
+                    style={{ flex: 1 }}
+                  />
+                </>
+              )}
+            </div>
           </div>
         );
       } else if (field === 'department') {
@@ -359,8 +473,8 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
               <DropdownSelect
                 label=""
                 options={departments.map(dep => ({ id: dep.id, name: dep.name_th, name_th: dep.name_th }))}
-                value={editedAsset.department}
-                onChange={(value) => handleInputChange('department', value)}
+                value={editedAsset.department_id ?? ''}
+                onChange={(value) => handleInputChange('department_id', value)}
                 placeholder="Select a department"
                 className={styles.editSelect}
                 disabled={dropdownLoading}
@@ -402,6 +516,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
               value={value || ''}
               onChange={(e) => handleInputChange(field, e.target.value)}
               className={styles.editInput}
+              placeholder={field === 'asset_code' ? 'Enter asset code (max 50 chars, English letters, numbers, symbols only)' : ''}
             />
           </div>
         );
@@ -413,6 +528,13 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         displayValue = getStatusDisplay(value);
       } else if (field === 'acquired_date' || field === 'created_at' || field === 'updated_at') {
         displayValue = value ? formatDate(value) : 'N/A';
+      } else if (field === 'location_id') {
+        // Show location name and room together in display mode
+        const locationName = editedAsset.location || 'N/A';
+        const locationDisplay = editedAsset.room ? 
+          `${locationName} ${editedAsset.room}` : 
+          locationName;
+        displayValue = locationDisplay;
       } else {
         displayValue = value || 'N/A';
       }
@@ -449,7 +571,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         </div>
 
         <div className={styles.content}>
-          <div className={styles.imageSection}>
+          <div className={styles.imageSection} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {isEditing ? (
               <div className={styles.imageUpload}>
                 <Image
@@ -483,6 +605,45 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
                 }}
               />
             )}
+            {/* Barcode SVG + 3 icon buttons */}
+            <div className={styles.barcodeContainer}>
+              {!editedAsset.inventory_number && (
+                <div style={{ 
+                  fontSize: '12px', 
+                  color: '#666', 
+                  marginBottom: '8px',
+                  textAlign: 'center'
+                }}>
+                </div>
+              )}
+              <svg ref={barcodeRef} width={100} height={24}></svg>
+              <div className={styles.barcodeActions}>
+                <button 
+                  onClick={handlePrintBarcode} 
+                  title="Print Barcode" 
+                  className={styles.printButton}
+                  disabled={!editedAsset.inventory_number}
+                >
+                  <img src="/print.png" alt="Print" width={24} height={24} className={styles.barcodeIcon} />
+                </button>
+                <a
+                  href={editedAsset.inventory_number ? `/api/barcode/${editedAsset.inventory_number}` : '#'}
+                  download={editedAsset.inventory_number ? `barcode-${editedAsset.inventory_number}.png` : undefined}
+                  title="Download Barcode"
+                  className={styles.downloadButton}
+                  style={{ pointerEvents: editedAsset.inventory_number ? 'auto' : 'none', opacity: editedAsset.inventory_number ? 1 : 0.5 }}
+                >
+                  <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
+                </a>
+                <label 
+                  className={styles.barcodeUploadButton} 
+                  title="Upload Barcode Image to set Inventory Number"
+                >
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
+                  <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
+                </label>
+              </div>
+            </div>
           </div>
 
           <div className={styles.detailsSection}>
@@ -492,10 +653,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
               {renderField('Name', 'name')}
 
               {/* Row 2 */}
-              {renderField('Location', 'location', 'text', <AiOutlineEnvironment />)}
+              {renderField('Inventory Number', 'inventory_number', 'text')}
               {renderField('Department', 'department', 'text', <AiOutlineTag />)}
               
               {/* Row 3 */}
+              {renderField('Location', 'location_id', 'text', <AiOutlineEnvironment />)}
+              {renderField('Serial Number', 'serial_number', 'text')}
+              
+              {/* Row 4 */}
               {renderField('Status', 'status', 'select')}
               {renderField('Acquired Date & Time', 'acquired_date', 'datetime-local', <AiOutlineCalendar />)}
 

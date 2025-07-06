@@ -1,6 +1,8 @@
 import axios from 'axios';
 
-// Configure axios to send credentials with requests
-axios.defaults.withCredentials = true;
+export const axiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+  withCredentials: true,
+});
 
-export default axios; 
+export default axiosInstance; 

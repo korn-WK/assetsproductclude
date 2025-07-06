@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { AiOutlineMenu, AiOutlineSearch, AiOutlineUser, AiOutlineClose } from 'react-icons/ai';
+import { AiOutlineMenu, AiOutlineSearch, AiOutlineUser, AiOutlineClose, AiOutlineCamera } from 'react-icons/ai';
 import styles from './Navbar.module.css';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAssets } from '../../../contexts/AssetContext';
@@ -10,9 +10,11 @@ interface NavbarProps {
   title?: string;
   isAdmin?: boolean;
   onMenuClick?: () => void;
+  scanBarcodeIcon?: boolean;
+  onScanBarcodeClick?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick }) => {
+const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, scanBarcodeIcon = false, onScanBarcodeClick }) => {
   const { user, loading, logout } = useAuth();
   const { searchAssets, fetchAssets } = useAssets();
   const [isDropdownOpen, setDropdownOpen] = useState(false);
@@ -110,6 +112,16 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick }) 
               title="Clear search"
             >
               ×
+            </button>
+          )}
+          {scanBarcodeIcon && (
+            <button
+              className={styles.scanBarcodeButton}
+              onClick={onScanBarcodeClick}
+              title="สแกนบาร์โค้ด"
+              type="button"
+            >
+              <AiOutlineCamera className={styles.scanBarcodeIcon} />
             </button>
           )}
         </div>

@@ -6,11 +6,14 @@ interface Asset {
   name: string;
   description: string;
   location: string;
+  location_id?: string;
   department: string;
+  department_id?: string;
   owner: string;
   status: 'active' | 'transferring' | 'audited' | 'missing' | 'broken' | 'disposed'; // Updated status types
   image_url: string | null;
   acquired_date: string;
+  serial_number?: string;
 }
 
 interface AssetContextType {
@@ -46,7 +49,7 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
         }
       }
       const data = await response.json();
-      setAssets(data);
+      setAssets(data.map((asset: any) => ({ ...asset, serial_number: asset.serial_number })));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
       if (err instanceof Error && !err.message.includes('Authentication') && !err.message.includes('Access denied')) {
@@ -78,7 +81,7 @@ export const AssetProvider = ({ children }: { children: ReactNode }) => {
       if (!response.ok) throw new Error('Failed to search assets');
       const data = await response.json();
       console.log('AssetContext: searchAssets data length:', data.length);
-      setAssets(data);
+      setAssets(data.map((asset: any) => ({ ...asset, serial_number: asset.serial_number })));
     } catch (err) {
       console.error('AssetContext: searchAssets error:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');

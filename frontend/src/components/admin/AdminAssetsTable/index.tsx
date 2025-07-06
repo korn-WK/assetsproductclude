@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { AiOutlineCalendar, AiOutlinePlus, AiOutlineSearch, AiOutlineDown } from 'react-icons/ai';
+import { AiOutlineCalendar, AiOutlinePlus, AiOutlineSearch, AiOutlineDown, AiOutlineCamera } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AdminAssetsTable.module.css';
 import Pagination from '../../common/Pagination';
@@ -13,10 +13,13 @@ import { useDropdown } from '../../../contexts/DropdownContext';
 interface Asset {
   id: string;
   asset_code: string;
+  inventory_number: string;
   name: string;
   description: string;
   location: string;
+  room: string;
   department: string;
+  owner_id?: string;
   owner: string;
   status: string;
   image_url: string | null;
@@ -25,7 +28,11 @@ interface Asset {
   updated_at?: string;
 }
 
-const AdminAssetsTable: React.FC = () => {
+interface AdminAssetsTableProps {
+  onScanBarcodeClick?: () => void;
+}
+
+const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick }) => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -104,8 +111,14 @@ const AdminAssetsTable: React.FC = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDepartmentDropdown]);
 
-  // Filter assets based on status, date, and search query
-  const filteredAssets = assets.filter(asset => {
+  // Patch assets to always have inventory_number and room as string
+  const patchedAssets = assets.map(asset => ({
+    ...asset,
+    inventory_number: (asset as any).inventory_number || '',
+    room: (asset as any).room || '',
+  }));
+
+  const filteredAssets = patchedAssets.filter(asset => {
     const matchesStatus = activeFilter === 'All' || 
       (activeFilter === 'Active' && asset.status === 'active') ||
       (activeFilter === 'Transferring' && asset.status === 'transferring') ||
@@ -161,7 +174,11 @@ const AdminAssetsTable: React.FC = () => {
 
   const handleAssetClick = (asset: Asset) => {
     setIsCreating(false);
-    setSelectedAsset(asset);
+    setSelectedAsset({
+      ...asset,
+      inventory_number: asset.inventory_number || '',
+      room: asset.room || '',
+    });
     setIsPopupOpen(true);
   };
 
@@ -224,10 +241,13 @@ const AdminAssetsTable: React.FC = () => {
     setSelectedAsset({
       id: '',
       asset_code: '',
+      inventory_number: '',
       name: '',
       description: '',
       location: '',
+      room: '',
       department: '',
+      owner_id: '',
       owner: '',
       status: 'active',
       image_url: null,
@@ -298,6 +318,7 @@ const AdminAssetsTable: React.FC = () => {
               <p className={styles.listOfEquipment}>Complete asset management for administrators</p>
             </div>
             <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
+              {/* Filter buttons (date, status, department) */}
               <button
                 className={styles.iconButton}
                 onClick={async () => {
@@ -380,48 +401,24 @@ const AdminAssetsTable: React.FC = () => {
                 {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
                 <AiOutlineDown className={styles.dropdownIcon} />
               </button>
-              {showDepartmentDropdown && (
-                <div
-                  ref={dropdownRef}
-                  className={styles.customDropdown}
-                  style={{
-                    position: 'absolute',
-                    top: dropdownPosition.top,
-                    left: dropdownPosition.left,
-                    width: dropdownPosition.width,
-                    background: '#fff',
-                    borderRadius: 8,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                    zIndex: 10,
-                    maxHeight: '200px',
-                    overflowY: 'auto'
-                  }}
+              {/* กล้องอยู่ตรงกลาง */}
+              {onScanBarcodeClick && (
+                <button
+                  className={styles.iconButton}
+                  onClick={onScanBarcodeClick}
+                  title="สแกนบาร์โค้ด"
+                  style={{minWidth: 0}}
                 >
-                  <div
-                    style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: selectedDepartment === 'All' ? '#6366f1' : '#222', background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent' }}
-                    onClick={() => {
-                      setSelectedDepartment('All');
-                      setShowDepartmentDropdown(false);
-                    }}
-                  >
-                    All Departments
-                  </div>
-                  {departments.map(dept => (
-                    <div
-                      key={dept.id}
-                      style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: selectedDepartment === dept.name_th ? '#6366f1' : '#222', background: selectedDepartment === dept.name_th ? '#f3f4f6' : 'transparent' }}
-                      onClick={() => {
-                        setSelectedDepartment(dept.name_th);
-                        setShowDepartmentDropdown(false);
-                      }}
-                    >
-                      {dept.name_th}
-                    </div>
-                  ))}
-                </div>
+                  <AiOutlineCamera />
+                </button>
               )}
-              <button className={styles.createButton} onClick={handleCreateAsset} style={{flex: 1}}>
-                <AiOutlinePlus /> Add New 
+              {/* Add New อยู่ขวาสุด */}
+              <button
+                className={styles.createButton}
+                onClick={handleCreateAsset}
+                style={{minWidth: 0}}
+              >
+                <AiOutlinePlus /> Add New
               </button>
             </div>
             <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
@@ -442,10 +439,13 @@ const AdminAssetsTable: React.FC = () => {
                   <div className={styles.assetCardContent}>
                     <div className={styles.assetCardTitle}>{asset.name}</div>
                     <div className={styles.assetCardMetaRow}>
-                      <span className={styles.assetId}><b>ID:</b> {asset.asset_code}</span>
+                      <span className={styles.assetId}><b>Asset Code:</b> {asset.asset_code}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {asset.location}</span>
+                      <span><b>Inventory No.:</b> {asset.inventory_number || '-'}</span>
+                    </div>
+                    <div className={styles.assetCardMetaRow}>
+                      <span><b>Location:</b> {asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
                       <span><b>Department:</b> {asset.department}</span>
@@ -550,6 +550,16 @@ const AdminAssetsTable: React.FC = () => {
                     Clear
                   </button>
                 )}
+                {onScanBarcodeClick && (
+                  <button
+                    className={styles.iconButton}
+                    onClick={onScanBarcodeClick}
+                    title="สแกนบาร์โค้ด"
+                    style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
+                  >
+                    <AiOutlineCamera />
+                  </button>
+                )}
                 <button className={styles.createButton} onClick={handleCreateAsset}>
                 <AiOutlinePlus /> Add New 
               </button>
@@ -560,14 +570,13 @@ const AdminAssetsTable: React.FC = () => {
               <table className={styles.assetsTable}>
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Image</th>
-                    <th>Name</th>
-                    <th>Location</th>
-                    <th>Department</th>
-                    <th>Owner</th>
-                    <th>Date</th>
-                    <th>Status</th>
+                    <th style={{ textAlign: 'center' }}>Image</th>
+                    <th style={{ textAlign: 'center' }}>Asset Code</th>
+                    <th style={{ textAlign: 'center' }}>Inventory No.</th>
+                    <th style={{ textAlign: 'center' }}>Name</th>
+                    <th style={{ textAlign: 'center' }}>Location</th>
+                    <th style={{ textAlign: 'center' }}>Department</th>
+                    <th style={{ textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -577,8 +586,7 @@ const AdminAssetsTable: React.FC = () => {
                       className={styles.clickableRow}
                       onClick={() => handleAssetClick(asset)}
                     >
-                      <td data-label="ID">{asset.asset_code}</td>
-                      <td data-label="Image">
+                      <td data-label="Image" style={{ textAlign: 'center' }}>
                         {asset.image_url ? (
                           <Image
                             src={asset.image_url}
@@ -601,15 +609,17 @@ const AdminAssetsTable: React.FC = () => {
                           />
                         )}
                       </td>
-                      <td data-label="Name">
+                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{asset.asset_code}</td>
+                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{asset.inventory_number || '-'}</td>
+                      <td data-label="Name">{/* left-aligned for readability */}
                         <div className={styles.assetName}>{asset.name}</div>
                         <div className={styles.assetDescription}>{asset.description}</div>
                       </td>
-                      <td data-label="Location">{asset.location}</td>
-                      <td data-label="Department">{asset.department}</td>
-                      <td data-label="Owner">{asset.owner}</td>
-                      <td data-label="Date">{formatDate(asset.acquired_date)}</td>
-                      <td data-label="Status">
+                      <td data-label="Location" style={{ textAlign: 'center' }}>
+                        {asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}
+                      </td>
+                      <td data-label="Department">{asset.department || '-'}</td>
+                      <td data-label="Status" style={{ textAlign: 'center' }}>
                         <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>
                           {getStatusDisplay(asset.status)}
                         </span>

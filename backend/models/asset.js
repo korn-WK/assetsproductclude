@@ -15,18 +15,29 @@ function validateAssetStatus(status) {
   return VALID_STATUSES.includes(status);
 }
 
-// Get all assets with department and owner information
+// Get all assets with department and location information
 async function getAllAssets() {
   const query = `
     SELECT 
-      a.*,
+      a.id,
+      a.asset_code,
+      a.inventory_number,
+      a.name,
+      a.image_url,
+      a.room,
+      a.status,
+      a.department_id,
       d.name_th as department_name,
-      u.name as owner_name,
-      al.name as location_name
+      a.location_id,
+      l.name as location_name,
+      a.description,
+      a.owner_id,
+      a.acquired_date,
+      a.created_at,
+      a.updated_at
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
-    LEFT JOIN users u ON a.owner_id = u.id
-    LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN asset_locations l ON a.location_id = l.id
     ORDER BY a.id ASC
   `;
   const [rows] = await pool.query(query);
@@ -65,9 +76,9 @@ async function getAssetsByUserDepartment(userDepartmentId) {
 async function getAssetById(id) {
   const query = `
     SELECT 
-      a.*,
-      d.name_th as department_name,
-      u.name as owner_name,
+      a.*, 
+      d.name_th as department_name, 
+      u.name as owner_name, 
       al.name as location_name
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
@@ -97,6 +108,24 @@ async function getAssetByCode(assetCode) {
   return rows[0];
 }
 
+// Find asset by barcode (inventory_number or asset_code)
+async function findAssetByBarcode(barcode) {
+  const query = `
+    SELECT 
+      a.*,
+      d.name_th as department_name,
+      u.name as owner_name,
+      al.name as location_name
+    FROM assets a
+    LEFT JOIN departments d ON a.department_id = d.id
+    LEFT JOIN users u ON a.owner_id = u.id
+    LEFT JOIN asset_locations al ON a.location_id = al.id
+    WHERE a.inventory_number = ? OR a.asset_code = ?
+  `;
+  const [rows] = await pool.query(query, [barcode, barcode]);
+  return rows[0];
+}
+
 // Search assets by a single query string across multiple fields
 async function searchAssets(query) {
   const searchQuery = `%${query}%`;
@@ -111,20 +140,26 @@ async function searchAssets(query) {
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
     WHERE a.asset_code LIKE ? 
+       OR a.inventory_number LIKE ?
        OR a.name LIKE ? 
        OR a.description LIKE ?
        OR d.name_th LIKE ?
        OR al.name LIKE ?
        OR u.name LIKE ?
+       OR a.room LIKE ?
     ORDER BY 
       CASE 
         WHEN a.asset_code LIKE ? THEN 1
-        WHEN a.name LIKE ? THEN 2
-        ELSE 3
+        WHEN a.inventory_number LIKE ? THEN 2
+        WHEN a.name LIKE ? THEN 3
+        ELSE 4
       END,
       a.id ASC
   `;
   const params = [
+    searchQuery,
+    searchQuery,
+    searchQuery,
     searchQuery,
     searchQuery,
     searchQuery,
@@ -153,14 +188,18 @@ async function searchAssetsByUserDepartment(query, userDepartmentId) {
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
     WHERE (a.asset_code LIKE ? 
+       OR a.inventory_number LIKE ?
        OR a.name LIKE ? 
        OR a.description LIKE ?
        OR d.name_th LIKE ?
        OR al.name LIKE ?
-       OR u.name LIKE ?)
+       OR u.name LIKE ?
+       OR a.room LIKE ?)
   `;
 
   const params = [
+    searchQuery,
+    searchQuery,
     searchQuery,
     searchQuery,
     searchQuery,
@@ -178,12 +217,13 @@ async function searchAssetsByUserDepartment(query, userDepartmentId) {
   sql += ` ORDER BY 
     CASE 
       WHEN a.asset_code LIKE ? THEN 1
-      WHEN a.name LIKE ? THEN 2
-      ELSE 3
+      WHEN a.inventory_number LIKE ? THEN 2
+      WHEN a.name LIKE ? THEN 3
+      ELSE 4
     END,
     a.id ASC`;
 
-  params.push(searchQuery, searchQuery);
+  params.push(searchQuery, searchQuery, searchQuery);
 
   const [rows] = await pool.query(sql, params);
   return rows;
@@ -358,16 +398,18 @@ async function createAsset(assetData) {
 
   const query = `
     INSERT INTO assets (
-      asset_code, name, description, location_id, location, 
+      asset_code, inventory_number, serial_number, name, description, location_id, room,
       status, department_id, owner_id, image_url, acquired_date
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `;
   const params = [
     assetData.asset_code,
+    assetData.inventory_number || null,
+    assetData.serial_number || null,
     assetData.name,
     assetData.description,
     assetData.location_id,
-    assetData.location,
+    assetData.room || null,
     assetData.status || "active",
     assetData.department_id,
     assetData.owner_id,
@@ -402,9 +444,12 @@ async function updateAsset(assetId, assetData) {
   };
 
   addField("asset_code", assetData.asset_code);
+  addField("inventory_number", assetData.inventory_number);
+  addField("serial_number", assetData.serial_number);
   addField("name", assetData.name);
   addField("description", assetData.description);
   addField("location_id", assetData.location_id);
+  addField("room", assetData.room);
   addField("status", assetData.status);
   addField("department_id", assetData.department_id);
   addField("owner_id", assetData.owner_id);
@@ -544,6 +589,7 @@ module.exports = {
   getAssetsByUserDepartment,
   getAssetById,
   getAssetByCode,
+  findAssetByBarcode,
   searchAssets,
   searchAssetsByUserDepartment,
   getAssetsByDepartment,

@@ -27,31 +27,31 @@ const { pool } = require("../lib/db.js");
 
 // Helper function to transform asset data consistently for the frontend
 const transformAsset = (asset) => {
-  // Handle image_url properly
   let imageUrl = null;
   if (asset.image_url) {
-    // Check if the URL already has a protocol (http:// or https://)
     if (
       asset.image_url.startsWith("http://") ||
       asset.image_url.startsWith("https://")
     ) {
       imageUrl = asset.image_url;
     } else {
-      // If it's just a path, add the base URL
-      imageUrl = `${process.env.SERVER_URL || "http://localhost:4000"}${
-        asset.image_url
-      }`;
+      imageUrl = `${process.env.SERVER_URL || "http://localhost:4000"}${asset.image_url}`;
     }
   }
 
   return {
     id: asset.id.toString(),
     asset_code: asset.asset_code,
+    inventory_number: asset.inventory_number || null,
+    serial_number: asset.serial_number || null,
     name: asset.name,
     description: asset.description,
-    location: asset.location_name || asset.location || "N/A",
-    department: asset.department_name || "N/A",
-    owner: asset.owner_name || "N/A",
+    location_id: asset.location_id || null,
+    location: asset.location_name || null,
+    room: asset.room || null,
+    department: asset.department_name || null,
+    owner: asset.owner_name || null,
+    owner_id: asset.owner_id || null,
     status: asset.status,
     image_url: imageUrl,
     acquired_date: asset.acquired_date,
@@ -72,15 +72,28 @@ const formatDateTimeForDB = (dateString) => {
 };
 
 async function getAssetByBarcode(req, res) {
-  const { barcode } = req.params;
-  if (!barcode || barcode.length !== 15) {
-    return res.status(400).json({ error: "Barcode must be 15 digits" });
+  try {
+    const { barcode } = req.params;
+    if (!barcode || barcode.trim() === '') {
+      return res.status(400).json({ error: "Barcode is required" });
+    }
+    
+    const cleanBarcode = barcode.trim();
+    console.log(`Searching for barcode: "${cleanBarcode}"`);
+    
+    const asset = await findAssetByBarcode(cleanBarcode);
+    if (!asset) {
+      console.log(`Asset not found for barcode: "${cleanBarcode}"`);
+      return res.status(404).json({ error: "Asset not found" });
+    }
+    
+    console.log(`Found asset: ${asset.name} (ID: ${asset.id}, Asset Code: ${asset.asset_code}, Inventory Number: ${asset.inventory_number})`);
+    const transformedAsset = transformAsset(asset);
+    res.json(transformedAsset);
+  } catch (error) {
+    console.error("Error fetching asset by barcode:", error);
+    res.status(500).json({ error: "Failed to fetch asset" });
   }
-  const asset = await findAssetByBarcode(barcode);
-  if (!asset) {
-    return res.status(404).json({ error: "Asset not found" });
-  }
-  res.json(asset);
 }
 
 async function patchAssetStatus(req, res) {
@@ -307,16 +320,18 @@ async function updateAssetById(req, res) {
 
     // Map frontend fields to database fields
     console.log("Mapping department:", updateData.department);
-    const departmentId = await getDepartmentIdByName(updateData.department);
-    console.log("Mapped department ID:", departmentId);
+    // Use department_id directly from frontend instead of mapping department name
+    const departmentId = updateData.department_id || await getDepartmentIdByName(updateData.department);
+    console.log("Using department ID:", departmentId);
 
     console.log("Mapping owner:", updateData.owner);
-    const ownerId = await getUserIdByName(updateData.owner);
-    console.log("Mapped owner ID:", ownerId);
+    // Use the current user's ID as owner_id instead of mapping owner name
+    const ownerId = req.user.id;
+    console.log("Using current user ID as owner:", ownerId);
 
-    console.log("Mapping location:", updateData.location);
-    const locationId = await getLocationIdByName(updateData.location);
-    console.log("Mapped location ID:", locationId);
+    // Use location_id directly from frontend instead of mapping location name
+    const locationId = updateData.location_id || null;
+    console.log("Using location ID directly:", locationId);
 
     const mappedData = {
       ...updateData,
@@ -451,8 +466,10 @@ async function createAssetController(req, res) {
     }
 
     // Map names to IDs before insertion
-    const departmentId = await getDepartmentIdByName(assetData.department);
-    const locationId = await getLocationIdByName(assetData.location);
+    // Use department_id directly from frontend instead of mapping department name
+    const departmentId = assetData.department_id || await getDepartmentIdByName(assetData.department);
+    // Use location_id directly from frontend instead of mapping location name
+    const locationId = assetData.location_id || null;
 
     const mappedData = {
       ...assetData,

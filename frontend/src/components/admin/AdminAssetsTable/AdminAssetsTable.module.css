@@ -248,14 +248,13 @@
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
 }
-.assetsTable th:nth-child(1), .assetsTable td:nth-child(1) { width: 7% !important; }
+.assetsTable th:nth-child(1), .assetsTable td:nth-child(1) { width: 5% !important; }
 .assetsTable th:nth-child(2), .assetsTable td:nth-child(2) { width: 8% !important; }
-.assetsTable th:nth-child(3), .assetsTable td:nth-child(3) { width: 18% !important; }
-.assetsTable th:nth-child(4), .assetsTable td:nth-child(4) { width: 13% !important; }
-.assetsTable th:nth-child(5), .assetsTable td:nth-child(5) { width: 15% !important; }
+.assetsTable th:nth-child(3), .assetsTable td:nth-child(3) { width: 9% !important; }
+.assetsTable th:nth-child(4), .assetsTable td:nth-child(4) { width: 12% !important; }
+.assetsTable th:nth-child(5), .assetsTable td:nth-child(5) { width: 6% !important; }
 .assetsTable th:nth-child(6), .assetsTable td:nth-child(6) { width: 10% !important; }
-.assetsTable th:nth-child(7), .assetsTable td:nth-child(7) { width: 13% !important; }
-.assetsTable th:nth-child(8), .assetsTable td:nth-child(8) { width: 10% !important; }
+.assetsTable th:nth-child(7), .assetsTable td:nth-child(7) { width: 10% !important; }
 .assetsTable thead th {
     font-weight: 700;
     color: var(--text-color-primary);
@@ -605,10 +604,32 @@
     .rightControls {
         gap: 0.3rem;
     }
-    .iconButton {
-        font-size: 1rem;
-        border-radius: 7px;
-        height: 36px;
+    .iconButton, .createButton {
+        height: 44px;
+        min-width: 44px;
+        padding: 0 1rem;
+        font-size: 1.05rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+    .filterDropdown {
+        height: 44px;
+        min-width: 36px;
+        padding: 0 0.7rem;
+        font-size: 0.95rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+    }
+    .iconButton svg, .createButton svg {
+        font-size: 1.3rem;
+        margin-bottom: 0;
+    }
+    .createButton {
+        gap: 0.5rem;
     }
     .assetsTableContainer {
         margin-top: 0.3rem !important;
@@ -685,11 +706,10 @@
     }
     .createButton {
         height: 44px !important;
-        min-width: 36px;
+        max-width: 6.4rem;
         font-size: 0.97rem;
         border-radius: 8px !important;
         box-shadow: 0 1px 4px rgba(60,60,130,0.08);
-        background: #3721f8;
         border: 1.2px solid #e5e7eb;
         display: flex;
         align-items: center;

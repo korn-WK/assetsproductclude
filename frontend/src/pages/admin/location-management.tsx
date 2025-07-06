@@ -5,7 +5,7 @@ import Navbar from '../../components/common/Navbar';
 import AdminTable from '../../components/admin/AdminTable';
 import FormModal from '../../components/common/FormModal';
 import AdminRoute from '../../components/auth/AdminRoute';
-import styles from '../../../styles/Home.module.css';
+import Layout from '../../components/common/Layout';
 
 interface Location {
   id: number;
@@ -152,20 +152,18 @@ const LocationManagementPage: React.FC = () => {
 
   return (
     <AdminRoute>
-      <div className={styles.container}>
+      <>
         <Head>
           <title>Location Management - Asset Management System</title>
           <meta name="description" content="Manage locations in the asset management system" />
           <link rel="icon" href="/favicon.ico" />
         </Head>
 
-        <AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-
-        <main className={styles.mainContent} style={{ marginLeft: '280px' }}>
+        <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
           <Navbar title="Location Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
-          <div className={styles.content}>
+          <div>
             <AdminTable
-              title="Locations"
+              title=""
               data={locations}
               columns={columns}
               onAdd={handleAdd}
@@ -185,8 +183,8 @@ const LocationManagementPage: React.FC = () => {
               submitText={editingLocation ? 'Update Location' : 'Add Location'}
             />
           </div>
-        </main>
-      </div>
+        </Layout>
+      </>
     </AdminRoute>
   );
 };

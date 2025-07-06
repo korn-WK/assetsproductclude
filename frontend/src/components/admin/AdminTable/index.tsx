@@ -152,24 +152,15 @@ const AdminTable: React.FC<AdminTableProps> = ({
         <div>
           <h2>{title}</h2>
           <p className={styles.totalItems}>Total {data.length} items</p>
+          <p className={styles.description}>Complete {title.toLowerCase()} management for administrators</p>
         </div>
         <button className={styles.addButton} onClick={onAdd}>
           <AiOutlinePlus /> Add New
         </button>
       </div>
 
-      <div className={styles.searchContainer}>
-        <div className={styles.searchBox}>
-          <AiOutlineSearch className={styles.searchIcon} />
-          <input
-            type="text"
-            placeholder={searchPlaceholder}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className={styles.searchInput}
-          />
-        </div>
-      </div>
+      {/* เงื่อนไขแสดง search เฉพาะถ้ามี searchPlaceholder */}
+      
 
       {isMobile ? (
         <>

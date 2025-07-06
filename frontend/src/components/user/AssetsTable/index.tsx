@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Image from 'next/image';
-import { AiOutlineCalendar, AiOutlineDown, AiOutlineClose } from 'react-icons/ai';
+import { AiOutlineCalendar, AiOutlineDown, AiOutlineClose, AiOutlineCamera } from 'react-icons/ai';
 import styles from './AssetsTable.module.css';
 import Pagination from '../../common/Pagination';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
@@ -15,17 +15,26 @@ import { useAuth } from '../../../contexts/AuthContext';
 interface Asset {
   id: string;
   asset_code: string;
+  inventory_number: string;
   name: string;
   description: string;
   location: string;
+  room: string;
   department: string;
+  owner_id?: string;
   owner: string;
   status: string;
   image_url: string | null;
   acquired_date: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-const AssetsTable: React.FC = () => {
+interface AssetsTableProps {
+  onScanBarcodeClick?: () => void;
+}
+
+const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
   const { user } = useAuth();
@@ -159,6 +168,13 @@ const AssetsTable: React.FC = () => {
     currentPage * itemsPerPage
   );
 
+  // Patch assets to always have inventory_number and room as string
+  const patchedAssets = currentAssets.map(asset => ({
+    ...asset,
+    inventory_number: (asset as any).inventory_number || '',
+    room: (asset as any).room || '',
+  }));
+
   const getStatusClass = (status: string) => {
     switch (status) {
       case 'active': return styles.statusActive;
@@ -184,7 +200,11 @@ const AssetsTable: React.FC = () => {
   };
 
   const handleAssetClick = (asset: Asset) => {
-    setSelectedAsset(asset);
+    setSelectedAsset({
+      ...asset,
+      inventory_number: asset.inventory_number || '',
+      room: asset.room || '',
+    });
     setIsPopupOpen(true);
   };
 
@@ -194,7 +214,11 @@ const AssetsTable: React.FC = () => {
   };
 
   const handleAssetUpdate = (updatedAsset: Asset) => {
-    setSelectedAsset(updatedAsset);
+    setSelectedAsset({
+      ...updatedAsset,
+      inventory_number: updatedAsset.inventory_number || '',
+      room: updatedAsset.room || '',
+    });
     fetchAssets();
   };
 
@@ -209,6 +233,17 @@ const AssetsTable: React.FC = () => {
       });
     }
     setShowDepartmentDropdown((prev) => !prev);
+  };
+
+  const handleSearch = () => {
+    // Implement search functionality
+    console.log('Searching for:', searchQuery);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      handleSearch();
+    }
   };
 
   if (loading) {
@@ -245,7 +280,7 @@ const AssetsTable: React.FC = () => {
             <div style={{padding: '0.5rem 0.5rem 0 0.5rem'}}>
               <p className={styles.totalAssets}>Total {assets.length} assets</p>
             </div>
-            <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
+            <div className="filterRow" style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
               <button
                 className={styles.iconButton}
                 onClick={async () => {
@@ -319,15 +354,27 @@ const AssetsTable: React.FC = () => {
                   </div>
                 )}
               </div>
-              <button
-                className={styles.filterDropdown}
-                onClick={handleShowDropdown}
-                ref={filterButtonRef}
-                style={{minWidth: 0}}
-              >
-                {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-                <AiOutlineDown className={styles.dropdownIcon} />
-              </button>
+              {canOnlyView && (
+                <button
+                  className={styles.filterDropdown}
+                  onClick={handleShowDropdown}
+                  ref={filterButtonRef}
+                  style={{minWidth: 0}}
+                >
+                  {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                  <AiOutlineDown className={styles.dropdownIcon} />
+                </button>
+              )}
+              {onScanBarcodeClick && (
+                <button
+                  className={styles.iconButton}
+                  onClick={onScanBarcodeClick}
+                  title="สแกนบาร์โค้ด"
+                  style={{minWidth: 0}}
+                >
+                  <AiOutlineCamera />
+                </button>
+              )}
             </div>
             <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
               <input
@@ -336,11 +383,10 @@ const AssetsTable: React.FC = () => {
                 className={styles.mobileSearchInput}
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
-                style={{width: '100%'}}
               />
             </div>
             <div className={styles.assetCardList}>
-              {currentAssets.map(asset => (
+              {patchedAssets.map(asset => (
                 <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
                   <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
                   <div className={styles.assetCardContent}>
@@ -349,7 +395,7 @@ const AssetsTable: React.FC = () => {
                       <span className={styles.assetId}><b>ID:</b> {asset.asset_code}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {asset.location}</span>
+                      <span><b>Location:</b> {asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
                       <span><b>Department:</b> {asset.department}</span>
@@ -429,19 +475,31 @@ const AssetsTable: React.FC = () => {
             </div>
 
             <div className={styles.assetsControls}>
-              <div className={styles.statusFilters}>
-                {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
-                  <button
-                    key={status}
-                    className={`${styles.filterButton} ${activeFilter === status ? styles.active : ''}`}
-                    onClick={() => {
-                      setActiveFilter(status);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    {status}
-                  </button>
-                ))}
+              <div className={styles.searchAndFilters}>
+                <div className={styles.searchBox}>
+                  <input
+                    type="text"
+                    placeholder="Search assets..."
+                    className={styles.searchInput}
+                    value={searchQuery}
+                    onChange={e => setSearchQuery(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                  />
+                </div>
+                <div className={styles.statusFilters}>
+                  {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
+                    <button
+                      key={status}
+                      className={`${styles.filterButton} ${activeFilter === status ? styles.active : ''}`}
+                      onClick={() => {
+                        setActiveFilter(status);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      {status}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className={styles.rightControls} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0 }}>
@@ -505,71 +563,27 @@ const AssetsTable: React.FC = () => {
                     </button>
                   )}
                 </div>
-                <button
-                  className={styles.filterDropdown}
-                  onClick={handleShowDropdown}
-                  ref={filterButtonRef}
-                  style={{ position: 'relative' }}
-                >
-                  {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-                  <AiOutlineDown className={styles.dropdownIcon} />
-                </button>
-                {showDepartmentDropdown &&
-                  ReactDOM.createPortal(
-                    <div
-                      ref={dropdownRef}
-                      style={{
-                        position: 'absolute',
-                        top: dropdownPosition.top,
-                        left: dropdownPosition.left,
-                        background: 'white',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: 8,
-                        boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
-                        padding: 8,
-                        zIndex: 9999,
-                        minWidth: dropdownPosition.width,
-                        maxHeight: 300,
-                        overflowY: 'auto',
-                      }}
-                    >
-                      <div
-                        style={{
-                          padding: '0.5rem 1rem',
-                          cursor: 'pointer',
-                          fontWeight: selectedDepartment === 'All' ? 600 : 400,
-                          background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent',
-                          borderRadius: 6,
-                        }}
-                        onClick={() => {
-                          setSelectedDepartment('All');
-                          setShowDepartmentDropdown(false);
-                        }}
-                      >
-                        ทุกแผนก (All Departments)
-                      </div>
-                      {departments.map(dep => (
-                        <div
-                          key={dep.id}
-                          style={{
-                            padding: '0.5rem 1rem',
-                            cursor: 'pointer',
-                            fontWeight: selectedDepartment === dep.name_th ? 600 : 400,
-                            background: selectedDepartment === dep.name_th ? '#f3f4f6' : 'transparent',
-                            borderRadius: 6,
-                          }}
-                          onClick={() => {
-                            setSelectedDepartment(dep.name_th);
-                            setShowDepartmentDropdown(false);
-                          }}
-                        >
-                          {dep.name_th} {dep.name_en ? `(${dep.name_en})` : ''}
-                        </div>
-                      ))}
-                    </div>,
-                    document.body
-                  )
-                }
+                {canOnlyView && (
+                  <button
+                    className={styles.filterDropdown}
+                    onClick={handleShowDropdown}
+                    ref={filterButtonRef}
+                    style={{minWidth: 0}}
+                  >
+                    {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                    <AiOutlineDown className={styles.dropdownIcon} />
+                  </button>
+                )}
+                {onScanBarcodeClick && (
+                  <button
+                    className={styles.iconButton}
+                    onClick={onScanBarcodeClick}
+                    title="สแกนบาร์โค้ด"
+                    style={{minWidth: 0, marginLeft: 8}}
+                  >
+                    <AiOutlineCamera />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -577,55 +591,54 @@ const AssetsTable: React.FC = () => {
               <table className={styles.assetsTable}>
                 <thead>
                   <tr>
-                    <th>Asset Name</th>
-                    <th>Asset Code</th>
-                    <th>Location</th>
-                    <th>Department</th>
-                    <th>Acquired Date</th>
-                    <th>Status</th>
+                    <th style={{textAlign: 'center' }}>Image</th>
+                    <th style={{textAlign: 'center' }}>Asset Code</th>
+                    <th style={{textAlign: 'center' }}>Inventory No.</th>
+                    <th style={{textAlign: 'center' }}>Name</th>
+                    <th style={{textAlign: 'center' }}>Location</th>
+                    <th style={{textAlign: 'center' }}>Department</th>
+                    <th style={{textAlign: 'center' }}>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {currentAssets.map(asset => (
+                  {patchedAssets.map(asset => (
                     <tr 
                       key={asset.id} 
                       className={styles.clickableRow}
                       onClick={() => handleAssetClick(asset)}
                     >
-                      <td data-label="Asset Name">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                          {asset.image_url ? (
-                            <Image
-                              src={asset.image_url}
-                              alt={asset.name}
-                              width={60}
-                              height={60}
-                              className={styles.assetImage}
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.src = '/file.svg';
-                              }}
-                            />
-                          ) : (
-                            <Image
-                              src="/file.svg"
-                              alt="No image"
-                              width={60}
-                              height={60}
-                              className={styles.assetImage}
-                            />
-                          )}
-                          <div>
-                            <div className={styles.assetName}>{asset.name}</div>
-                            <div className={styles.assetDescription}>{asset.description}</div>
-                          </div>
-                        </div>
+                      <td data-label="Image" style={{ textAlign: 'center' }}>
+                        {asset.image_url ? (
+                          <Image
+                            src={asset.image_url}
+                            alt={asset.name}
+                            width={60}
+                            height={60}
+                            className={styles.assetImage}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.src = '/file.svg';
+                            }}
+                          />
+                        ) : (
+                          <Image
+                            src="/file.svg"
+                            alt="No image"
+                            width={60}
+                            height={60}
+                            className={styles.assetImage}
+                          />
+                        )}
                       </td>
-                      <td data-label="Asset Code">{asset.asset_code}</td>
-                      <td data-label="Location">{asset.location}</td>
+                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{asset.asset_code}</td>
+                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{asset.inventory_number}</td>
+                      <td data-label="Name">{/* left-aligned for readability */}
+                        <div className={styles.assetName}>{asset.name}</div>
+                        <div className={styles.assetDescription}>{asset.description}</div>
+                      </td>
+                      <td data-label="Location" style={{ textAlign: 'center' }}>{asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</td>
                       <td data-label="Department">{asset.department}</td>
-                      <td data-label="Acquired Date">{formatDate(asset.acquired_date)}</td>
-                      <td data-label="Status">
+                      <td data-label="Status" style={{ textAlign: 'center' }}>
                         <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>
                           {getStatusDisplay(asset.status)}
                         </span>
@@ -635,7 +648,7 @@ const AssetsTable: React.FC = () => {
                 </tbody>
               </table>
               
-              {currentAssets.length === 0 && (
+              {patchedAssets.length === 0 && (
                 <div className={styles.noResults}>
                   <p>No assets found</p>
                 </div>
@@ -658,7 +671,7 @@ const AssetsTable: React.FC = () => {
           asset={selectedAsset}
           isOpen={isPopupOpen}
           onClose={handleClosePopup}
-          onUpdate={handleAssetUpdate}
+          onUpdate={handleAssetUpdate as any}
           isAdmin={false}
           isCreating={false}
         />

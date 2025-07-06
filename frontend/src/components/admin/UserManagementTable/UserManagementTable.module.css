@@ -13,7 +13,7 @@
   align-items: center;
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
-  border-bottom: 1px solid var(--border-color);
+
 }
 
 .header h3 {
@@ -503,4 +503,45 @@
   .tableContainer {
     display: block;
   }
+}
+
+.roleButtonGroup {
+  display: flex;
+  gap: 0;
+  background: #f3f4f6;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-xs);
+}
+
+.roleButton {
+  background: none;
+  border: none;
+  padding: 0.9rem 2.2rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color-secondary);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(.4,2,.3,1);
+  border-radius: 0;
+  outline: none;
+}
+.roleButton:first-child {
+  border-top-left-radius: 12px;
+  border-bottom-left-radius: 12px;
+}
+.roleButton:last-child {
+  border-top-right-radius: 12px;
+  border-bottom-right-radius: 12px;
+}
+.roleButton.active {
+  background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+  color: var(--button-primary-text);
+  box-shadow: var(--shadow-sm);
+  transform: scale(1.08);
+  z-index: 1;
+}
+.roleButton:not(.active):hover {
+  background: #e5e7eb;
+  color: var(--text-color-primary);
 } 

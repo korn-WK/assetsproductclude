@@ -139,6 +139,11 @@ const UserManagementTable: React.FC = () => {
     });
   };
 
+  let userTitle = '';
+  if (roleFilter === 'all') userTitle = 'All Users';
+  else if (roleFilter === 'admin') userTitle = 'Admin';
+  else if (roleFilter === 'user') userTitle = 'User';
+
   if (loading) {
     return (
       <div className={styles.tableContainer}>
@@ -168,43 +173,6 @@ const UserManagementTable: React.FC = () => {
 
   return (
     <>
-      <div className={styles.controlsContainer}>
-        <div className={styles.leftControls}>
-          <div className={styles.searchContainer}>
-            <FaSearch className={styles.searchIcon} />
-            <input
-              type="text"
-              placeholder="Search users..."
-              className={styles.searchInput}
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className={styles.filterButtons}>
-            <div className={styles.dropdown}>
-              <FaUserShield />
-              <select
-                className={styles.filterSelect}
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-              >
-                <option value="all">All Roles</option>
-                <option value="admin">Admin</option>
-                <option value="user">User</option>
-              </select>
-            </div>
-          </div>
-        </div>
-        <div className={styles.actionButtons}>
-          <button className={styles.exportButton} onClick={handleExportPDF}>
-            <FaFilePdf /> Export PDF
-          </button>
-          <button className={styles.addButton} onClick={handleAddUser}>
-            <FaUserPlus /> Add User
-          </button>
-        </div>
-      </div>
-
       {/* Card List for Mobile */}
       <div className={styles.cardList}>
         {filteredUsers.length === 0 ? (
@@ -263,7 +231,44 @@ const UserManagementTable: React.FC = () => {
       {/* Table for Desktop/Tablet */}
       <div className={styles.tableContainer}>
         <div className={styles.header}>
-          <h3>Users ({filteredUsers.length})</h3>
+          <h3>{userTitle} ({filteredUsers.length})</h3>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 16px 0', flexWrap: 'wrap', gap: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div className={styles.filterButtons}>
+              <div className={styles.roleButtonGroup}>
+                <button
+                  className={`${styles.roleButton} ${roleFilter === 'all' ? styles.active : ''}`}
+                  onClick={() => setRoleFilter('all')}
+                  type="button"
+                >
+                  All Roles
+                </button>
+                <button
+                  className={`${styles.roleButton} ${roleFilter === 'admin' ? styles.active : ''}`}
+                  onClick={() => setRoleFilter('admin')}
+                  type="button"
+                >
+                  Admin
+                </button>
+                <button
+                  className={`${styles.roleButton} ${roleFilter === 'user' ? styles.active : ''}`}
+                  onClick={() => setRoleFilter('user')}
+                  type="button"
+                >
+                  User
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className={styles.actionButtons}>
+            <button className={styles.exportButton} onClick={handleExportPDF}>
+              <FaFilePdf /> Export PDF
+            </button>
+            <button className={styles.addButton} onClick={handleAddUser}>
+              <FaUserPlus /> Add User
+            </button>
+          </div>
         </div>
         <table className={styles.table}>
           <thead>

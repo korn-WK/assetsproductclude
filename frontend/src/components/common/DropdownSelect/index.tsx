@@ -17,6 +17,7 @@ interface DropdownSelectProps {
   required?: boolean;
   error?: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 const DropdownSelect: React.FC<DropdownSelectProps> = ({
@@ -29,9 +30,10 @@ const DropdownSelect: React.FC<DropdownSelectProps> = ({
   required = false,
   error,
   className = '',
+  style,
 }) => {
   return (
-    <div className={styles.dropdownContainer}>
+    <div className={styles.dropdownContainer} style={style}>
       <label className={styles.label}>
         {label}
         {required && <span className={styles.required}>*</span>}
@@ -39,12 +41,12 @@ const DropdownSelect: React.FC<DropdownSelectProps> = ({
       <select
         className={`${styles.select} ${error ? styles.error : ''} ${className}`}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value.toString())}
         disabled={disabled}
       >
         <option value="">{placeholder}</option>
         {options.map((option) => (
-          <option key={option.id} value={option.name_th || option.name}>
+          <option key={option.id} value={option.id}>
             {option.name_th || option.name}
           </option>
         ))}

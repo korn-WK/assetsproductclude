@@ -42,6 +42,10 @@ router.get("/departments", getDepartments);
 router.get("/locations", getLocations);
 router.get("/users", getUsers);
 
+// Barcode routes (must be before other routes to avoid conflicts)
+router.get("/barcode/:barcode", verifyToken, getAssetByBarcode);
+router.patch("/barcode/:barcode/status", verifyToken, patchAssetStatus);
+
 // Core asset routes (these need authentication)
 router.get("/", verifyToken, getAssets);
 router.post("/", verifyToken, createAssetController);
@@ -85,8 +89,6 @@ router.post(
 );
 
 // Parameterized routes (must be last to avoid conflicts) - these need authentication
-router.get("/barcode/:barcode", verifyToken, getAssetByBarcode);
-router.patch("/barcode/:barcode/status", verifyToken, patchAssetStatus);
 router.put("/:id", verifyToken, updateAssetById);
 router.delete("/:id", verifyToken, deleteAssetById);
 router.get("/dashboard-graphs", verifyToken, getDashboardGraphs);
