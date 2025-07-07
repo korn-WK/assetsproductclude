@@ -307,6 +307,7 @@ const styles: { [key: string]: React.CSSProperties } = {
   wrapper: {
     display: 'flex',
     minHeight: '100vh',
+    alignItems: 'stretch',
     fontFamily: 'Segoe UI, Arial, sans-serif',
     background: '#ffffff',
   },
@@ -450,7 +451,8 @@ const styles: { [key: string]: React.CSSProperties } = {
   },
   bgImg: {
     width: '100%',
-    height: '100vh',
+    height: '100%',
+    minHeight: '100vh',
     objectFit: 'cover',
     position: 'absolute',
     top: 0,

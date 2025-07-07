@@ -567,7 +567,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
             </div>
             
             <div className={styles.assetsTableContainer}>
-              <table className={styles.assetsTable}>
+              <table className={`${styles.assetsTable} compact`}>
                 <thead>
                   <tr>
                     <th style={{ textAlign: 'center' }}>Image</th>
@@ -620,7 +620,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                       </td>
                       <td data-label="Department">{asset.department || '-'}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
-                        <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>
+                        <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status)}`}>
                           {getStatusDisplay(asset.status)}
                         </span>
                       </td>

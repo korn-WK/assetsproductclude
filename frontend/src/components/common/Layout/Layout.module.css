@@ -6,7 +6,7 @@
 
 .mainContent {
     flex: 1;
-    padding: 2rem;
+    padding: 1rem 2rem 1rem 2rem;
     display: flex;
     flex-direction: column;
     margin-left: 280px;

@@ -380,6 +380,63 @@
     padding: 0.4rem 0.8rem;
     font-size: 0.8rem;
   }
+
+  .mobileControls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+    height: 48px;
+  }
+  .mobileFilterDropdown {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 44px;
+    padding: 0.7rem 1.2rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color);
+    font-size: 1rem;
+    color: var(--text-color-primary);
+    background: #f8fafc;
+    margin-bottom: 0;
+    box-shadow: var(--shadow-xs);
+    appearance: none;
+    position: relative;
+  }
+  .exportButton, .addButton {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    width: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex: none;
+  }
+  .mobileControlsWrapper {
+    width: 100%;
+    margin-top: 2.2rem;
+    margin-bottom: 0.5rem;
+    padding: 0 0.5rem;
+  }
+  .mobileTitleRow {
+    width: 100%;
+    margin-top: 4.5rem;
+    margin-left: 1rem;
+    display: flex;
+    align-items: center;
+  }
+  .mobileUserTitle {
+    font-size: 1.15rem;
+    font-weight: 600;
+    color: var(--text-color-primary);
+    letter-spacing: 0.01em;
+  }
 }
 
 @media (max-width: 480px) {
@@ -544,4 +601,79 @@
 .roleButton:not(.active):hover {
   background: #e5e7eb;
   color: var(--text-color-primary);
+}
+
+.mobileControls {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobileControls {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    padding: 0 0.5rem;
+    height: 48px;
+  }
+  .mobileFilterDropdown {
+    flex: 1 1 0;
+    min-width: 0;
+    height: 44px;
+    padding: 0.7rem 1.2rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--border-color);
+    font-size: 1rem;
+    color: var(--text-color-primary);
+    background: #f8fafc;
+    margin-bottom: 0;
+    box-shadow: var(--shadow-xs);
+    appearance: none;
+    position: relative;
+  }
+  .mobileFilterDropdown:focus {
+    border-color: var(--button-primary-bg);
+    outline: none;
+    background: #eef2ff;
+  }
+  .mobileFilterDropdown::-ms-expand {
+    display: none;
+  }
+  .mobileFilterDropdown::after {
+    content: '';
+    position: absolute;
+    right: 1.2rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0.8em;
+    height: 0.8em;
+    pointer-events: none;
+    background: url('data:image/svg+xml;utf8,<svg fill="gray" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat center center;
+    background-size: contain;
+  }
+  .mobileControls > div {
+    display: flex;
+    gap: 0.5rem;
+  }
+  .exportButton, .addButton {
+    min-width: 44px;
+    min-height: 44px;
+    height: 44px;
+    width: 44px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    flex: none;
+  }
+}
+
+.mobileOnly {
+  display: none;
+}
+@media (max-width: 768px) {
+  .mobileOnly {
+    display: block !important;
+  }
 } 

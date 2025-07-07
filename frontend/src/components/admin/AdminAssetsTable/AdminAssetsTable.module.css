@@ -22,13 +22,16 @@
 .totalAssets {
     font-size: 1rem;
     color: var(--text-color-secondary);
-    margin-bottom: 0.5rem;
+    margin-top: 1rem;
+    margin-bottom: 0;
 }
 
 .listOfEquipment {
     font-size: 1.1rem;
     font-weight: 500;
     color: var(--text-color-primary);
+    margin-top: 1rem;
+    margin-bottom: 0;
 }
 
 .createButton {
@@ -962,4 +965,26 @@
     .mobileFilterRow {
         display: flex !important;
     }
+}
+
+.assetsTable.compact th, .assetsTable.compact td {
+    font-size: 0.78rem !important;
+    padding: 0.35rem 0.25rem !important;
+}
+.assetsTable.compact thead th {
+    font-size: 0.78rem !important;
+    padding: 0.55rem 0.5rem !important;
+}
+.assetsTable.compact tbody td {
+    font-size: 0.78rem !important;
+}
+
+/* ปรับขนาดปุ่มและ badge ให้ compact ด้วย */
+.statusBadge.compact {
+    font-size: 0.7rem !important;
+    padding: 0.18rem 0.5rem !important;
+}
+.actionButton.compact {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 0.85rem !important;
 } 

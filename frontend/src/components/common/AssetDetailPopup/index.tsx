@@ -413,15 +413,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         return (
           <div className={styles.infoItem}>
             <label>{icon} {label}:</label>
-            <select
+            <DropdownSelect
+              label=""
+              options={statusOptions.map(option => ({ id: option.id, name: option.name }))}
               value={value}
-              onChange={(e) => handleInputChange(field, e.target.value)}
+              onChange={(value) => handleInputChange(field, value)}
+              placeholder="Select status"
               className={styles.editSelect}
-            >
-              {statusOptions.map(option => (
-                <option key={option.id} value={option.id}>{option.name}</option>
-              ))}
-            </select>
+            />
           </div>
         );
       } else if (field === 'owner') {
@@ -635,13 +634,15 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
                 >
                   <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
                 </a>
-                <label 
-                  className={styles.barcodeUploadButton} 
-                  title="Upload Barcode Image to set Inventory Number"
-                >
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
-                  <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
-                </label>
+                {isEditing && (
+                  <label 
+                    className={styles.barcodeUploadButton} 
+                    title="Upload Barcode Image to set Inventory Number"
+                  >
+                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
+                    <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
+                  </label>
+                )}
               </div>
             </div>
           </div>

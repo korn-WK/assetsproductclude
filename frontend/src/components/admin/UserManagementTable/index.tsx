@@ -173,6 +173,30 @@ const UserManagementTable: React.FC = () => {
 
   return (
     <>
+      {/* Mobile Controls */}
+      <div className={`${styles.mobileControlsWrapper} ${styles.mobileOnly}`}>
+        <div className={styles.mobileTitleRow}>
+          <span className={styles.mobileUserTitle}>{userTitle} ({filteredUsers.length})</span>
+        </div>
+        <div className={styles.mobileControls}>
+          <select
+            className={styles.mobileFilterDropdown}
+            value={roleFilter}
+            onChange={e => setRoleFilter(e.target.value)}
+          >
+            <option value="all">All Roles</option>
+            <option value="admin">Admin</option>
+            <option value="user">User</option>
+          </select>
+          <button className={styles.exportButton} onClick={handleExportPDF}>
+            <FaFilePdf />
+          </button>
+          <button className={styles.addButton} onClick={handleAddUser}>
+            <FaUserPlus />
+          </button>
+        </div>
+      </div>
+
       {/* Card List for Mobile */}
       <div className={styles.cardList}>
         {filteredUsers.length === 0 ? (

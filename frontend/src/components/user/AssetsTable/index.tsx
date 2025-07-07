@@ -355,15 +355,15 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                 )}
               </div>
               {canOnlyView && (
-                <button
-                  className={styles.filterDropdown}
-                  onClick={handleShowDropdown}
-                  ref={filterButtonRef}
-                  style={{minWidth: 0}}
-                >
-                  {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-                  <AiOutlineDown className={styles.dropdownIcon} />
-                </button>
+              <button
+                className={styles.filterDropdown}
+                onClick={handleShowDropdown}
+                ref={filterButtonRef}
+                style={{minWidth: 0}}
+              >
+                {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                <AiOutlineDown className={styles.dropdownIcon} />
+              </button>
               )}
               {onScanBarcodeClick && (
                 <button
@@ -476,16 +476,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
 
             <div className={styles.assetsControls}>
               <div className={styles.searchAndFilters}>
-                <div className={styles.searchBox}>
-                  <input
-                    type="text"
-                    placeholder="Search assets..."
-                    className={styles.searchInput}
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    onKeyDown={handleKeyDown}
-                  />
-                </div>
+                
                 <div className={styles.statusFilters}>
                   {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
                     <button
@@ -564,15 +555,15 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                   )}
                 </div>
                 {canOnlyView && (
-                  <button
-                    className={styles.filterDropdown}
-                    onClick={handleShowDropdown}
-                    ref={filterButtonRef}
+                <button
+                  className={styles.filterDropdown}
+                  onClick={handleShowDropdown}
+                  ref={filterButtonRef}
                     style={{minWidth: 0}}
-                  >
-                    {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-                    <AiOutlineDown className={styles.dropdownIcon} />
-                  </button>
+                >
+                  {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                  <AiOutlineDown className={styles.dropdownIcon} />
+                </button>
                 )}
                 {onScanBarcodeClick && (
                   <button
@@ -588,7 +579,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
             </div>
 
             <div className={styles.assetsTableContainer}>
-              <table className={styles.assetsTable}>
+              <table className={`${styles.assetsTable} compact`}>
                 <thead>
                   <tr>
                     <th style={{textAlign: 'center' }}>Image</th>
@@ -638,11 +629,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                       </td>
                       <td data-label="Location" style={{ textAlign: 'center' }}>{asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</td>
                       <td data-label="Department">{asset.department}</td>
-                      <td data-label="Status" style={{ textAlign: 'center' }}>
-                        <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>
-                          {getStatusDisplay(asset.status)}
-                        </span>
-                      </td>
+                      <td data-label="Status" style={{ textAlign: 'center' }}><span className={`${styles.statusBadge} compact ${getStatusClass(asset.status)}`}>{getStatusDisplay(asset.status)}</span></td>
                     </tr>
                   ))}
                 </tbody>

@@ -9,8 +9,9 @@ interface PaginationProps {
 }
 
 const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPageChange }) => {
-  // Windowed pagination logic
-  const windowSize = 5;
+  // Responsive window size
+  const isMobile = typeof window !== 'undefined' && window.innerWidth <= 600;
+  const windowSize = isMobile ? 3 : 5;
   let startPage = Math.max(1, currentPage - Math.floor(windowSize / 2));
   let endPage = startPage + windowSize - 1;
   if (endPage > totalPages) {
@@ -29,11 +30,11 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         disabled={currentPage === 1}
         className={styles.pageButton}
       >
-        <AiOutlineLeft /> Previous
+        <AiOutlineLeft /> {isMobile ? '' : 'Previous'}
       </button>
 
       <div className={styles.pageNumbers}>
-        {startPage > 1 && (
+        {startPage > 1 && !isMobile && (
           <>
             <button
               onClick={() => onPageChange(1)}
@@ -53,7 +54,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
             {number}
           </button>
         ))}
-        {endPage < totalPages && (
+        {endPage < totalPages && !isMobile && (
           <>
             {endPage < totalPages - 1 && <span className={styles.ellipsis}>...</span>}
             <button
@@ -71,7 +72,7 @@ const Pagination: React.FC<PaginationProps> = ({ currentPage, totalPages, onPage
         disabled={currentPage === totalPages}
         className={styles.pageButton}
       >
-        Next <AiOutlineRight />
+        {isMobile ? '' : 'Next'} <AiOutlineRight />
       </button>
     </div>
   );
