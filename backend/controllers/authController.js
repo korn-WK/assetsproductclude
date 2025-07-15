@@ -2,7 +2,7 @@
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
-const generateToken = (user) => {
+const generateToken = (user, expiresIn = '15m') => {
   return jwt.sign(
     { 
       id: user.id, 
@@ -14,7 +14,15 @@ const generateToken = (user) => {
       department_id: user.department_id // Add department_id to token
     },
     process.env.JWT_SECRET,
-    { expiresIn: '1h' }
+    { expiresIn }
+  );
+};
+
+const generateRefreshToken = (user) => {
+  return jwt.sign(
+    { id: user.id },
+    process.env.JWT_REFRESH_SECRET,
+    { expiresIn: '7d' }
   );
 };
 
@@ -29,12 +37,19 @@ const googleAuthCallback = (req, res) => {
       picture: req.user.picture || null, // Assuming 'picture' might not always be there
       department_id: req.user.department_id || null // Add department_id to payload
     };
-    const token = generateToken(userPayload);
+    const token = generateToken(userPayload, '15m');
+    const refreshToken = generateRefreshToken(userPayload);
     // Set the JWT as an HttpOnly cookie
     res.cookie('jwt_token', token, {
       httpOnly: true, // IMPORTANT: Accessible only by the web server
       secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
-      maxAge: 24 * 60 * 60 * 1000, // Cookie expires in 24 hours (match token expiry or session expiry)
+      maxAge: 15 * 60 * 1000, // Cookie expires in 24 hours (match token expiry or session expiry)
+      sameSite: 'Lax' // Helps prevent CSRF, adjust if needed for cross-site requests
+    });
+    res.cookie('refresh_token', refreshToken, {
+      httpOnly: true, // IMPORTANT: Accessible only by the web server
+      secure: process.env.NODE_ENV === 'production', // Use HTTPS in production
+      maxAge: 7 * 24 * 60 * 60 * 1000, // Cookie expires in 24 hours (match token expiry or session expiry)
       sameSite: 'Lax' // Helps prevent CSRF, adjust if needed for cross-site requests
     });
 
@@ -49,24 +64,56 @@ const googleAuthCallback = (req, res) => {
   }
 };
 
-const verifyToken = (req, res, next) => {
-  // Get token from HttpOnly cookie instead of Authorization header
+const verifyAndRefreshToken = (req, res, next) => {
   const token = req.cookies.jwt_token;
-
   if (!token) {
-    return res.status(401).json({ message: 'No token provided' });
+    return tryRefreshToken(req, res, next);
   }
-
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
-    next();
+    return next();
   } catch (error) {
-    // Clear expired/invalid cookie
+    // ถ้า access token หมดอายุ ให้ลอง refresh
+    if (error.name === 'TokenExpiredError') {
+      return tryRefreshToken(req, res, next);
+    }
     res.clearCookie('jwt_token');
+    res.clearCookie('refresh_token');
     return res.status(403).json({ message: 'Invalid or expired token' });
   }
 };
+
+function tryRefreshToken(req, res, next) {
+  const refreshToken = req.cookies.refresh_token;
+  if (!refreshToken) {
+    res.clearCookie('jwt_token');
+    res.clearCookie('refresh_token');
+    return res.status(401).json({ message: 'Authentication required (no refresh token)' });
+  }
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    // สร้าง access token ใหม่
+    // (ควร query user จาก DB เพื่อความปลอดภัย แต่ demo นี้ใช้ id จาก refresh token)
+    const user = { id: decoded.id };
+    // คุณอาจต้อง query user จาก DB เพื่อเติมข้อมูล user ให้ครบ
+    // ...
+    // ตัวอย่างนี้จะใช้ข้อมูล minimal
+    const newAccessToken = generateToken(user, '15m');
+    res.cookie('jwt_token', newAccessToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 15 * 60 * 1000,
+      sameSite: 'Lax'
+    });
+    req.user = user;
+    return next();
+  } catch (error) {
+    res.clearCookie('jwt_token');
+    res.clearCookie('refresh_token');
+    return res.status(401).json({ message: 'Session expired, please login again.' });
+  }
+}
 
 const authorizeRoles = (...roles) => {
   return (req, res, next) => {
@@ -88,6 +135,11 @@ const logout = (req, res) => {
     try {
         // Clear the JWT cookie
         res.clearCookie('jwt_token', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'Lax'
+        });
+        res.clearCookie('refresh_token', {
             httpOnly: true,
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'Lax'
@@ -149,10 +201,11 @@ const updateUserDepartment = async (req, res) => {
 
 module.exports = {
   googleAuthCallback,
-  verifyToken,
+  verifyToken: verifyAndRefreshToken,
   authorizeRoles,
   generateToken,
   logout,
   getMe,
   updateUserDepartment,
+  generateRefreshToken, // เผื่อใช้ในอนาคต
 };

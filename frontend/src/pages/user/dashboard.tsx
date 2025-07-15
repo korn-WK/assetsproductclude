@@ -5,6 +5,7 @@ import Navbar from '../../components/common/Navbar';
 import DashboardContent from '../../components/common/DashboardContent';
 import Layout from '../../components/common/Layout';
 import { DashboardProvider, useDashboard } from '../../contexts/DashboardContext';
+import UserRoute from '../../components/auth/UserRoute';
 
 const DashboardContentWrapper: React.FC = () => {
   const { fetchStats } = useDashboard();
@@ -20,20 +21,22 @@ const UserDashboardPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <>
-      <Head>
-        <title>Dashboard - Mae Fah Luang University</title>
-        <meta name="description" content="User Dashboard" />
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+    <UserRoute>
+      <>
+        <Head>
+          <title>Dashboard - Mae Fah Luang University</title>
+          <meta name="description" content="User Dashboard" />
+          <link rel="icon" href="/favicon.ico" />
+        </Head>
 
-      <Layout sidebar={<Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-        <Navbar title="Dashboard" onMenuClick={() => setSidebarOpen(true)} />
-        <DashboardProvider>
-          <DashboardContentWrapper />
-        </DashboardProvider>
-      </Layout>
-    </>
+        <Layout sidebar={<Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
+          <Navbar title="Dashboard" onMenuClick={() => setSidebarOpen(true)} />
+          <DashboardProvider>
+            <DashboardContentWrapper />
+          </DashboardProvider>
+        </Layout>
+      </>
+    </UserRoute>
   );
 };
 

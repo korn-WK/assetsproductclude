@@ -3,12 +3,13 @@ import Head from 'next/head';
 import Sidebar from '../../components/user/Sidebar/index';
 import Navbar from '../../components/common/Navbar';
 import Layout from '../../components/common/Layout';
+import UserRoute from '../../components/auth/UserRoute';
 
 const ReportsPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <>
+    <UserRoute>
       <Head>
         <title>Reports - Mae Fah Luang University</title>
         <meta name="description" content="Asset Management Reports" />
@@ -27,7 +28,7 @@ const ReportsPage: React.FC = () => {
           <p>Asset management reports and analytics will be displayed here.</p>
         </div>
       </Layout>
-    </>
+    </UserRoute>
   );
 };
 

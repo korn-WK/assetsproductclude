@@ -8,6 +8,7 @@ import BarcodeScanner from '../../components/common/BarcodeScanner';
 import AssetDetailPopup from '../../components/common/AssetDetailPopup';
 import Layout from '../../components/common/Layout';
 import { axiosInstance } from '../../lib/axios';
+import UserRoute from '../../components/auth/UserRoute';
 
 const AssetBrowserPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -49,7 +50,7 @@ const AssetBrowserPage: React.FC = () => {
   };
 
   return (
-    <>
+    <UserRoute>
       <Head>
         <title>Asset Browser - Mae Fah Luang University</title>
         <meta name="description" content="Browse and search assets" />
@@ -109,7 +110,7 @@ const AssetBrowserPage: React.FC = () => {
           </div>
         </div>
       )}
-    </>
+    </UserRoute>
   );
 };
 
