@@ -20,6 +20,11 @@ const {
   patchAssetStatus,
   getAssetStats,
   getDashboardGraphs,
+  getPendingAssetAudits,
+  confirmAssetAudits,
+  getAssetAuditHistory,
+  getAssetAuditList,
+  getAllAssetAudits, // <-- เพิ่มตรงนี้
 } = require("../controllers/assetController.js");
 
 const router = express.Router();
@@ -87,6 +92,12 @@ router.post(
     }
   }
 );
+
+// --- Audit routes ---
+router.get("/audits/list", verifyToken, getAssetAuditList);
+router.post("/audits/confirm", verifyToken, confirmAssetAudits);
+router.get("/asset-audits/:assetId", verifyToken, getAssetAuditHistory);
+router.get("/audits/all", verifyToken, getAllAssetAudits);
 
 // Parameterized routes (must be last to avoid conflicts) - these need authentication
 router.put("/:id", verifyToken, updateAssetById);

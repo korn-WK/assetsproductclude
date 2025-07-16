@@ -8,6 +8,7 @@ exports.getAllUsers = async (req, res) => {
       u.name,
       u.email, 
       u.role, 
+      u.department_id, 
       d.name_th as department_name, 
       u.is_active,
       u.picture,

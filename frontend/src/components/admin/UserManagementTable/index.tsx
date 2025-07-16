@@ -1,18 +1,21 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import axios from '../../../lib/axios';
-import { FaEdit, FaTrashAlt, FaSearch, FaFilePdf, FaUserShield, FaUserPlus } from 'react-icons/fa';
+import { FaEdit, FaTrashAlt, FaSearch, FaFilePdf, FaUserShield, FaUserPlus, FaCrown, FaUser } from 'react-icons/fa';
 import Swal from 'sweetalert2';
 import styles from './UserManagementTable.module.css';
 import UserEditPopup from '../UserEditPopup';
 import { formatDate } from '../../../lib/utils';
+import ExcelJS from 'exceljs';
+import { AiOutlineDownload } from 'react-icons/ai';
+import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 
-interface User {
+interface UserType {
   id: number;
   username: string;
   name: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'SuperAdmin' | 'Admin' | 'User';
   department_id: number | null;
   department_name: string | null;
   picture: string | null;
@@ -20,11 +23,12 @@ interface User {
 }
 
 const UserManagementTable: React.FC = () => {
-  const [users, setUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
+  const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
 
   useEffect(() => {
     // Pre-warm the PDF generator on component mount to ensure the font is ready.
@@ -50,7 +54,7 @@ const UserManagementTable: React.FC = () => {
     fetchUsers();
   }, []);
 
-  const handleEdit = (user: User) => {
+  const handleEdit = (user: UserType) => {
     setEditingUser(user);
   };
 
@@ -58,7 +62,7 @@ const UserManagementTable: React.FC = () => {
     setEditingUser(null);
   };
 
-  const handleUpdateUser = (updatedUser: User) => {
+  const handleUpdateUser = (updatedUser: UserType) => {
     setUsers(users.map(user => user.id === updatedUser.id ? { ...user, ...updatedUser } : user));
   };
 
@@ -104,9 +108,21 @@ const UserManagementTable: React.FC = () => {
       (user.email && user.email.toLowerCase().includes(searchLower)) ||
       (user.username && user.username.toLowerCase().includes(searchLower));
 
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    // เปรียบเทียบ role แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่
+    const matchesRole = roleFilter === 'all' || String(user.role || '').toLowerCase() === roleFilter.toLowerCase();
 
-    return matchesSearch && matchesRole;
+    // กรองตามช่วงวันที่ created_at
+    let matchesDate = true;
+    if (dateRange.startDate && dateRange.endDate) {
+      const createdAt = new Date(user.created_at);
+      const start = new Date(dateRange.startDate);
+      start.setHours(0,0,0,0);
+      const end = new Date(dateRange.endDate);
+      end.setHours(23,59,59,999);
+      matchesDate = createdAt >= start && createdAt <= end;
+    }
+
+    return matchesSearch && matchesRole && matchesDate;
   });
 
   const handleExportPDF = async () => {
@@ -130,6 +146,75 @@ const UserManagementTable: React.FC = () => {
     }
   };
 
+  const handleExportXLSX = async () => {
+    if (filteredUsers.length === 0) return;
+    const rows = filteredUsers.map(user => ([
+      user.username || '',
+      user.name || '',
+      user.email || '',
+      user.department_name || '',
+      user.role || '',
+      formatDate(user.created_at),
+    ]));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Users');
+    // Add header
+    worksheet.addRow([
+      'Username',
+      'Name',
+      'Email',
+      'Department',
+      'Role',
+      'Created At',
+    ]);
+    // Add data rows
+    rows.forEach(row => {
+      worksheet.addRow(row);
+    });
+    // Set column widths (auto width)
+    if (worksheet.columns) {
+      worksheet.columns.forEach((column) => {
+        let maxLength = 10;
+        if (typeof column.eachCell === 'function') {
+          column.eachCell({ includeEmpty: true }, (cell) => {
+            const cellValue = cell.value ? cell.value.toString() : '';
+            maxLength = Math.max(maxLength, cellValue.length + 2);
+          });
+        }
+        column.width = maxLength;
+      });
+    }
+    // Center align and add border to all cells
+    worksheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell, colNumber) => {
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        cell.border = {
+          top: { style: 'thin', color: { argb: 'FF000000' } },
+          left: { style: 'thin', color: { argb: 'FF000000' } },
+          bottom: { style: 'thin', color: { argb: 'FF000000' } },
+          right: { style: 'thin', color: { argb: 'FF000000' } },
+        };
+        if (rowNumber === 1) {
+          cell.font = { bold: true };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFD9D9D9' },
+          };
+        }
+      });
+    });
+    // Download file
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'users.xlsx';
+    a.click();
+    window.URL.revokeObjectURL(url);
+  };
+
   const handleAddUser = () => {
     Swal.fire({
       title: "Add New User",
@@ -141,8 +226,11 @@ const UserManagementTable: React.FC = () => {
 
   let userTitle = '';
   if (roleFilter === 'all') userTitle = 'All Users';
-  else if (roleFilter === 'admin') userTitle = 'Admin';
-  else if (roleFilter === 'user') userTitle = 'User';
+  else if (roleFilter === 'SuperAdmin') userTitle = 'SuperAdmin';
+  else if (roleFilter === 'Admin') userTitle = 'Admin';
+  else if (roleFilter === 'User') userTitle = 'User';
+
+  console.log('filteredUsers', filteredUsers);
 
   if (loading) {
     return (
@@ -185,11 +273,17 @@ const UserManagementTable: React.FC = () => {
             onChange={e => setRoleFilter(e.target.value)}
           >
             <option value="all">All Roles</option>
-            <option value="admin">Admin</option>
-            <option value="user">User</option>
+            <option value="SuperAdmin">SuperAdmin</option>
+            <option value="Admin">Admin</option>
+            <option value="User">User</option>
           </select>
-          <button className={styles.exportButton} onClick={handleExportPDF}>
-            <FaFilePdf />
+          <DateRangeFilterButton
+            value={dateRange}
+            onChange={setDateRange}
+            label="Created At"
+          />
+          <button className={styles.exportButton} onClick={handleExportXLSX}>
+            <AiOutlineDownload />
           </button>
           <button className={styles.addButton} onClick={handleAddUser}>
             <FaUserPlus />
@@ -202,7 +296,7 @@ const UserManagementTable: React.FC = () => {
         {filteredUsers.length === 0 ? (
           <div className={styles.noDataCard}>No users found</div>
         ) : (
-          filteredUsers.map((user) => (
+          filteredUsers.map((user: UserType) => (
             <div className={styles.userCard} key={user.id}>
               <div className={styles.cardHeader}>
                 {user.picture ? (
@@ -229,7 +323,7 @@ const UserManagementTable: React.FC = () => {
               </div>
               <div className={styles.cardFields}>
                 <div className={styles.cardField}><span>Department:</span> {user.department_name || 'Not Assigned'}</div>
-                <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'admin' ? styles.roleAdmin : styles.roleUser}`}>{user.role === 'admin' ? 'Admin' : 'User'}</span></div>
+                <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{user.role}</span></div>
               </div>
               <div className={styles.cardActions}>
                 <button
@@ -269,15 +363,22 @@ const UserManagementTable: React.FC = () => {
                   All Roles
                 </button>
                 <button
-                  className={`${styles.roleButton} ${roleFilter === 'admin' ? styles.active : ''}`}
-                  onClick={() => setRoleFilter('admin')}
+                  className={`${styles.roleButton} ${roleFilter === 'SuperAdmin' ? styles.active : ''}`}
+                  onClick={() => setRoleFilter('SuperAdmin')}
+                  type="button"
+                >
+                  SuperAdmin
+                </button>
+                <button
+                  className={`${styles.roleButton} ${roleFilter === 'Admin' ? styles.active : ''}`}
+                  onClick={() => setRoleFilter('Admin')}
                   type="button"
                 >
                   Admin
                 </button>
                 <button
-                  className={`${styles.roleButton} ${roleFilter === 'user' ? styles.active : ''}`}
-                  onClick={() => setRoleFilter('user')}
+                  className={`${styles.roleButton} ${roleFilter === 'User' ? styles.active : ''}`}
+                  onClick={() => setRoleFilter('User')}
                   type="button"
                 >
                   User
@@ -286,8 +387,13 @@ const UserManagementTable: React.FC = () => {
             </div>
           </div>
           <div className={styles.actionButtons}>
-            <button className={styles.exportButton} onClick={handleExportPDF}>
-              <FaFilePdf /> Export PDF
+            <DateRangeFilterButton
+              value={dateRange}
+              onChange={setDateRange}
+              label="Created At"
+            />
+            <button className={styles.exportButton} onClick={handleExportXLSX}>
+              <AiOutlineDownload /> Export XLSX
             </button>
             <button className={styles.addButton} onClick={handleAddUser}>
               <FaUserPlus /> Add User
@@ -320,7 +426,7 @@ const UserManagementTable: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              filteredUsers.map((user) => (
+              filteredUsers.map((user: UserType) => (
                 <tr key={user.id}>
                   <td>
                     {user.picture ? (
@@ -344,10 +450,24 @@ const UserManagementTable: React.FC = () => {
                   <td style={{ fontWeight: '600' }}>{user.username}</td>
                   <td>{user.name}</td>
                   <td>{user.email}</td>
-                  <td>{user.department_name || 'Not Assigned'}</td>
                   <td>
-                    <span className={`${styles.roleBadge} ${user.role === 'admin' ? styles.roleAdmin : styles.roleUser}`}>
-                      {user.role === 'admin' ? 'Admin' : 'User'}
+                    {/* Department */}
+                    {user.department_name ? user.department_name : (user.department_id ? user.department_id : 'Not Assigned')}
+                  </td>
+                  <td>
+                    <span className={
+                      `${styles.roleBadge} ${
+                        user.role === 'SuperAdmin'
+                          ? styles.roleSuperAdmin
+                          : user.role === 'Admin'
+                          ? styles.roleAdmin
+                          : styles.roleUser
+                      }`
+                    }>
+                      {user.role === 'SuperAdmin' && <FaCrown style={{marginRight: 4}} />}
+                      {user.role === 'Admin' && <FaUserShield style={{marginRight: 4}} />}
+                      {user.role === 'User' && <FaUser style={{marginRight: 4}} />}
+                      {user.role}
                     </span>
                   </td>
                   <td>{formatDate(user.created_at)}</td>
@@ -380,7 +500,7 @@ const UserManagementTable: React.FC = () => {
         <UserEditPopup
           user={editingUser}
           onClose={handleClosePopup}
-          onUpdate={handleUpdateUser}
+          onUpdate={handleUpdateUser as any}
         />
       )}
     </>

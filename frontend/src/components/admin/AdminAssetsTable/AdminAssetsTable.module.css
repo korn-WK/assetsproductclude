@@ -203,24 +203,35 @@
 }
 
 .filterDropdown {
-    background-color: var(--main-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
+    background: none;
+    border: none;
     padding: 0.8rem 1.2rem;
-    font-size: 0.95rem;
+    border-radius: 10px;
+    font-size: 1rem;
     font-weight: 500;
-    color: var(--text-color-secondary);
     cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease-in-out;
+    color: var(--text-color-secondary);
+    transition: all 0.2s cubic-bezier(.4,2,.3,1);
+    position: relative;
+    z-index: 1;
+    outline: none;
+    box-shadow: var(--shadow-xs);
+    appearance: none;
+    min-width: 160px;
+    background: var(--main-bg);
+    border: 1px solid var(--border-color);
+    margin-left: 0.5rem;
 }
-
-.filterDropdown:hover {
-    background-color: var(--button-primary-bg);
-    color: var(--button-primary-text);
-    border-color: var(--button-primary-bg);
+.filterDropdown:focus, .filterDropdown:hover {
+  background: #f3f4f6;
+  color: var(--text-color-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transform: scale(1.04);
+  border-color: var(--button-primary-bg);
+}
+.filterDropdown option {
+  color: var(--text-color-primary);
+  background: #fff;
 }
 
 .dropdownIcon {
@@ -344,6 +355,11 @@
     background-color: #f3f4f6;
     color: #6b7280;
     border-color: #d1d5db;
+}
+.statusPending {
+    background-color: #facc15;
+    color: #fff;
+    border-color: #fde047;
 }
 .actionButtons {
     display: flex;
@@ -987,4 +1003,46 @@
 .actionButton.compact {
     padding: 0.35rem 0.5rem !important;
     font-size: 0.85rem !important;
+} 
+
+.departmentFilter {
+  display: inline-block;
+  margin-left: 0.5rem;
+} 
+
+.caretIcon {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #bdbdbd;
+  font-size: 1rem;
+  pointer-events: none;
+  z-index: 2;
+}
+.departmentFilterWrapper {
+  position: relative;
+  display: inline-block;
+} 
+
+.customDropdown {
+  min-width: 180px;
+  max-width: 220px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  z-index: 10;
+}
+.customDropdown div {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0.6rem 1rem;
+  cursor: pointer;
+}
+.customDropdown div:hover, .customDropdown div:focus {
+  background: #f3f4f6;
+  color: #6366f1;
 } 

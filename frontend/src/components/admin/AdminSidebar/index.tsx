@@ -63,6 +63,12 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ open, onClose }) => {
               </Link>
             </li>
             <li className={styles.navItem}>
+              <Link href="/admin/asset-verification-all" className={styles.navLink} onClick={handleNavClick}>
+                  <AiOutlineFileText className={styles.icon} />
+                  <span>Asset Verification </span>
+              </Link>
+            </li>
+            <li className={styles.navItem}>
               <Link href="/admin/reports" className={styles.navLink} onClick={handleNavClick}>
                   <AiOutlineFileText className={styles.icon} />
                   <span>Admin Reports</span>

@@ -49,9 +49,9 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-app.use('/api/assets', assetRoutes);
+app.use('/api/assets', assetRoutes); // สำหรับ asset
+app.use('/api', userRoutes);         // สำหรับ user (จะได้ /api/users ที่ field ครบ)
 app.use('/api/auth', authRoutes);
-app.use('/api', userRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/barcode', barcodeRoutes);

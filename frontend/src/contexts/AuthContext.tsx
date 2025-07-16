@@ -38,7 +38,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const isAdmin = !!(user?.role === 'admin' || user?.email === 'admin@mfu.ac.th' || user?.email?.includes('admin'));
+  // Update isAdmin logic
+  // Only SuperAdmin is considered admin for admin routes
+  const isAdmin = !!(user?.role?.toLowerCase() === 'superadmin');
 
   useEffect(() => {
     checkAuthStatus();

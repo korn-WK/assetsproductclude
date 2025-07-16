@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, CSSProperties } from 'react';
 import Image from 'next/image';
-import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineDownload } from 'react-icons/ai';
+import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineDownload, AiOutlineHistory } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AssetDetailPopup.module.css';
 import DropdownSelect from '../DropdownSelect';
@@ -8,6 +8,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useDropdown } from '../../../contexts/DropdownContext';
 import { formatDate } from '../../../lib/utils';
 import { generateBarcode, sanitizeBarcodeText, isValidBarcodeText } from '../../../lib/barcodeUtils';
+import { QRCodeCanvas } from 'qrcode.react';
+import jsQR from 'jsqr';
 
 interface Asset {
   id: string;
@@ -37,9 +39,18 @@ interface AssetDetailPopupProps {
   onDelete?: (assetId: string) => void;
   isAdmin?: boolean;
   isCreating?: boolean;
+  showAuditHistory?: boolean; // เพิ่ม prop นี้
 }
 
-const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false }) => {
+interface AuditLog {
+  id: number;
+  status: string;
+  note: string;
+  user_name: string;
+  checked_at: string;
+}
+
+const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false, showAuditHistory = false }) => {
   const initialAsset = asset ? { ...asset } : null;
   const [editedAsset, setEditedAsset] = useState<Asset | null>(initialAsset);
   const [isEditing, setIsEditing] = useState(false);
@@ -49,6 +60,16 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const { user } = useAuth();
   const { departments, locations, loading: dropdownLoading } = useDropdown();
   const barcodeRef = useRef<SVGSVGElement>(null);
+  const [codeType, setCodeType] = useState<'barcode' | 'qrcode'>('barcode');
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
+  const [loadingAudit, setLoadingAudit] = useState(false);
+
+  // Camera modal state
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
 
   // Check if user can edit (admin or user with department)
   const canEdit = isAdmin || (user && user.department_id !== null);
@@ -88,13 +109,23 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   }, [asset, isCreating, user]);
 
   useEffect(() => {
-    if (barcodeRef.current && editedAsset?.inventory_number) {
+    if (codeType === 'barcode' && barcodeRef.current && editedAsset?.inventory_number) {
       generateBarcode(barcodeRef.current, editedAsset.inventory_number);
-    } else if (barcodeRef.current) {
-      // Clear barcode if no inventory_number
+    } else if (codeType === 'barcode' && barcodeRef.current) {
       barcodeRef.current.innerHTML = '';
     }
-  }, [editedAsset?.inventory_number]);
+  }, [codeType, editedAsset?.inventory_number]);
+
+  useEffect(() => {
+    if (showAuditHistory && isOpen && asset?.id) {
+      setLoadingAudit(true);
+      fetch(`/api/asset-audits/${asset.id}`)
+        .then(res => res.json())
+        .then(data => setAuditLogs(data))
+        .catch(() => setAuditLogs([]))
+        .finally(() => setLoadingAudit(false));
+    }
+  }, [showAuditHistory, isOpen, asset?.id]);
 
   if (!isOpen || !asset || !editedAsset) return null;
 
@@ -153,6 +184,10 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         });
       }
       
+      setEditedAsset(prev => prev ? { ...prev, [field]: limitedValue } : null);
+    } else if (field === 'inventory_number') {
+      // Limit inventory_number to 20 characters
+      const limitedValue = value.slice(0, 20);
       setEditedAsset(prev => prev ? { ...prev, [field]: limitedValue } : null);
     } else {
       setEditedAsset(prev => prev ? { ...prev, [field]: value } : null);
@@ -213,15 +248,42 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const formData = new FormData();
-    formData.append('barcodeImage', file);
-    const res = await fetch('/api/barcode/decode', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (data.code) {
-      setEditedAsset(prev => prev ? { ...prev, inventory_number: data.code } : null);
-    } else {
-      alert('Barcode not detected');
-    }
+
+    // 1. decode QR code ฝั่ง frontend ก่อน
+    const fileUrl = URL.createObjectURL(file);
+    const img = new window.Image();
+    img.src = fileUrl;
+    img.onload = async () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const qr = jsQR(imageData.data, imageData.width, imageData.height);
+        if (qr && qr.data) {
+          setEditedAsset(prev => prev ? { ...prev, inventory_number: qr.data } : null);
+          URL.revokeObjectURL(fileUrl);
+          return;
+        }
+      }
+      // 2. ถ้าไม่เจอ QR code ให้ส่งไป backend decode barcode เหมือนเดิม
+      const formData = new FormData();
+      formData.append('barcodeImage', file);
+      const res = await fetch('/api/barcode/decode', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (data.code) {
+        setEditedAsset(prev => prev ? { ...prev, inventory_number: data.code } : null);
+      } else {
+        alert('Barcode or QR code not detected');
+      }
+      URL.revokeObjectURL(fileUrl);
+    };
+    img.onerror = () => {
+      alert('Cannot read image file');
+      URL.revokeObjectURL(fileUrl);
+    };
   };
 
   const handleSave = async () => {
@@ -232,15 +294,6 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       Swal.fire({
         title: 'Validation Error',
         text: 'Asset name is required.',
-        icon: 'error'
-      });
-      return;
-    }
-    
-    if (!editedAsset.asset_code?.trim()) {
-      Swal.fire({
-        title: 'Validation Error',
-        text: 'Asset code is required.',
         icon: 'error'
       });
       return;
@@ -312,15 +365,13 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       if (response.ok) {
         const resultAsset = await response.json();
         onUpdate?.(resultAsset);
+        onClose(); // ปิด popup ทันที
         Swal.fire({
           title: isCreating ? 'Created!' : 'Saved!',
           text: `Asset has been ${isCreating ? 'created' : 'updated'} successfully.`,
           icon: 'success',
           timer: 1500,
           showConfirmButton: false
-        }).then(() => {
-          // Close the popup after the success message
-          onClose();
         });
       } else {
         const errorData = await response.json();
@@ -389,6 +440,22 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
   const headerText = isCreating ? "Add New Asset" : "Asset Detail";
 
+  // Fields required for validation (must be filled)
+  const requiredFields: (keyof Asset)[] = ['name', 'inventory_number', 'location_id', 'department_id', 'status'];
+  // Fields that should show a red asterisk in the label
+  const requiredLabelFields: (keyof Asset)[] = ['name', 'inventory_number', 'location_id', 'department', 'status'];
+
+  // Helper to check if all required fields are filled
+  const isRequiredFilled = (asset: Asset | null) => {
+    if (!asset) return false;
+    return requiredFields.every(f => {
+      if (f === 'location_id') return !!asset.location_id && asset.location_id !== '';
+      if (f === 'department_id') return !!asset.department_id && asset.department_id !== '';
+      if (f === 'status') return !!asset.status && asset.status !== '';
+      return !!(asset as any)[f] && (asset as any)[f].toString().trim() !== '';
+    });
+  };
+
   const renderField = (label: string, field: keyof Asset, type: string = 'text', icon?: React.ReactNode) => {
     const value = editedAsset[field] as string;
     
@@ -396,11 +463,18 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     const readOnlyFields = ['owner', 'created_at', 'updated_at'];
     const isReadOnlyForUser = !isAdmin && readOnlyFields.includes(field);
     
+    // Helper to render label with asterisk if required
+    const renderLabel = () => (
+      <>
+        {icon} {label} :{requiredLabelFields.includes(field) ? <b className={styles.redAsterisk}>*</b> : ''}
+      </>
+    );
+    
     if (isEditing && !isReadOnlyForUser) {
       if (type === 'textarea') {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
+            <label>{renderLabel()}</label>
             <textarea
               value={value || ''}
               onChange={(e) => handleInputChange(field, e.target.value)}
@@ -412,7 +486,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       } else if (type === 'select' && field === 'status') {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
+            <label>{renderLabel()}</label>
             <DropdownSelect
               label=""
               options={statusOptions.map(option => ({ id: option.id, name: option.name }))}
@@ -426,14 +500,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       } else if (field === 'owner') {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
+            <label>{renderLabel()}</label>
             <span className={styles.readOnlyField}>{value || 'N/A'}</span>
           </div>
         );
       } else if (field === 'location_id') {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} Location:</label>
+            <label>{renderLabel()}</label>
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
               {dropdownLoading ? (
                 <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
@@ -465,7 +539,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       } else if (field === 'department') {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
+            <label>{renderLabel()}</label>
             {dropdownLoading ? (
               <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
             ) : (
@@ -497,7 +571,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
+            <label>{renderLabel()}</label>
             <input
               type="datetime-local"
               value={formatForInput(value)}
@@ -509,13 +583,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       } else {
         return (
           <div className={styles.infoItem}>
-            <label>{icon} {label}:</label>
+            <label>{renderLabel()}</label>
             <input
               type={type}
               value={value || ''}
               onChange={(e) => handleInputChange(field, e.target.value)}
               className={styles.editInput}
-              placeholder={field === 'asset_code' ? 'Enter asset code (max 50 chars, English letters, numbers, symbols only)' : ''}
+              placeholder={field === 'asset_code' ? '' : ''}
+              maxLength={field === 'inventory_number' ? 20 : undefined}
             />
           </div>
         );
@@ -540,15 +615,137 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       
       return (
         <div className={styles.infoItem}>
-          <label>{icon} {label}:</label>
+          <label>{icon} {label} :</label>
           <span className={styles.readOnlyField}>{displayValue}</span>
         </div>
       );
     }
   };
 
+  // Open camera modal and start webcam
+  const handleOpenCamera = async () => {
+    setShowCamera(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setCameraStream(stream);
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play();
+        }
+      }, 100);
+    } catch (err) {
+      Swal.fire({ title: 'Camera Error', text: 'Cannot access camera', icon: 'error' });
+      setShowCamera(false);
+    }
+  };
+
+  // Close camera modal and stop webcam
+  const handleCloseCamera = () => {
+    setShowCamera(false);
+    setCapturedPhoto(null);
+    if (cameraStream) {
+      cameraStream.getTracks().forEach(track => track.stop());
+      setCameraStream(null);
+    }
+  };
+
+  // Capture photo from video
+  const handleCapturePhoto = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const dataUrl = canvas.toDataURL('image/jpeg');
+        setCapturedPhoto(dataUrl);
+      }
+    }
+  };
+
+  // Use captured photo as asset image
+  const handleUsePhoto = () => {
+    if (capturedPhoto) {
+      fetch(capturedPhoto)
+        .then(res => res.blob())
+        .then(blob => {
+          const file = new File([blob], 'asset-photo.jpg', { type: 'image/jpeg' });
+          setImageFile(file);
+          setImagePreview(capturedPhoto);
+          handleCloseCamera();
+        });
+    }
+  };
+
+  // Responsive style for camera modal
+  const getCameraModalStyle = (): React.CSSProperties => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 600) {
+      return {
+        width: '90vw',
+        height: '80vh',
+        maxWidth: '98vw',
+        maxHeight: '98vh',
+        background: '#111',
+        borderRadius: 18,
+        boxShadow: '0 8px 32px #0008',
+        position: 'relative',
+        display: 'flex',
+        flexDirection: 'column' as any,
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden',
+      };
+    }
+    return {
+      width: '50vw',
+      height: '75vh',
+      maxWidth: 500,
+      maxHeight: '80vh',
+      background: '#111',
+      borderRadius: 18,
+      boxShadow: '0 8px 32px #0008',
+      position: 'relative',
+      display: 'flex',
+      flexDirection: 'column' as any,
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    };
+  };
+
+  // Camera modal UI helpers
+  const CameraModal = () => (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 3000, background: 'rgba(20,20,20,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={getCameraModalStyle()}>
+        {/* Close button */}
+        <button onClick={handleCloseCamera} style={{ position: 'absolute', top: 16, right: 16, background: 'rgba(0,0,0,0.5)', border: 'none', borderRadius: '50%', width: 40, height: 40, color: '#fff', fontSize: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }} aria-label="ปิดกล้อง">×</button>
+        {/* Camera or Preview */}
+        {!capturedPhoto ? (
+          <>
+            <video ref={videoRef} style={{ width: '100%', height: '100%', objectFit: 'cover', background: '#222', borderRadius: 18 }} autoPlay muted playsInline />
+            {/* Capture button */}
+            <button onClick={handleCapturePhoto} style={{ position: 'absolute', bottom: 24, left: '50%', transform: 'translateX(-50%)', width: 64, height: 64, borderRadius: '50%', background: '#fff', border: '6px solid #eee', boxShadow: '0 2px 12px #0008', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }} aria-label="ถ่ายภาพ"></button>
+          </>
+        ) : (
+          <>
+            <img src={capturedPhoto} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18 }} />
+            {/* Retake & Use Photo buttons */}
+            <div style={{ position: 'absolute', bottom: 16, left: 0, width: '100%', display: 'flex', justifyContent: 'space-between', padding: '0 18px', zIndex: 10 }}>
+              <button onClick={() => setCapturedPhoto(null)} style={{ background: '#fff', color: '#2196f3', border: 'none', borderRadius: 20, padding: '10px 22px', fontSize: 16, fontWeight: 600, boxShadow: '0 2px 8px #0003' }}>ถ่ายใหม่</button>
+              <button onClick={handleUsePhoto} style={{ background: '#2196f3', color: '#fff', border: 'none', borderRadius: 20, padding: '10px 22px', fontSize: 16, fontWeight: 600, boxShadow: '0 2px 8px #0003' }} disabled={!capturedPhoto}>ใช้รูปภาพ</button>
+            </div>
+          </>
+        )}
+        <canvas ref={canvasRef} style={{ display: 'none' }} />
+      </div>
+    </div>
+  );
+
   return (
-    <div className={styles.overlay} onClick={handleClose}>
+    <div className={styles.overlay} onClick={showCamera ? undefined : handleClose}>
       <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2>{headerText}</h2>
@@ -587,9 +784,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
                   className={styles.fileInput}
                   id="image-upload"
                 />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
                 <label htmlFor="image-upload" className={styles.uploadButton}>
                   Change Image
                 </label>
+                 <button type="button" className={styles.cameraButton} onClick={handleOpenCamera}>
+                   <img src="/add-photo.png" alt="Take Photo" width={24} height={24} style={{ display: 'block' }} />
+                 </button>
+                </div>
               </div>
             ) : (
               <Image
@@ -606,44 +808,120 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             )}
             {/* Barcode SVG + 3 icon buttons */}
             <div className={styles.barcodeContainer}>
-              {!editedAsset.inventory_number && (
-                <div style={{ 
-                  fontSize: '12px', 
-                  color: '#666', 
-                  marginBottom: '8px',
-                  textAlign: 'center'
-                }}>
-                </div>
-              )}
-              <svg ref={barcodeRef} width={100} height={24}></svg>
-              <div className={styles.barcodeActions}>
-                <button 
-                  onClick={handlePrintBarcode} 
-                  title="Print Barcode" 
-                  className={styles.printButton}
-                  disabled={!editedAsset.inventory_number}
+              {/* Toggle switch อยู่ติดกับ barcode/QR code */}
+              <div className={styles.toggleSwitch} style={{ marginBottom: 4 }}>
+                <button
+                  className={codeType === 'barcode' ? styles.active : ''}
+                  onClick={() => setCodeType('barcode')}
+                  type="button"
                 >
-                  <img src="/print.png" alt="Print" width={24} height={24} className={styles.barcodeIcon} />
+                  Barcode
                 </button>
-                <a
-                  href={editedAsset.inventory_number ? `/api/barcode/${editedAsset.inventory_number}` : '#'}
-                  download={editedAsset.inventory_number ? `barcode-${editedAsset.inventory_number}.png` : undefined}
-                  title="Download Barcode"
-                  className={styles.downloadButton}
-                  style={{ pointerEvents: editedAsset.inventory_number ? 'auto' : 'none', opacity: editedAsset.inventory_number ? 1 : 0.5 }}
+                <button
+                  className={codeType === 'qrcode' ? styles.active : ''}
+                  onClick={() => setCodeType('qrcode')}
+                  type="button"
                 >
-                  <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
-                </a>
-                {isEditing && (
-                  <label 
-                    className={styles.barcodeUploadButton} 
-                    title="Upload Barcode Image to set Inventory Number"
-                  >
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
-                    <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
-                  </label>
-                )}
+                  QR Code
+                </button>
               </div>
+              {/* barcode/qr code display */}
+              {codeType === 'barcode' ? (
+                <>
+                  <svg ref={barcodeRef} width={140} height={36}></svg>
+                  <div className={styles.barcodeActions}>
+                    <button 
+                      onClick={handlePrintBarcode} 
+                      title="Print Barcode" 
+                      className={styles.printButton}
+                      disabled={!editedAsset.inventory_number}
+                    >
+                      <img src="/print.png" alt="Print" width={24} height={24} className={styles.barcodeIcon} />
+                    </button>
+                    <a
+                      href={editedAsset.inventory_number ? `/api/barcode/${editedAsset.inventory_number}` : '#'}
+                      download={editedAsset.inventory_number ? `barcode-${editedAsset.inventory_number}.png` : undefined}
+                      title="Download Barcode"
+                      className={styles.downloadButton}
+                      style={{ pointerEvents: editedAsset.inventory_number ? 'auto' : 'none', opacity: editedAsset.inventory_number ? 1 : 0.5 }}
+                    >
+                      <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
+                    </a>
+                    {/* ปุ่ม upload แสดงทั้งสองโหมด */}
+                    {isEditing && (
+                      <label 
+                        className={styles.barcodeUploadButton} 
+                        title="Upload Barcode/QR Image to set Inventory Number"
+                      >
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
+                        <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
+                      </label>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    {editedAsset.inventory_number ? (
+                      <QRCodeCanvas value={editedAsset.inventory_number} size={100} level="M" includeMargin={true} />
+                    ) : (
+                      <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', textAlign: 'center' }}>
+                        No Inventory Number
+                      </div>
+                    )}
+                  </div>
+                  <div className={styles.barcodeActions}>
+                    {/* Download QR code as PNG */}
+                    <button
+                      onClick={() => {
+                        const canvas = document.querySelector('canvas');
+                        if (canvas) {
+                          const url = canvas.toDataURL('image/png');
+                          const a = document.createElement('a');
+                          a.href = url;
+                          a.download = `qrcode-${editedAsset.inventory_number}.png`;
+                          a.click();
+                        }
+                      }}
+                      title="Download QR Code"
+                      className={styles.downloadButton}
+                      disabled={!editedAsset.inventory_number}
+                    >
+                      <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
+                    </button>
+                    {/* Print QR code */}
+                    <button
+                      onClick={() => {
+                        const canvas = document.querySelector('canvas');
+                        if (canvas) {
+                          const dataUrl = canvas.toDataURL('image/png');
+                          const printWindow = window.open('', '', 'width=400,height=400');
+                          if (printWindow) {
+                            printWindow.document.write(`<img src='${dataUrl}' style='width:200px;height:200px;' />`);
+                            printWindow.document.close();
+                            printWindow.print();
+                          }
+                        }
+                      }}
+                      title="Print QR Code"
+                      className={styles.printButton}
+                      disabled={!editedAsset.inventory_number}
+                    >
+                      <img src="/print.png" alt="Print" width={24} height={24} className={styles.barcodeIcon} />
+                    </button>
+                    {/* ปุ่ม upload แสดงทั้งสองโหมด */}
+                    {isEditing && (
+                      <label 
+                        className={styles.barcodeUploadButton} 
+                        title="Upload Barcode/QR Image to set Inventory Number"
+                      >
+                        <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
+                        <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
+                      </label>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -692,13 +970,52 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           </div>
         </div>
 
+        {/* ประวัติการตรวจนับ (Audit Log) */}
+        {showAuditHistory && (
+        <div style={{ margin: '2rem 0 1rem 0' }}>
+          <h3 style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 18, marginBottom: 8 }}>
+            <AiOutlineHistory /> ประวัติการตรวจนับ
+          </h3>
+          {loadingAudit ? (
+            <div style={{ color: '#888', fontSize: 15 }}>กำลังโหลดประวัติ...</div>
+          ) : auditLogs.length === 0 ? (
+            <div style={{ color: '#888', fontSize: 15 }}>ไม่พบประวัติการตรวจนับ</div>
+          ) : (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 15, background: '#f9fafb', borderRadius: 8 }}>
+              <thead>
+                <tr style={{ background: '#f3f4f6' }}>
+                  <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>วันที่</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>สถานะ</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>หมายเหตุ</th>
+                  <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>ผู้ตรวจ</th>
+                </tr>
+              </thead>
+              <tbody>
+                {auditLogs.map(log => (
+                  <tr key={log.id}>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{formatDate(log.checked_at)}</td>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{log.status}</td>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{log.note}</td>
+                    <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{log.user_name}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        )}
+
         <div className={styles.footer}>
           {isEditing ? (
             <div className={styles.editFooter}>
               <button
                 className={styles.saveBtn}
                 onClick={handleSave}
-                disabled={loading}
+                disabled={loading || !isRequiredFilled(editedAsset)}
+                style={{
+                  background: (!isRequiredFilled(editedAsset) || loading) ? '#d1d5db' : '#10b981',
+                  cursor: (!isRequiredFilled(editedAsset) || loading) ? 'not-allowed' : 'pointer',
+                }}
               >
                 {loading ? "Saving..." : "Save Changes"}
               </button>
@@ -727,6 +1044,8 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           )}
         </div>
       </div>
+      {/* Camera Modal (mobile-style) */}
+      {showCamera && <CameraModal />}
     </div>
   );
 };

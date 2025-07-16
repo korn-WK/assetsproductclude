@@ -7,7 +7,7 @@ interface UserRouteProps {
 }
 
 const UserRoute: React.FC<UserRouteProps> = ({ children }) => {
-  const { isAuthenticated, isAdmin, loading } = useAuth();
+  const { isAuthenticated, isAdmin, loading, user } = useAuth();
   const router = useRouter();
 
   if (loading) {
@@ -20,8 +20,8 @@ const UserRoute: React.FC<UserRouteProps> = ({ children }) => {
     return null;
   }
 
-  // Redirect to admin dashboard if admin
-  if (isAdmin) {
+  // Redirect to admin dashboard if superadmin
+  if (user?.role?.toLowerCase() === 'superadmin') {
     router.push('/admin/dashboard');
     return null;
   }

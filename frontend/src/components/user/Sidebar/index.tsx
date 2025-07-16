@@ -3,6 +3,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { AiFillHome, AiOutlineBarChart, AiOutlineFileText, AiOutlineClose } from 'react-icons/ai';
 import styles from './Sidebar.module.css';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface SidebarProps {
   open: boolean;
@@ -10,6 +11,7 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
+  const { user } = useAuth();
   return (
     <>
       {/* Overlay (mobile only) */}
@@ -30,17 +32,26 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
         <nav className={styles.nav}>
           <ul>
             <li className={styles.navItem}>
-              <Link href="/user/asset-browser" className={styles.navLink + ' ' + styles.active}>
-                  <AiFillHome className={styles.icon} />
-                  <span>Assets</span>
-              </Link>
-            </li>
-            <li className={styles.navItem}>
-              <Link href="/user/dashboard" className={styles.navLink}>
+              <Link href="/user/dashboard" className={styles.navLink + ' ' + styles.active}>
                   <AiOutlineBarChart className={styles.icon} />
                   <span>Dashboard</span>
               </Link>
             </li>
+            <li className={styles.navItem}>
+              <Link href="/user/asset-browser" className={styles.navLink}>
+                  <AiFillHome className={styles.icon} />
+                  <span>Assets</span>
+              </Link>
+            </li>
+            {/* Asset Verification for Admin only */}
+            {user?.role?.toLowerCase() === 'admin' && (
+              <li className={styles.navItem}>
+                <Link href="/user/asset-verification" className={styles.navLink}>
+                  <AiOutlineFileText className={styles.icon} />
+                  <span>Asset Verification</span>
+                </Link>
+              </li>
+            )}
             <li className={styles.navItem}>
               <Link href="/user/reports" className={styles.navLink}>
                   <AiOutlineFileText className={styles.icon} />

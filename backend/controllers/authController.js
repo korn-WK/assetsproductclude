@@ -22,7 +22,7 @@ const generateRefreshToken = (user) => {
   return jwt.sign(
     { id: user.id },
     process.env.JWT_REFRESH_SECRET,
-    { expiresIn: '7d' }
+    { expiresIn: '1d' }
   );
 };
 
@@ -54,9 +54,9 @@ const googleAuthCallback = (req, res) => {
     });
 
     // Check if user is admin and redirect accordingly
-    const isAdmin = req.user.role === 'admin' || req.user.email === 'admin@mfu.ac.th' || req.user.email?.includes('admin');
-    const redirectUrl = isAdmin ? `${process.env.CLIENT_URL}/admin/dashboard` : `${process.env.CLIENT_URL}/user/asset-browser`;
-    
+    const isSuperAdmin = req.user.role === 'SuperAdmin' || req.user.email === 'admin@mfu.ac.th' || req.user.email?.toLowerCase().includes('superadmin');
+    const isAdmin = req.user.role === 'Admin';
+    const redirectUrl = isSuperAdmin ? `${process.env.CLIENT_URL}/admin/dashboard` : `${process.env.CLIENT_URL}/user/asset-browser`;
     // Redirect to appropriate page based on role
     res.redirect(redirectUrl);
   } else {

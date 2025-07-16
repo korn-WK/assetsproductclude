@@ -11,6 +11,7 @@ import { useDropdown } from '../../../contexts/DropdownContext';
 import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
 import { useAuth } from '../../../contexts/AuthContext';
+import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 
 interface Asset {
   id: string;
@@ -26,8 +27,10 @@ interface Asset {
   status: string;
   image_url: string | null;
   acquired_date: string;
-  created_at?: string;
+  created_at: string; // เพิ่ม field นี้
   updated_at?: string;
+  has_pending_audit?: boolean; // เพิ่ม field นี้
+  pending_status?: string; // เพิ่ม field นี้
 }
 
 interface AssetsTableProps {
@@ -43,8 +46,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
   const [isPopupOpen, setIsPopupOpen] = useState<boolean>(false);
   const itemsPerPage = 5;
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('All');
   const filterButtonRef = useRef<HTMLButtonElement>(null);
@@ -63,6 +65,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
     { value: 'Disposed', label: 'Disposed' },
   ];
   const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
+  const [pendingAudits, setPendingAudits] = useState<{ [assetId: string]: { status: string; note: string } | null }>({});
 
   // Check if user can edit (user with department)
   const canEdit = user && user.department_id !== null;
@@ -81,30 +84,60 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
 
   useEffect(() => {
     if (selectedDepartment === 'All') {
-      if (selectedDate) {
-        fetchAssets({ acquired_date: selectedDate });
+      if (dateRange.startDate && dateRange.endDate) {
+        fetchAssets({
+          created_at_start: dateRange.startDate.toISOString(),
+          created_at_end: dateRange.endDate.toISOString(),
+        });
       } else {
         fetchAssets({});
       }
     } else {
-      if (selectedDate) {
-        fetchAssets({ department: selectedDepartment, acquired_date: selectedDate });
+      if (dateRange.startDate && dateRange.endDate) {
+        fetchAssets({
+          department: selectedDepartment,
+          created_at_start: dateRange.startDate.toISOString(),
+          created_at_end: dateRange.endDate.toISOString(),
+        });
       } else {
         fetchAssets({ department: selectedDepartment });
       }
     }
     setCurrentPage(1);
     // eslint-disable-next-line
-  }, [selectedDepartment]);
+  }, [selectedDepartment, dateRange]);
 
   useEffect(() => {
-    if (selectedDate) {
-      fetchAssets({ acquired_date: selectedDate });
+    if (dateRange.startDate && dateRange.endDate) {
+      fetchAssets({
+        created_at_start: dateRange.startDate.toISOString(),
+        created_at_end: dateRange.endDate.toISOString(),
+      });
     } else {
       fetchAssets({});
     }
     // eslint-disable-next-line
-  }, [selectedDate]);
+  }, [dateRange]);
+
+  // ดึง pending audit log ของ assets ทั้งหมด (เฉพาะที่ยังไม่ approve)
+  useEffect(() => {
+    if (!assets || assets.length === 0) return;
+    const fetchPendingAudits = async () => {
+      const assetIds = assets.map(a => a.id);
+      // ดึง audit log pending ของ asset ทั้งหมด
+      const res = await fetch('/api/assets/audits/list');
+      const audits = await res.json();
+      // สร้าง map assetId -> audit (pending)
+      const pendingMap: { [assetId: string]: { status: string; note: string } } = {};
+      audits.forEach((audit: any) => {
+        if (!audit.confirmed && audit.asset_id) {
+          pendingMap[audit.asset_id] = { status: audit.status, note: audit.note };
+        }
+      });
+      setPendingAudits(pendingMap);
+    };
+    fetchPendingAudits();
+  }, [assets]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -149,8 +182,16 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
 
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
 
-    const matchesDate = !selectedDate ||
-      (asset.acquired_date && asset.acquired_date.slice(0, 10) === selectedDate);
+    // Filter by createdAt (ช่วงวันที่)
+    let matchesDate = true;
+    if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
+      const created = new Date((asset as any).created_at);
+      const start = new Date(dateRange.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(dateRange.endDate);
+      end.setHours(23, 59, 59, 999);
+      matchesDate = created >= start && created <= end;
+    }
 
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch = !q ||
@@ -173,9 +214,13 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
     ...asset,
     inventory_number: (asset as any).inventory_number || '',
     room: (asset as any).room || '',
-  }));
+    created_at: (asset as any).created_at || '',
+    has_pending_audit: (asset as any).has_pending_audit || false,
+    pending_status: (asset as any).pending_status || null,
+  } as Asset));
 
-  const getStatusClass = (status: string) => {
+  const getStatusClass = (status: string, hasPending: boolean) => {
+    if (hasPending) return styles.statusPending;
     switch (status) {
       case 'active': return styles.statusActive;
       case 'transferring': return styles.statusTransferring;
@@ -187,7 +232,8 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
     }
   };
 
-  const getStatusDisplay = (status: string) => {
+  const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string) => {
+    if (hasPending && pendingStatus) return 'Pending';
     switch (status) {
       case 'active': return 'Active';
       case 'transferring': return 'Transferring';
@@ -204,6 +250,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
       ...asset,
       inventory_number: asset.inventory_number || '',
       room: asset.room || '',
+      created_at: asset.created_at || '',
     });
     setIsPopupOpen(true);
   };
@@ -218,6 +265,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
       ...updatedAsset,
       inventory_number: updatedAsset.inventory_number || '',
       room: updatedAsset.room || '',
+      created_at: updatedAsset.created_at || '',
     });
     fetchAssets();
   };
@@ -281,79 +329,40 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
               <p className={styles.totalAssets}>Total {assets.length} assets</p>
             </div>
             <div className="filterRow" style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
-              <button
-                className={styles.iconButton}
-                onClick={async () => {
-                  const result = await Swal.fire({
-                    title: `<div style='display:flex;align-items:center;gap:10px;justify-content:center;'>`
-                      + `<span style='font-size:2rem;color:#6366f1;'><svg width='1.5em' height='1.5em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' ry='4'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line></svg></span>`
-                      + `</div>`
-                      + (selectedDate ? `<div style='margin-top:10px;font-size:1rem;color:#6366f1;'>วันที่เลือก: <b>${dayjs(selectedDate).format('YYYY-MM-DD')}</b></div>` : ''),
-                    html:
-                      `<div style='display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;'>`
-                      + `<input id="swal-date" type="date" value="${selectedDate || ''}" style="padding:0.7rem 1.2rem;font-size:1.1rem;border-radius:8px;border:1.5px solid #a5b4fc;width:220px;outline:none;box-shadow:0 2px 8px rgba(99,102,241,0.07)">`
-                      + `<div style='font-size:0.95rem;color:#6b7280;'>กรุณาเลือกวัน/เดือน/ปี ที่ต้องการค้นหา</div>`
-                      + `</div>`,
-                    showCancelButton: true,
-                    focusConfirm: false,
-                    confirmButtonText: '<span style="font-size:1.1rem;font-weight:500;">เลือก</span>',
-                    cancelButtonText: '<span style="font-size:1.1rem;">ยกเลิก</span>',
-                    customClass: {
-                      popup: 'swal2-calendar-popup',
-                      confirmButton: 'swal2-calendar-confirm',
-                      cancelButton: 'swal2-calendar-cancel',
-                    },
-                    preConfirm: () => {
-                      // @ts-ignore
-                      return (document.getElementById('swal-date') as HTMLInputElement)?.value;
-                    },
-                    didOpen: () => {
-                      const input = document.getElementById('swal-date') as HTMLInputElement;
-                      if (input) input.focus();
-                    },
-                    background: '#f8fafc',
-                    width: 370,
-                    padding: '2.2em 1.5em 1.5em 1.5em',
-                  });
-                  if (result.isConfirmed && result.value) {
-                    setSelectedDate(result.value);
-                  }
-                }}
-                title="Filter by date"
-                style={{minWidth: 0}}
-              >
-                <AiOutlineCalendar />
-                {selectedDate && (
-                  <span style={{marginLeft: 4, fontSize: '0.9em'}}>{dayjs(selectedDate).format('YYYY-MM-DD')}</span>
-                )}
-              </button>
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={styles.filterDropdown}
-                  onClick={() => setShowStatusDropdown(v => !v)}
-                  style={{ minWidth: 0 }}
-                >
-                  {statusOptions.find(opt => opt.value === activeFilter)?.label || 'Status'}
-                  <AiOutlineDown className={styles.dropdownIcon} />
-                </button>
-                {showStatusDropdown && (
-                  <div className={styles.customDropdown} style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
-                    {statusOptions.map(opt => (
-                      <div
-                        key={opt.value}
-                        style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: activeFilter === opt.value ? '#6366f1' : '#222', background: activeFilter === opt.value ? '#f3f4f6' : 'transparent' }}
-                        onClick={() => {
-                          setActiveFilter(opt.value);
-                          setShowStatusDropdown(false);
-                          setCurrentPage(1);
-                        }}
-                      >
-                        {opt.label}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <DateRangeFilterButton
+                value={dateRange}
+                onChange={setDateRange}
+                label="เลือกช่วงวันที่"
+              />
+              {isMobile && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className={styles.filterDropdown}
+                    onClick={() => setShowStatusDropdown(v => !v)}
+                    style={{ minWidth: 0 }}
+                  >
+                    {statusOptions.find(opt => opt.value === activeFilter)?.label || 'Status'}
+                    <AiOutlineDown className={styles.dropdownIcon} />
+                  </button>
+                  {showStatusDropdown && (
+                    <div className={styles.customDropdown} style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
+                      {statusOptions.map(opt => (
+                        <div
+                          key={opt.value}
+                          style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: activeFilter === opt.value ? '#6366f1' : '#222', background: activeFilter === opt.value ? '#f3f4f6' : 'transparent' }}
+                          onClick={() => {
+                            setActiveFilter(opt.value);
+                            setShowStatusDropdown(false);
+                            setCurrentPage(1);
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
               {canOnlyView && (
               <button
                 className={styles.filterDropdown}
@@ -401,7 +410,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                       <span><b>Department:</b> {asset.department}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>{getStatusDisplay(asset.status)}</span></span>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status)}</span></span>
                     </div>
                   </div>
                 </div>
@@ -493,78 +502,11 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                 </div>
               </div>
               <div className={styles.rightControls} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ position: 'relative', display: 'flex', alignItems: 'center', gap: 0 }}>
-                  <button
-                    className={styles.iconButton}
-                    onClick={async () => {
-                      const result = await Swal.fire({
-                        title: `<div style='display:flex;align-items:center;gap:10px;justify-content:center;'>`
-                          + `<span style='font-size:2rem;color:#6366f1;'><svg width='1.5em' height='1.5em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' ry='4'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line></svg></span>`
-                          + `</div>`
-                          + (selectedDate ? `<div style='margin-top:10px;font-size:1rem;color:#6366f1;'>วันที่เลือก: <b>${dayjs(selectedDate).format('YYYY-MM-DD')}</b></div>` : ''),
-                        html:
-                          `<div style='display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;'>`
-                          + `<input id="swal-date" type="date" value="${selectedDate || ''}" style="padding:0.7rem 1.2rem;font-size:1.1rem;border-radius:8px;border:1.5px solid #a5b4fc;width:220px;outline:none;box-shadow:0 2px 8px rgba(99,102,241,0.07)">`
-                          + `<div style='font-size:0.95rem;color:#6b7280;'>กรุณาเลือกวัน/เดือน/ปี ที่ต้องการค้นหา</div>`
-                          + `</div>`,
-                        showCancelButton: true,
-                        focusConfirm: false,
-                        confirmButtonText: '<span style="font-size:1.1rem;font-weight:500;">เลือก</span>',
-                        cancelButtonText: '<span style="font-size:1.1rem;">ยกเลิก</span>',
-                        customClass: {
-                          popup: 'swal2-calendar-popup',
-                          confirmButton: 'swal2-calendar-confirm',
-                          cancelButton: 'swal2-calendar-cancel',
-                        },
-                        preConfirm: () => {
-                          // @ts-ignore
-                          return (document.getElementById('swal-date') as HTMLInputElement)?.value;
-                        },
-                        didOpen: () => {
-                          const input = document.getElementById('swal-date') as HTMLInputElement;
-                          if (input) input.focus();
-                        },
-                        background: '#f8fafc',
-                        width: 370,
-                        padding: '2.2em 1.5em 1.5em 1.5em',
-                      });
-                      if (result.isConfirmed && result.value) {
-                        setSelectedDate(result.value);
-                      }
-                    }}
-                    title="Filter by date"
-                    style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
-                  >
-                    <AiOutlineCalendar />
-                  </button>
-                  {selectedDate && (
-                    <button
-                      className={styles.iconButton}
-                      style={{
-                        height: '40px',
-                        fontSize: '1.1rem',
-                        padding: '0.8rem 1.2rem',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                      }}
-                      onClick={() => setSelectedDate(null)}
-                      title="Clear date filter"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {canOnlyView && (
-                <button
-                  className={styles.filterDropdown}
-                  onClick={handleShowDropdown}
-                  ref={filterButtonRef}
-                    style={{minWidth: 0}}
-                >
-                  {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-                  <AiOutlineDown className={styles.dropdownIcon} />
-                </button>
-                )}
+                <DateRangeFilterButton
+                  value={dateRange}
+                  onChange={setDateRange}
+                  label="เลือกช่วงวันที่"
+                />
                 {onScanBarcodeClick && (
                   <button
                     className={styles.iconButton}
@@ -629,7 +571,17 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                       </td>
                       <td data-label="Location" style={{ textAlign: 'center' }}>{asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</td>
                       <td data-label="Department">{asset.department}</td>
-                      <td data-label="Status" style={{ textAlign: 'center' }}><span className={`${styles.statusBadge} compact ${getStatusClass(asset.status)}`}>{getStatusDisplay(asset.status)}</span></td>
+                      <td data-label="Status" style={{ textAlign: 'center' }}>
+                        {pendingAudits[asset.id] ? (
+                          <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                            Pending
+                          </span>
+                        ) : (
+                          <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>
+                            {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined)}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

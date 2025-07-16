@@ -12,10 +12,10 @@ const LoginPage = () => {
   useEffect(() => {
     // Redirect based on user role after authentication
     if (!loading && user) {
-      if (user.role === 'admin' || user.email === 'admin@mfu.ac.th' || user.email?.includes('admin')) {
+      if (user.role?.toLowerCase() === 'superadmin') {
         router.push('/admin/dashboard')
       } else {
-        router.push('/user/asset-browser');
+        router.push('/user/dashboard');
       }
     }
   }, [user, loading, router]);

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 // @ts-ignore
 import Quagga from 'quagga';
 import styles from './BarcodeScanner.module.css';
+import jsQR from 'jsqr';
 
 interface BarcodeScannerProps {
   onBarcodeDetected: (barcode: string) => void;
@@ -23,6 +24,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const streamRef = useRef<MediaStream | null>(null);
   const [barcodeBuffer, setBarcodeBuffer] = useState<string[]>([]);
   const BUFFER_SIZE = 5; // ตรวจจับซ้ำ 5 ครั้ง
+  const [scannedType, setScannedType] = useState<string | null>(null); // 'barcode' | 'qrcode'
 
   // Start camera scan automatically
   useEffect(() => {
@@ -58,10 +60,18 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   };
 
+  // เพิ่มฟังก์ชัน scan QR code จาก imageData
+  const scanQRCodeFromImageData = (imageData: ImageData): string | null => {
+    const code = jsQR(imageData.data, imageData.width, imageData.height);
+    return code ? code.data : null;
+  };
+
+  // ปรับ startCameraScan ให้ตรวจทั้ง barcode และ QR code
   const startCameraScan = async () => {
     if (!videoRef.current) return;
     try {
       setError('');
+      setScannedType(null);
       Quagga.init({
         inputStream: {
           name: "Live",
@@ -94,15 +104,15 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           return;
         }
         Quagga.start();
-        // ดึง stream จาก video element
         setTimeout(() => {
           const videoElem = videoRef.current?.querySelector('video');
           if (videoElem && videoElem.srcObject instanceof MediaStream) {
             streamRef.current = videoElem.srcObject as MediaStream;
           }
         }, 500);
+        // เริ่ม loop ตรวจ QR code จากกล้อง
+        requestAnimationFrame(scanQRCodeFromCamera);
       });
-      // ล้าง onDetected callback เดิมก่อน add ใหม่
       if (typeof Quagga.offDetected === 'function') {
         Quagga.offDetected();
       } else if (typeof Quagga.off === 'function') {
@@ -110,27 +120,21 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       }
       Quagga.onDetected((result: any) => {
         let barcode = result.codeResult.code;
-        // post-processing: trim, toUpperCase
         barcode = barcode.trim().toUpperCase();
-        // ตรวจสอบความยาวและรูปแบบ (รองรับอักขระพิเศษกลุ่มใหญ่) และความยาว 1-50 ตัวอักษร
-        if (!/^[A-Z0-9\-_\/\.\s"*:;,'()\[\]{}@#$%&+=!?|\\^~<>]{1,50}$/i.test(barcode)) {
-          console.log(`Barcode format rejected: "${barcode}"`);
+        if (!/^[A-Z0-9\-_\/.\s"*:;,'()\[\]{}@#$%&+=!?|\\^~<>]{1,50}$/i.test(barcode)) {
           return;
         }
-        
-        console.log(`Barcode detected: "${barcode}"`);
-
         setBarcodeBuffer(prev => {
           const newBuffer = [...prev, barcode].slice(-BUFFER_SIZE);
-          // Majority vote
           const counts = newBuffer.reduce((acc, val) => {
             acc[val] = (acc[val] || 0) + 1;
             return acc;
           }, {} as Record<string, number>);
           const sortedEntries = Object.entries(counts).sort((a, b) => (b[1] as number) - (a[1] as number));
           const [mostCommon, count] = sortedEntries[0] as [string, number];
-          if (count >= 3) { // ถ้าเจอซ้ำ 3 ครั้งขึ้นไป
+          if (count >= 3) {
             Quagga.stop();
+            setScannedType('barcode');
             onBarcodeDetected(mostCommon);
             return [];
           }
@@ -140,6 +144,30 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     } catch (err) {
       setError('เกิดข้อผิดพลาดในการสแกน');
     }
+  };
+
+  // เพิ่มฟังก์ชัน scan QR code จากกล้อง
+  const scanQRCodeFromCamera = async () => {
+    const videoElem = videoRef.current?.querySelector('video');
+    if (videoElem) {
+      const canvas = document.createElement('canvas');
+      canvas.width = videoElem.videoWidth;
+      canvas.height = videoElem.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(videoElem, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const qr = jsQR(imageData.data, imageData.width, imageData.height);
+        if (qr && qr.data) {
+          Quagga.stop();
+          setScannedType('qrcode');
+          onBarcodeDetected(qr.data);
+          return;
+        }
+      }
+    }
+    // loop ต่อถ้ายังไม่เจอ
+    requestAnimationFrame(scanQRCodeFromCamera);
   };
 
   const stopCameraScan = () => {
@@ -154,47 +182,73 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     try {
       setIsLoading(true);
       setError('');
+      setScannedType(null);
       const fileUrl = URL.createObjectURL(file);
-      Quagga.decodeSingle({
-        src: fileUrl,
-        numOfWorkers: 0,
-        inputStream: { size: 800 },
-        decoder: {
-          readers: [
-            "ean_reader",
-            "upc_reader",
-            "upc_e_reader",
-            "code_128_reader",
-            "code_39_reader",
-            "codabar_reader"
-          ]
-        },
-        locate: true,
-        debug: {
-          drawBoundingBox: true,
-          showFrequency: true,
-          drawScanline: true,
-          showPattern: true
+      // อ่านภาพเป็น ImageData
+      const img = new window.Image();
+      img.src = fileUrl;
+      img.onload = async () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          // ลอง decode QR code ก่อน
+          const qr = jsQR(imageData.data, imageData.width, imageData.height);
+          if (qr && qr.data) {
+            setScannedType('qrcode');
+            setIsLoading(false);
+            onBarcodeDetected(qr.data);
+            URL.revokeObjectURL(fileUrl);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+            return;
+          }
+          // ถ้าไม่เจอ QR code ให้ลอง decode barcode
+          Quagga.decodeSingle({
+            src: fileUrl,
+            numOfWorkers: 0,
+            inputStream: { size: 800 },
+            decoder: {
+              readers: [
+                "ean_reader",
+                "upc_reader",
+                "upc_e_reader",
+                "code_128_reader",
+                "code_39_reader",
+                "codabar_reader"
+              ]
+            },
+            locate: true,
+            debug: {
+              drawBoundingBox: true,
+              showFrequency: true,
+              drawScanline: true,
+              showPattern: true
+            }
+          }, (result: any) => {
+            if (result && result.codeResult) {
+              setScannedType('barcode');
+              onBarcodeDetected(result.codeResult.code);
+            } else {
+              setError('ไม่สามารถอ่านบาร์โค้ดหรือคิวอาร์โค้ดจากรูปภาพได้ กรุณาตรวจสอบรูปภาพ');
+            }
+            setIsLoading(false);
+            URL.revokeObjectURL(fileUrl);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          });
         }
-      }, (result: any) => {
-        if (result && result.codeResult) {
-          const barcode = result.codeResult.code;
-          onBarcodeDetected(barcode);
-        } else {
-          setError('ไม่สามารถอ่านบาร์โค้ดจากรูปภาพได้ กรุณาตรวจสอบรูปภาพ');
-        }
+      };
+      img.onerror = () => {
+        setError('ไม่สามารถอ่านไฟล์ภาพได้');
         setIsLoading(false);
-        URL.revokeObjectURL(fileUrl);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
-      });
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      };
     } catch (err) {
-      setError('ไม่สามารถอ่านบาร์โค้ดจากรูปภาพได้ กรุณาตรวจสอบรูปภาพ');
+      setError('ไม่สามารถอ่านบาร์โค้ดหรือคิวอาร์โค้ดจากรูปภาพได้ กรุณาตรวจสอบรูปภาพ');
       setIsLoading(false);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -254,6 +308,12 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         />
         {error && (
           <div className={styles.errorMessage}>{error}</div>
+        )}
+        {/* เพิ่มแสดงผลลัพธ์ว่าพบ barcode หรือ QR code */}
+        {scannedType && (
+          <div className={styles.successMessage}>
+            {scannedType === 'barcode' ? 'พบ Barcode' : 'พบ QR Code'}
+          </div>
         )}
       </div>
     </div>

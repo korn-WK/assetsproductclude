@@ -250,6 +250,40 @@
     overflow: hidden !important;
     text-overflow: ellipsis !important;
     white-space: nowrap !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+}
+
+.assetsTable th:nth-child(1), .assetsTable td:nth-child(1) {
+  width: 48px;
+  min-width: 48px;
+  max-width: 48px;
+}
+.assetsTable th:nth-child(2), .assetsTable td:nth-child(2) {
+  width: 70px;
+  min-width: 70px;
+  max-width: 70px;
+}
+.assetsTable th:nth-child(3), .assetsTable td:nth-child(3) {
+  width: 120px;
+}
+.assetsTable th:nth-child(4), .assetsTable td:nth-child(4) {
+  width: 160px;
+}
+.assetsTable th:nth-child(5), .assetsTable td:nth-child(5) {
+  width: 100px;
+}
+.assetsTable th:nth-child(6), .assetsTable td:nth-child(6) {
+  width: 120px;
+}
+.assetsTable th:nth-child(7), .assetsTable td:nth-child(7) {
+  width: 120px;
+}
+.assetsTable th:nth-child(8), .assetsTable td:nth-child(8) {
+  width: 120px;
+}
+.assetsTable th:nth-child(9), .assetsTable td:nth-child(9) {
+  width: 120px;
 }
 
 .assetsTable thead th {
@@ -299,15 +333,20 @@
 }
 
 .statusBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.4rem 0.8rem;
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
     border-radius: 20px;
-    font-weight: 500;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
 }
-
+.statusPending {
+    background-color: #facc15;
+    color: #fff;
+    border-color: #fde047;
+}
 .statusActive {
     background-color: #dcfce7;
     color: #166534;
@@ -651,4 +690,184 @@
 .actionButton.compact {
     padding: 0.35rem 0.5rem !important;
     font-size: 0.85rem !important;
+}
+
+.confirmButton {
+  background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+  color: var(--button-primary-text);
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem 2.2rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  transition: all 0.25s cubic-bezier(.4,2,.3,1);
+  box-shadow: var(--shadow-md);
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
+.confirmButton::after {
+  content: '';
+  position: absolute;
+  left: -100%;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.5s;
+  z-index: 0;
+}
+.confirmButton:hover {
+  background: linear-gradient(135deg, var(--button-primary-hover) 0%, #3730a3 100%);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: var(--shadow-lg);
+}
+.confirmButton:hover::after {
+  left: 100%;
+}
+.confirmButton:disabled {
+  background: #e5e7eb;
+  color: #b0b0b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.exportXlsxButton {
+  background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+  color: var(--button-primary-text);
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem 2.2rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  transition: all 0.25s cubic-bezier(.4,2,.3,1);
+  box-shadow: var(--shadow-md);
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
+.exportXlsxButton::after {
+  content: '';
+  position: absolute;
+  left: -100%;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.5s;
+  z-index: 0;
+}
+.exportXlsxButton:hover {
+  background: linear-gradient(135deg, var(--button-primary-hover) 0%, #3730a3 100%);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: var(--shadow-lg);
+}
+.exportXlsxButton:hover::after {
+  left: 100%;
+}
+.exportXlsxButton:disabled {
+  background: #e5e7eb;
+  color: #b0b0b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.exportPdfButton {
+  background: linear-gradient(90deg, #16c08a 0%, #11998e 100%);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 0.9rem 2.2rem;
+  font-size: 1.08rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  transition: all 0.25s cubic-bezier(.4,2,.3,1);
+  box-shadow: var(--shadow-md);
+  letter-spacing: 0.5px;
+  position: relative;
+  overflow: hidden;
+}
+.exportPdfButton::after {
+  content: '';
+  position: absolute;
+  left: -100%;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.5s;
+  z-index: 0;
+}
+.exportPdfButton:hover {
+  background: linear-gradient(90deg, #11998e 0%, #16c08a 100%);
+  transform: translateY(-2px) scale(1.04);
+  box-shadow: var(--shadow-lg);
+}
+.exportPdfButton:hover::after {
+  left: 100%;
+}
+.exportPdfButton:disabled {
+  background: #e5e7eb;
+  color: #b0b0b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+.cardTable {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  padding: 24px 18px 18px 18px;
+  margin-top: 12px;
+}
+
+.dropdownWrapper {
+  position: relative;
+  display: inline-block;
+}
+.departmentDropdown {
+  background: #fff;
+  border: 1.5px solid var(--border-color);
+  border-radius: 12px;
+  padding: 0.8rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--text-color-primary);
+  box-shadow: var(--shadow-xs);
+  height: 51px;
+  min-width: 180px;
+  transition: border 0.2s, box-shadow 0.2s;
+  outline: none;
+  margin-left: 12px;
+  appearance: none;
+  display: flex;
+  align-items: center;
+  padding-right: 2.2em;
+}
+.departmentDropdown:focus, .departmentDropdown:hover {
+  border-color: var(--button-primary-bg);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
+}
+.dropdownIcon {
+  position: absolute;
+  right: 1em;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #888;
+  font-size: 1.1em;
 }

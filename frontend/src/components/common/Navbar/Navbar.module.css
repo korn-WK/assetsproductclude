@@ -228,6 +228,11 @@
     letter-spacing: 0.5px;
     box-shadow: 0 2px 4px rgba(220, 38, 38, 0.3);
 }
+.adminBadge.admin {
+    background: linear-gradient(135deg, #f59e42 0%, #f97316 100%);
+    color: white;
+    box-shadow: 0 2px 4px rgba(249, 115, 22, 0.3);
+}
 
 .userAvatar {
     border-radius: 50%;

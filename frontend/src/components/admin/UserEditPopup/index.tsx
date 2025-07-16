@@ -8,7 +8,7 @@ interface User {
   username: string;
   name: string;
   email: string;
-  role: 'admin' | 'user';
+  role: 'SuperAdmin' | 'Admin' | 'User';
   department_id: number | null;
   department_name: string | null;
   picture: string | null;
@@ -134,11 +134,12 @@ const UserEditPopup: React.FC<UserEditPopupProps> = ({ user, onClose, onUpdate }
             <select
               id="role"
               name="role"
-              value={formData.role || 'user'}
+              value={formData.role || 'User'}
               onChange={handleChange}
             >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
+              <option value="User">User</option>
+              <option value="Admin">Admin</option>
+              <option value="SuperAdmin">SuperAdmin</option>
             </select>
           </div>
           <div className={styles.formGroup}>

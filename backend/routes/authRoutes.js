@@ -24,8 +24,8 @@ router.get('/protected', authController.verifyToken, (req, res) => {
   res.json({ message: `Welcome, ${req.user.username}! This is a protected route.`, user: req.user });
 });
 
-router.get('/admin-only', authController.verifyToken, authController.authorizeRoles('admin'), (req, res) => {
-  res.json({ message: `Hello Admin ${req.user.username}! You have admin privileges.`, user: req.user });
+router.get('/admin-only', authController.verifyToken, authController.authorizeRoles('SuperAdmin'), (req, res) => {
+  res.json({ message: `Hello SuperAdmin ${req.user.username}! You have super admin privileges.`, user: req.user });
 });
 
 // New: Logout route

@@ -69,6 +69,18 @@
   font-size: 0.9rem;
   border-bottom: 2px solid var(--border-color);
 }
+.table th:nth-child(6),
+.table td:nth-child(6) {
+  min-width: 180px;
+  width: 180px;
+  max-width: 180px;
+}
+.table th:nth-child(7),
+.table td:nth-child(7) {
+  min-width: 210px;
+  width: 180px;
+  max-width: 220px;
+}
 
 .table tbody tr {
   transition: all 0.2s ease-in-out;
@@ -302,22 +314,36 @@
 
 /* Role badges */
 .roleBadge {
-  padding: 0.4rem 0.8rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0.45em 1.1em;
   border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: uppercase;
+  font-size: 0.95em;
+  font-weight: 700;
   letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+  border: 1.5px solid transparent;
+  text-transform: uppercase;
+  transition: background 0.2s, color 0.2s;
+}
+
+.roleSuperAdmin {
+  background: linear-gradient(90deg, #a78bfa 0%, #249afb 100%);
+  color: #fff;
+  border-color: #a78bfa;
 }
 
 .roleAdmin {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
+  background: linear-gradient(90deg, #f3ad7f 0%, #af110b 100%);
+  color: #fff;
+  border-color: #ef4444;
 }
 
 .roleUser {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
+  background: linear-gradient(90deg, #7a7fcf 0%, #1b18bb 100%);
+  color: #fff;
+  border-color: #3b82f6;
 }
 
 /* Responsive Design */

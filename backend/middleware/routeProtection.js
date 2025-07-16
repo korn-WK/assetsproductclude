@@ -6,32 +6,28 @@ const requireAdmin = (req, res, next) => {
     if (err) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    
-    if (req.user.role !== 'admin') {
+    if (req.user.role !== 'SuperAdmin') {
       return res.status(403).json({ 
-        message: 'Access denied. Admin privileges required.',
+        message: 'Access denied. SuperAdmin privileges required.',
         error: 'FORBIDDEN'
       });
     }
-    
     next();
   });
 };
 
-// Middleware to protect user routes (prevent admin access)
+// Middleware to protect user routes (prevent SuperAdmin access)
 const requireUser = (req, res, next) => {
   verifyToken(req, res, (err) => {
     if (err) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    
-    if (req.user.role === 'admin') {
+    if (req.user.role === 'SuperAdmin') {
       return res.status(403).json({ 
-        message: 'Access denied. This route is for regular users only.',
+        message: 'Access denied. This route is for regular users and admins only.',
         error: 'FORBIDDEN'
       });
     }
-    
     next();
   });
 };

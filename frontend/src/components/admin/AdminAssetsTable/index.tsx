@@ -9,6 +9,7 @@ import { useAssets } from '../../../contexts/AssetContext';
 import { formatDate } from '../../../lib/utils';
 import dayjs from 'dayjs';
 import { useDropdown } from '../../../contexts/DropdownContext';
+import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 
 interface Asset {
   id: string;
@@ -24,8 +25,10 @@ interface Asset {
   status: string;
   image_url: string | null;
   acquired_date: string;
-  created_at?: string;
+  created_at: string;
   updated_at?: string;
+  has_pending_audit?: boolean;
+  pending_status?: string | null;
 }
 
 interface AdminAssetsTableProps {
@@ -59,6 +62,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
     { value: 'Disposed', label: 'Disposed' },
   ];
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
+  const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
 
   // Fetch assets from context when the component mounts
   useEffect(() => {
@@ -116,7 +120,10 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
     ...asset,
     inventory_number: (asset as any).inventory_number || '',
     room: (asset as any).room || '',
-  }));
+    created_at: (asset as any).created_at || '',
+    has_pending_audit: (asset as any).has_pending_audit || false,
+    pending_status: (asset as any).pending_status || null,
+  } as Asset));
 
   const filteredAssets = patchedAssets.filter(asset => {
     const matchesStatus = activeFilter === 'All' || 
@@ -129,8 +136,16 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
 
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
 
-    const matchesDate = !selectedDate ||
-      (asset.acquired_date && asset.acquired_date.slice(0, 10) === selectedDate);
+    // Filter by createdAt (ช่วงวันที่)
+    let matchesDate = true;
+    if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
+      const created = new Date((asset as any).created_at);
+      const start = new Date(dateRange.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(dateRange.endDate);
+      end.setHours(23, 59, 59, 999);
+      matchesDate = created >= start && created <= end;
+    }
 
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch = !q ||
@@ -148,7 +163,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
     currentPage * itemsPerPage
   );
 
-  const getStatusClass = (status: string) => {
+  const getStatusClass = (status: string, hasPending: boolean) => {
+    if (hasPending) return styles.statusPending;
     switch (status) {
       case 'active': return styles.statusActive;
       case 'transferring': return styles.statusTransferring;
@@ -160,7 +176,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
     }
   };
 
-  const getStatusDisplay = (status: string) => {
+  const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string) => {
+    if (hasPending && pendingStatus) return 'Pending';
     switch (status) {
       case 'active': return 'Active';
       case 'transferring': return 'Transferring';
@@ -308,6 +325,13 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
     );
   }
 
+  const selectedDepartmentLabel = selectedDepartment === 'All'
+    ? 'Filter'
+    : (() => {
+        const name = departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment;
+        return name.length > 13? name.slice(0, 13) + '...' : name;
+      })();
+
   return (
     <>
       <section className={styles.assetsSection}>
@@ -319,52 +343,11 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
             </div>
             <div style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
               {/* Filter buttons (date, status, department) */}
-              <button
-                className={styles.iconButton}
-                onClick={async () => {
-                  const result = await Swal.fire({
-                    title: `<div style='display:flex;align-items:center;gap:10px;justify-content:center;'>`
-                      + `<span style='font-size:2rem;color:#6366f1;'><svg width='1.5em' height='1.5em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' ry='4'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line></svg></span>`
-                      + `</div>`
-                      + (selectedDate ? `<div style='margin-top:10px;font-size:1rem;color:#6366f1;'>วันที่เลือก: <b>${dayjs(selectedDate).format('YYYY-MM-DD')}</b></div>` : ''),
-                    html:
-                      `<div style='display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;'>`
-                      + `<input id=\"swal-date\" type=\"date\" value=\"${selectedDate || ''}\" style=\"padding:0.7rem 1.2rem;font-size:1.1rem;border-radius:8px;border:1.5px solid #a5b4fc;width:220px;outline:none;box-shadow:0 2px 8px rgba(99,102,241,0.07)\">`
-                      + `<div style='font-size:0.95rem;color:#6b7280;'>กรุณาเลือกวัน/เดือน/ปี ที่ต้องการค้นหา</div>`
-                      + `</div>`,
-                    showCancelButton: true,
-                    focusConfirm: false,
-                    confirmButtonText: '<span style=\"font-size:1.1rem;font-weight:500;\">เลือก</span>',
-                    cancelButtonText: '<span style=\"font-size:1.1rem;\">ยกเลิก</span>',
-                    customClass: {
-                      popup: 'swal2-calendar-popup',
-                      confirmButton: 'swal2-calendar-confirm',
-                      cancelButton: 'swal2-calendar-cancel',
-                    },
-                    preConfirm: () => {
-                      // @ts-ignore
-                      return (document.getElementById('swal-date') as HTMLInputElement)?.value;
-                    },
-                    didOpen: () => {
-                      const input = document.getElementById('swal-date') as HTMLInputElement;
-                      if (input) input.focus();
-                    },
-                    background: '#f8fafc',
-                    width: 370,
-                    padding: '2.2em 1.5em 1.5em 1.5em',
-                  });
-                  if (result.isConfirmed && result.value) {
-                    setSelectedDate(result.value);
-                  }
-                }}
-                title="Filter by date"
-                style={{minWidth: 0}}
-              >
-                <AiOutlineCalendar />
-                {selectedDate && (
-                  <span style={{marginLeft: 4, fontSize: '0.9em'}}>{dayjs(selectedDate).format('YYYY-MM-DD')}</span>
-                )}
-              </button>
+              <DateRangeFilterButton
+                value={dateRange}
+                onChange={setDateRange}
+                label="เลือกช่วงวันที่"
+              />
               <div style={{ position: 'relative' }}>
                 <button
                   className={styles.filterDropdown}
@@ -392,15 +375,44 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                   </div>
                 )}
               </div>
-              <button
-                className={styles.filterDropdown}
-                onClick={handleShowDropdown}
-                ref={filterButtonRef}
-                style={{minWidth: 0}}
-              >
-                {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
-                <AiOutlineDown className={styles.dropdownIcon} />
-              </button>
+              <div style={{ position: 'relative' }}>
+                <button
+                  className={styles.filterDropdown}
+                  onClick={handleShowDropdown}
+                  ref={filterButtonRef}
+                  style={{minWidth: 0}}
+                >
+                  {selectedDepartmentLabel}
+                  <AiOutlineDown className={styles.dropdownIcon} />
+                </button>
+                {showDepartmentDropdown && (
+                  <div className={styles.customDropdown} style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
+                    <div
+                      style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: selectedDepartment === 'All' ? '#6366f1' : '#222', background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent' }}
+                      onClick={() => {
+                        setSelectedDepartment('All');
+                        setShowDepartmentDropdown(false);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      All Departments
+                    </div>
+                    {departments.map(dep => (
+                      <div
+                        key={dep.id}
+                        style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: selectedDepartment === dep.name_th ? '#6366f1' : '#222', background: selectedDepartment === dep.name_th ? '#f3f4f6' : 'transparent' }}
+                        onClick={() => {
+                          setSelectedDepartment(dep.name_th);
+                          setShowDepartmentDropdown(false);
+                          setCurrentPage(1);
+                        }}
+                      >
+                        {dep.name_th}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               {/* กล้องอยู่ตรงกลาง */}
               {onScanBarcodeClick && (
                 <button
@@ -451,7 +463,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                       <span><b>Department:</b> {asset.department}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status)}`}>{getStatusDisplay(asset.status)}</span></span>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined)}</span></span>
                     </div>
                   </div>
                 </div>
@@ -489,51 +501,29 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                     </button>
                   ))}
                 </div>
+                <div className={styles.departmentFilterWrapper} style={{ position: 'relative', display: 'inline-block' }}>
+                  <select
+                    className={styles.filterDropdown}
+                    value={selectedDepartment}
+                    onChange={e => {
+                      setSelectedDepartment(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <option value="All">All Departments</option>
+                    {departments.map(dep => (
+                      <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
+                    ))}
+                  </select>
+                  <span className={styles.caretIcon}><AiOutlineDown /></span>
+                </div>
               </div>
               <div className={styles.rightControls}>
-                <button
-                  className={styles.iconButton}
-                  onClick={async () => {
-                    const result = await Swal.fire({
-                      title: `<div style='display:flex;align-items:center;gap:10px;justify-content:center;'>`
-                        + `<span style='font-size:2rem;color:#6366f1;'><svg width='1.5em' height='1.5em' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><rect x='3' y='4' width='18' height='18' rx='4' ry='4'></rect><line x1='16' y1='2' x2='16' y2='6'></line><line x1='8' y1='2' x2='8' y2='6'></line><line x1='3' y1='10' x2='21' y2='10'></line></svg></span>`
-                        + `</div>`
-                        + (selectedDate ? `<div style='margin-top:10px;font-size:1rem;color:#6366f1;'>วันที่เลือก: <b>${dayjs(selectedDate).format('YYYY-MM-DD')}</b></div>` : ''),
-                      html:
-                        `<div style='display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:10px;'>`
-                        + `<input id=\"swal-date\" type=\"date\" value=\"${selectedDate || ''}\" style=\"padding:0.7rem 1.2rem;font-size:1.1rem;border-radius:8px;border:1.5px solid #a5b4fc;width:220px;outline:none;box-shadow:0 2px 8px rgba(99,102,241,0.07)\">`
-                        + `<div style='font-size:0.95rem;color:#6b7280;'>กรุณาเลือกวัน/เดือน/ปี ที่ต้องการค้นหา</div>`
-                        + `</div>`,
-                      showCancelButton: true,
-                      focusConfirm: false,
-                      confirmButtonText: '<span style=\"font-size:1.1rem;font-weight:500;\">เลือก</span>',
-                      cancelButtonText: '<span style=\"font-size:1.1rem;\">ยกเลิก</span>',
-                      customClass: {
-                        popup: 'swal2-calendar-popup',
-                        confirmButton: 'swal2-calendar-confirm',
-                        cancelButton: 'swal2-calendar-cancel',
-                      },
-                      preConfirm: () => {
-                        // @ts-ignore
-                        return (document.getElementById('swal-date') as HTMLInputElement)?.value;
-                      },
-                      didOpen: () => {
-                        const input = document.getElementById('swal-date') as HTMLInputElement;
-                        if (input) input.focus();
-                      },
-                      background: '#f8fafc',
-                      width: 370,
-                      padding: '2.2em 1.5em 1.5em 1.5em',
-                    });
-                    if (result.isConfirmed && result.value) {
-                      setSelectedDate(result.value);
-                    }
-                  }}
-                  title="Filter by date"
-                  style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
-                >
-                  <AiOutlineCalendar />
-                </button>
+                <DateRangeFilterButton
+                  value={dateRange}
+                  onChange={setDateRange}
+                  label="เลือกช่วงวันที่"
+                />
                 {selectedDate && (
                   <button
                     className={styles.iconButton}
@@ -555,7 +545,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                     className={styles.iconButton}
                     onClick={onScanBarcodeClick}
                     title="สแกนบาร์โค้ด"
-                    style={{ display: 'inline-flex', alignItems: 'center', height: '40px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
+                    style={{ display: 'inline-flex', alignItems: 'center', height: '44px', fontSize: '1.1rem', padding: '0.8rem 1.2rem' }}
                   >
                     <AiOutlineCamera />
                   </button>
@@ -620,8 +610,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                       </td>
                       <td data-label="Department">{asset.department || '-'}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
-                        <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status)}`}>
-                          {getStatusDisplay(asset.status)}
+                        <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>
+                          {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined)}
                         </span>
                       </td>
                     </tr>
