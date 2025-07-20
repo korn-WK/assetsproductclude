@@ -56,6 +56,11 @@ const AssetVerificationTable: React.FC = () => {
   const [popupAssetId, setPopupAssetId] = useState<number | null>(null);
   const { user } = useAuth();
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'pending' | 'approved'>('all');
+  const filterTabs = [
+    { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
+    { key: 'approved', label: 'Approved' },
+  ];
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 5;
   const [range, setRange] = useState<[{ startDate?: Date; endDate?: Date; key: string }]>([
@@ -270,13 +275,13 @@ const AssetVerificationTable: React.FC = () => {
         {/* Left: status filters only */}
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <div className={styles.statusFilters}>
-            {['all', 'pending', 'approved'].map(f => (
+            {filterTabs.map(f => (
               <button
-                key={f}
-                className={`${styles.filterButton} ${verificationFilter === f ? styles.active : ''}`}
-                onClick={() => setVerificationFilter(f as any)}
+                key={f.key}
+                className={`${styles.filterButton} ${verificationFilter === f.key ? styles.active : ''}`}
+                onClick={() => setVerificationFilter(f.key as any)}
               >
-                {f === 'all' ? 'ทั้งหมด' : f === 'pending' ? 'Pending' : 'Approved'}
+                {f.label}
               </button>
             ))}
           </div>

@@ -3,11 +3,9 @@ const pool = require("../lib/db.js");
 // Valid status values for assets
 const VALID_STATUSES = [
   "active",
-  "transferring",
-  "audited",
   "missing",
   "broken",
-  "disposed",
+  "no_longer_required"
 ];
 
 // Validate asset status
@@ -293,25 +291,25 @@ async function getAllLocations() {
   return rows;
 }
 
-// Get transfer logs for an asset
+// Get transfer logs for an asset (use asset_transfers instead of transfer_logs)
 async function getAssetTransferLogs(assetId) {
   const query = `
     SELECT 
-      tl.*,
+      t.*,
       a.asset_code,
       a.name as asset_name,
-      fd.name_th as from_department,
-      td.name_th as to_department,
-      u1.name as transferred_by_name,
+      fd.name_th as from_department_name,
+      td.name_th as to_department_name,
+      u1.name as requested_by_name,
       u2.name as approved_by_name
-    FROM transfer_logs tl
-    JOIN assets a ON tl.asset_id = a.id
-    LEFT JOIN departments fd ON tl.from_department_id = fd.id
-    LEFT JOIN departments td ON tl.to_department_id = td.id
-    LEFT JOIN users u1 ON tl.transferred_by = u1.id
-    LEFT JOIN users u2 ON tl.approved_by = u2.id
-    WHERE tl.asset_id = ?
-    ORDER BY tl.transfer_date DESC
+    FROM asset_transfers t
+    JOIN assets a ON t.asset_id = a.id
+    LEFT JOIN departments fd ON t.from_department_id = fd.id
+    LEFT JOIN departments td ON t.to_department_id = td.id
+    LEFT JOIN users u1 ON t.requested_by = u1.id
+    LEFT JOIN users u2 ON t.approved_by = u2.id
+    WHERE t.asset_id = ?
+    ORDER BY t.requested_at DESC
   `;
   const [rows] = await pool.query(query, [assetId]);
   return rows;
@@ -486,6 +484,18 @@ async function deleteAsset(assetId) {
   }
 }
 
+// Create asset transfer request
+async function createAssetTransfer({ asset_id, from_department_id, to_department_id, requested_by, note = null }) {
+  const query = `
+    INSERT INTO asset_transfers (
+      asset_id, from_department_id, to_department_id, requested_by, status, note, requested_at
+    ) VALUES (?, ?, ?, ?, 'pending', ?, NOW())
+  `;
+  const params = [asset_id, from_department_id, to_department_id, requested_by, note];
+  const [result] = await pool.query(query, params);
+  return result.insertId;
+}
+
 // Get department ID by name
 async function getDepartmentIdByName(departmentName) {
   if (!departmentName) return null;
@@ -604,6 +614,7 @@ module.exports = {
   createAsset,
   updateAsset,
   deleteAsset,
+  createAssetTransfer,
   getDepartmentIdByName,
   getUserIdByName,
   getDepartmentNameById,

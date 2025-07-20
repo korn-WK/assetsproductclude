@@ -17,6 +17,7 @@ const userRoutes = require('./routes/userRoutes');
 const departmentRoutes = require('./routes/departmentRoutes');
 const locationRoutes = require('./routes/locationRoutes');
 const barcodeRoutes = require('./routes/barcode');
+const assetTransferRoutes = require('./routes/assetTransfer');
 
 const app = express();
 const port = process.env.PORT || 4000;
@@ -55,6 +56,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/departments', departmentRoutes);
 app.use('/api/locations', locationRoutes);
 app.use('/api/barcode', barcodeRoutes);
+app.use('/api/asset-transfers', assetTransferRoutes);
 
 app.get('/', (req, res) => {
   res.send('Asset Audit System Backend is running!');

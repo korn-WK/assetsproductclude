@@ -45,12 +45,20 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
             </li>
             {/* Asset Verification for Admin only */}
             {user?.role?.toLowerCase() === 'admin' && (
+              <>
               <li className={styles.navItem}>
                 <Link href="/user/asset-verification" className={styles.navLink}>
                   <AiOutlineFileText className={styles.icon} />
                   <span>Asset Verification</span>
                 </Link>
               </li>
+                <li className={styles.navItem}>
+                  <Link href="/user/asset-transfer-verification" className={styles.navLink}>
+                    <AiOutlineFileText className={styles.icon} />
+                    <span>Asset Transfer Verification</span>
+                  </Link>
+                </li>
+              </>
             )}
             <li className={styles.navItem}>
               <Link href="/user/reports" className={styles.navLink}>

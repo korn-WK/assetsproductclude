@@ -341,6 +341,7 @@
     text-transform: capitalize;
     letter-spacing: 0.5px;
     border: 1px solid transparent;
+    color: #ffffff;
 }
 .statusPending {
     background-color: #facc15;
@@ -371,6 +372,14 @@
     background-color: #e5e7eb;
     color: #374151;
 }
+.statusApproved {
+    background-color: #22c55e;
+    color: #fff;
+}
+.statusRejected {
+    background-color: #ef4444;
+    color: #fff;
+}
 
 .actionButtons {
     display: flex;
@@ -386,6 +395,7 @@
     color: var(--text-color-secondary);
     cursor: pointer;
     transition: all 0.2s ease-in-out;
+    font-weight: 400;
 }
 
 .actionButton:hover {

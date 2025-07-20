@@ -7,16 +7,27 @@ interface Department {
   name_th: string;
 }
 
-const DepartmentSelector: React.FC = () => {
+interface DepartmentSelectorProps {
+  value?: number | 'all';
+  onChange?: (value: number | 'all') => void;
+  showAllOption?: boolean;
+  compact?: boolean;
+}
+
+const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({ value, onChange, showAllOption, compact }) => {
   const { user } = useAuth();
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<number | null>(user?.department_id || null);
+  const [selectedDepartment, setSelectedDepartment] = useState<number | 'all'>(value ?? (user?.department_id ?? 'all'));
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string>('');
 
   useEffect(() => {
     fetchDepartments();
   }, []);
+
+  useEffect(() => {
+    if (value !== undefined) setSelectedDepartment(value);
+  }, [value]);
 
   const fetchDepartments = async () => {
     try {
@@ -32,9 +43,15 @@ const DepartmentSelector: React.FC = () => {
     }
   };
 
-  const handleDepartmentChange = async (departmentId: number | null) => {
+  const handleDepartmentChange = async (departmentId: number | 'all') => {
     setLoading(true);
     setMessage('');
+    if (onChange) {
+      onChange(departmentId);
+      setLoading(false);
+      setSelectedDepartment(departmentId);
+      return;
+    }
     
     try {
       const response = await fetch('/api/auth/department', {
@@ -67,25 +84,27 @@ const DepartmentSelector: React.FC = () => {
   };
 
   return (
-    <div className={styles.container}>
-      <h3>Select Your Department</h3>
+    <div className={compact ? styles.containerCompact : styles.container}>
+      {!compact && <h3>Select Your Department</h3>}
+      {!compact && (
       <p className={styles.description}>
         Choose your department to see only relevant assets. 
         Select &quot;All Departments&quot; to see all assets.
       </p>
+      )}
       
-      <div className={styles.selector}>
+      <div className={compact ? styles.selectorCompact : styles.selector}>
         <select
-          value={selectedDepartment || ''}
+          value={selectedDepartment === 'all' ? '' : selectedDepartment}
           onChange={(e) => {
             const value = e.target.value;
-            const departmentId = value === '' ? null : parseInt(value);
+            const departmentId = value === '' ? 'all' : parseInt(value);
             handleDepartmentChange(departmentId);
           }}
           disabled={loading}
-          className={styles.select}
+          className={compact ? styles.selectCompact : styles.select}
         >
-          <option value="">All Departments</option>
+          {showAllOption && <option value="">All Departments</option>}
           {departments.map((dept) => (
             <option key={dept.id} value={dept.id}>
               {dept.name_th}
@@ -94,8 +113,8 @@ const DepartmentSelector: React.FC = () => {
         </select>
       </div>
 
-      {loading && <p className={styles.loading}>Updating...</p>}
-      {message && (
+      {loading && !compact && <p className={styles.loading}>Updating...</p>}
+      {message && !compact && (
         <p className={`${styles.message} ${message.includes('successfully') ? styles.success : styles.error}`}>
           {message}
         </p>

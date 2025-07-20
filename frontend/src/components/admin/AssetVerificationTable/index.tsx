@@ -27,25 +27,31 @@ interface PendingAudit {
   department_name?: string;
 }
 
+const statusTabs = [
+  { key: 'all', label: 'All' },
+  { key: 'active', label: 'Active' },
+  { key: 'missing', label: 'Missing' },
+  { key: 'broken', label: 'Broken' },
+  { key: 'no_longer_required', label: 'No Longer Required' }
+];
 const statusColors: Record<string, string> = {
-  pending: '#facc15',
   active: '#22c55e',
-  broken: '#ef4444',
   missing: '#f97316',
-  transferring: '#3b82f6',
-  audited: '#6366f1',
-  disposed: '#6b7280',
+  broken: '#ef4444',
+  no_longer_required: '#6b7280',
 };
-
 const statusLabels: Record<string, string> = {
-  pending: 'Pending',
   active: 'Active',
-  broken: 'Broken',
   missing: 'Missing',
-  transferring: 'Transferring',
-  audited: 'Audited',
-  disposed: 'Disposed',
+  broken: 'Broken',
+  no_longer_required: 'No Longer Required',
 };
+const statusOptions = [
+  { value: 'active', label: 'Active' },
+  { value: 'missing', label: 'Missing' },
+  { value: 'broken', label: 'Broken' },
+  { value: 'no_longer_required', label: 'No Longer Required' },
+];
 
 const AssetVerificationTableSuperAdmin: React.FC = () => {
   const [pendingAudits, setPendingAudits] = useState<PendingAudit[]>([]);
@@ -251,13 +257,13 @@ const AssetVerificationTableSuperAdmin: React.FC = () => {
         <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <div className={styles.statusFilters}>
-              {['all', 'pending', 'approved'].map(f => (
+              {statusTabs.map(tab => (
                 <button
-                  key={f}
-                  className={`${styles.filterButton} ${verificationFilter === f ? styles.active : ''}`}
-                  onClick={() => setVerificationFilter(f as any)}
+                  key={tab.key}
+                  className={`${styles.filterButton} ${verificationFilter === tab.key ? styles.active : ''}`}
+                  onClick={() => setVerificationFilter(tab.key as any)}
                 >
-                  {f === 'all' ? 'ทั้งหมด' : f === 'pending' ? 'Pending' : 'Approved'}
+                  {tab.label}
                 </button>
               ))}
             </div>
@@ -405,14 +411,10 @@ const AssetVerificationTableSuperAdmin: React.FC = () => {
                 <td>{audit.inventory_number}</td>
                 <td>{audit.asset_name}</td>
                 <td>
-                  <span style={{
-                    background: statusColors[audit.status] || '#e5e7eb',
-                    color: '#fff',
-                    borderRadius: 8,
-                    padding: '0.2em 0.8em',
-                    fontWeight: 500,
-                    fontSize: '0.95em'
-                  }}>
+                  <span
+                    className={styles.statusBadge}
+                    style={{ background: statusColors[audit.status] || '#e5e7eb', color: '#fff' }}
+                  >
                     {statusLabels[audit.status] || audit.status}
                   </span>
                 </td>

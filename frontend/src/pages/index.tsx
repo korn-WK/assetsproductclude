@@ -12,9 +12,10 @@ const LoginPage = () => {
   useEffect(() => {
     // Redirect based on user role after authentication
     if (!loading && user) {
-      if (user.role?.toLowerCase() === 'superadmin') {
-        router.push('/admin/dashboard')
-      } else {
+      const role = user.role?.toLowerCase();
+      if (role === 'superadmin') {
+        router.push('/admin/dashboard');
+      } else if (role === 'user' || role === 'admin') {
         router.push('/user/dashboard');
       }
     }

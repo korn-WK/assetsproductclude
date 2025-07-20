@@ -71,4 +71,37 @@
   background-color: #f8d7da;
   color: #721c24;
   border: 1px solid #f5c6cb;
+}
+
+.containerCompact {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  margin: 0;
+  background: none;
+  box-shadow: none;
+}
+.selectorCompact {
+  margin: 0;
+  padding: 0;
+}
+.selectCompact {
+  font-size: 1rem;
+  padding: 0.8rem 1.2rem;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  min-width: 180px;
+  height: 44px;
+  color: var(--text-color-primary);
+  transition: all 0.2s cubic-bezier(.4,2,.3,1);
+  box-shadow: var(--shadow-xs);
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+}
+.selectCompact:focus {
+  outline: none;
+  border-color: var(--button-primary-bg);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 } 

@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 import dayjs from 'dayjs';
 import { useAuth } from '../../../contexts/AuthContext';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
+import { useEffect as useEffectOrig, useState as useStateOrig } from 'react';
 
 interface Asset {
   id: string;
@@ -31,6 +32,7 @@ interface Asset {
   updated_at?: string;
   has_pending_audit?: boolean; // เพิ่ม field นี้
   pending_status?: string; // เพิ่ม field นี้
+  has_pending_transfer?: boolean; // เพิ่ม field นี้เพื่อแก้ลินเตอร์
 }
 
 interface AssetsTableProps {
@@ -55,17 +57,28 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   const [isMobile, setIsMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+  const statusColors = {
+    active: '#22c55e',
+    missing: '#f97316',
+    broken: '#ef4444',
+    no_longer_required: '#6b7280',
+  };
+  const statusLabels = {
+    active: 'Active',
+    missing: 'Missing',
+    broken: 'Broken',
+    no_longer_required: 'No Longer Required',
+  };
   const statusOptions = [
-    { value: 'All', label: 'Status' },
-    { value: 'Active', label: 'Active' },
-    { value: 'Transferring', label: 'Transferring' },
-    { value: 'Audited', label: 'Audited' },
-    { value: 'Missing', label: 'Missing' },
-    { value: 'Broken', label: 'Broken' },
-    { value: 'Disposed', label: 'Disposed' },
+    { value: 'active', label: 'Active' },
+    { value: 'missing', label: 'Missing' },
+    { value: 'broken', label: 'Broken' },
+    { value: 'no_longer_required', label: 'No Longer Required' },
   ];
   const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
   const [pendingAudits, setPendingAudits] = useState<{ [assetId: string]: { status: string; note: string } | null }>({});
+  // เพิ่ม hook สำหรับดึง asset_transfers pending ที่เกี่ยวข้องกับ asset ทั้งหมด
+  const [pendingTransfers, setPendingTransfers] = useStateOrig<{ [assetId: string]: any }>({});
 
   // Check if user can edit (user with department)
   const canEdit = user && user.department_id !== null;
@@ -73,16 +86,16 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   // Check if user can only view (user without department)
   const canOnlyView = user && user.department_id === null;
 
-  useEffect(() => {
+  useEffectOrig(() => {
     fetchAssets();
   }, [fetchAssets]);
 
-  useEffect(() => {
+  useEffectOrig(() => {
     fetchDropdownData();
     // eslint-disable-next-line
   }, []);
 
-  useEffect(() => {
+  useEffectOrig(() => {
     if (selectedDepartment === 'All') {
       if (dateRange.startDate && dateRange.endDate) {
         fetchAssets({
@@ -107,7 +120,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
     // eslint-disable-next-line
   }, [selectedDepartment, dateRange]);
 
-  useEffect(() => {
+  useEffectOrig(() => {
     if (dateRange.startDate && dateRange.endDate) {
       fetchAssets({
         created_at_start: dateRange.startDate.toISOString(),
@@ -120,7 +133,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   }, [dateRange]);
 
   // ดึง pending audit log ของ assets ทั้งหมด (เฉพาะที่ยังไม่ approve)
-  useEffect(() => {
+  useEffectOrig(() => {
     if (!assets || assets.length === 0) return;
     const fetchPendingAudits = async () => {
       const assetIds = assets.map(a => a.id);
@@ -139,8 +152,27 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
     fetchPendingAudits();
   }, [assets]);
 
+  // ดึง transfer pending ทั้งหมดที่เกี่ยวข้องกับ asset ปัจจุบัน
+  useEffectOrig(() => {
+    if (!assets || assets.length === 0) return;
+    const fetchTransfers = async () => {
+      const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
+      const data = await res.json();
+      console.log('DEBUG transfer API response:', data); // เพิ่ม log ตรงนี้
+      // map asset_id เป็น key (string)
+      const map: { [assetId: string]: any } = {};
+      for (const t of data) {
+        // handle asset_id เป็น number หรือ string
+        map[String(t.asset_id)] = t;
+      }
+      console.log('DEBUG asset_transfers pending:', map); // <-- debug log
+      setPendingTransfers(map);
+    };
+    fetchTransfers();
+  }, [assets]);
+
   // Close dropdown when clicking outside
-  useEffect(() => {
+  useEffectOrig(() => {
     if (!showDepartmentDropdown) return;
     function handleClickOutside(event: MouseEvent) {
       if (
@@ -156,14 +188,14 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showDepartmentDropdown]);
 
-  useEffect(() => {
+  useEffectOrig(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
+  useEffectOrig(() => {
     if (canOnlyView) {
       setShowViewOnlyNotice(true);
       const timer = setTimeout(() => setShowViewOnlyNotice(false), 10000);
@@ -172,13 +204,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   }, [canOnlyView]);
 
   const filteredAssets = assets.filter(asset => {
-    const matchesStatus = activeFilter === 'All' || 
-      (activeFilter === 'Active' && asset.status === 'active') ||
-      (activeFilter === 'Transferring' && asset.status === 'transferring') ||
-      (activeFilter === 'Audited' && asset.status === 'audited') ||
-      (activeFilter === 'Missing' && asset.status === 'missing') ||
-      (activeFilter === 'Broken' && asset.status === 'broken') ||
-      (activeFilter === 'Disposed' && asset.status === 'disposed');
+    const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
 
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
 
@@ -210,37 +236,42 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
   );
 
   // Patch assets to always have inventory_number and room as string
-  const patchedAssets = currentAssets.map(asset => ({
+  const patchedAssets = currentAssets.map(asset => {
+    const hasTransfer = !!pendingTransfers[String(asset.id)];
+    if (hasTransfer) {
+      console.log('DEBUG asset transferring:', asset.id, asset.name);
+    }
+    return {
     ...asset,
     inventory_number: (asset as any).inventory_number || '',
     room: (asset as any).room || '',
     created_at: (asset as any).created_at || '',
     has_pending_audit: (asset as any).has_pending_audit || false,
     pending_status: (asset as any).pending_status || null,
-  } as Asset));
+      has_pending_transfer: hasTransfer,
+    } as Asset;
+  });
 
-  const getStatusClass = (status: string, hasPending: boolean) => {
+  // ปรับ getStatusClass และ getStatusDisplay ให้รองรับ transferring แบบ virtual
+  const getStatusClass = (status: string, hasPending: boolean, hasPendingTransfer: boolean) => {
+    if (hasPendingTransfer) return styles.statusTransferring;
     if (hasPending) return styles.statusPending;
     switch (status) {
       case 'active': return styles.statusActive;
-      case 'transferring': return styles.statusTransferring;
-      case 'audited': return styles.statusAudited;
       case 'missing': return styles.statusMissing;
       case 'broken': return styles.statusBroken;
-      case 'disposed': return styles.statusDisposed;
+      case 'no_longer_required': return styles.statusDisposed; // ใช้สีเทา
       default: return '';
     }
   };
-
-  const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string) => {
+  const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string, hasPendingTransfer?: boolean) => {
+    if (hasPendingTransfer) return 'Transferring';
     if (hasPending && pendingStatus) return 'Pending';
     switch (status) {
       case 'active': return 'Active';
-      case 'transferring': return 'Transferring';
-      case 'audited': return 'Audited';
       case 'missing': return 'Missing';
       case 'broken': return 'Broken';
-      case 'disposed': return 'Disposed';
+      case 'no_longer_required': return 'No Longer Required';
       default: return status;
     }
   };
@@ -410,7 +441,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                       <span><b>Department:</b> {asset.department}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status)}</span></span>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status, !!asset.has_pending_transfer)}</span></span>
                     </div>
                   </div>
                 </div>
@@ -487,16 +518,16 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
               <div className={styles.searchAndFilters}>
                 
                 <div className={styles.statusFilters}>
-                  {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
+                  {statusOptions.map(opt => (
                     <button
-                      key={status}
-                      className={`${styles.filterButton} ${activeFilter === status ? styles.active : ''}`}
+                      key={opt.value}
+                      className={`${styles.filterButton} ${activeFilter === opt.value ? styles.active : ''}`}
                       onClick={() => {
-                        setActiveFilter(status);
+                        setActiveFilter(opt.value);
                         setCurrentPage(1);
                       }}
                     >
-                      {status}
+                      {opt.label}
                     </button>
                   ))}
                 </div>
@@ -572,13 +603,17 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                       <td data-label="Location" style={{ textAlign: 'center' }}>{asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</td>
                       <td data-label="Department">{asset.department}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
-                        {pendingAudits[asset.id] ? (
+                        {asset.has_pending_transfer ? (
+                          <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, false, true)}`}>
+                            {getStatusDisplay(asset.status, false, undefined, true)}
+                          </span>
+                        ) : pendingAudits[asset.id] ? (
                           <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
                             Pending
                           </span>
                         ) : (
-                          <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>
-                            {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined)}
+                          <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>
+                            {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer)}
                           </span>
                         )}
                       </td>

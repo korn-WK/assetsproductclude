@@ -29,6 +29,7 @@ interface Asset {
   updated_at?: string;
   has_pending_audit?: boolean;
   pending_status?: string | null;
+  has_pending_transfer?: boolean;
 }
 
 interface AdminAssetsTableProps {
@@ -52,22 +53,47 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 180 });
+  const statusColors = {
+    active: '#22c55e',
+    missing: '#f97316',
+    broken: '#ef4444',
+    no_longer_required: '#6b7280',
+  };
+  const statusLabels = {
+    active: 'Active',
+    missing: 'Missing',
+    broken: 'Broken',
+    no_longer_required: 'No Longer Required',
+  };
   const statusOptions = [
-    { value: 'All', label: 'Status' },
-    { value: 'Active', label: 'Active' },
-    { value: 'Transferring', label: 'Transferring' },
-    { value: 'Audited', label: 'Audited' },
-    { value: 'Missing', label: 'Missing' },
-    { value: 'Broken', label: 'Broken' },
-    { value: 'Disposed', label: 'Disposed' },
+    { value: 'active', label: 'Active' },
+    { value: 'missing', label: 'Missing' },
+    { value: 'broken', label: 'Broken' },
+    { value: 'no_longer_required', label: 'No Longer Required' },
   ];
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
+  const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: any }>({});
 
   // Fetch assets from context when the component mounts
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
+
+  // ดึง transfer pending ทั้งหมด (superadmin เห็นทุก transfer)
+  useEffect(() => {
+    if (!assets || assets.length === 0) return;
+    const fetchTransfers = async () => {
+      const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
+      const data = await res.json();
+      const map: { [assetId: string]: any } = {};
+      for (const t of data) {
+        map[String(t.asset_id)] = t;
+      }
+      setPendingTransfers(map);
+    };
+    fetchTransfers();
+  }, [assets]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
@@ -116,23 +142,21 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
   }, [showDepartmentDropdown]);
 
   // Patch assets to always have inventory_number and room as string
-  const patchedAssets = assets.map(asset => ({
+  const patchedAssets = assets.map(asset => {
+    const hasTransfer = !!pendingTransfers[String(asset.id)];
+    return {
     ...asset,
     inventory_number: (asset as any).inventory_number || '',
     room: (asset as any).room || '',
     created_at: (asset as any).created_at || '',
     has_pending_audit: (asset as any).has_pending_audit || false,
     pending_status: (asset as any).pending_status || null,
-  } as Asset));
+      has_pending_transfer: hasTransfer,
+    } as Asset;
+  });
 
   const filteredAssets = patchedAssets.filter(asset => {
-    const matchesStatus = activeFilter === 'All' || 
-      (activeFilter === 'Active' && asset.status === 'active') ||
-      (activeFilter === 'Transferring' && asset.status === 'transferring') ||
-      (activeFilter === 'Audited' && asset.status === 'audited') ||
-      (activeFilter === 'Missing' && asset.status === 'missing') ||
-      (activeFilter === 'Broken' && asset.status === 'broken') ||
-      (activeFilter === 'Disposed' && asset.status === 'disposed');
+    const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
 
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
 
@@ -163,7 +187,9 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
     currentPage * itemsPerPage
   );
 
-  const getStatusClass = (status: string, hasPending: boolean) => {
+  // ปรับ getStatusClass และ getStatusDisplay ให้รองรับ transferring แบบ virtual
+  const getStatusClass = (status: string, hasPending: boolean, hasPendingTransfer: boolean) => {
+    if (hasPendingTransfer) return styles.statusTransferring;
     if (hasPending) return styles.statusPending;
     switch (status) {
       case 'active': return styles.statusActive;
@@ -172,11 +198,12 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
       case 'missing': return styles.statusMissing;
       case 'broken': return styles.statusBroken;
       case 'disposed': return styles.statusDisposed;
+      case 'no_longer_required': return styles.statusDisposed; // ใช้สีเทา
       default: return '';
     }
   };
-
-  const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string) => {
+  const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string, hasPendingTransfer?: boolean) => {
+    if (hasPendingTransfer) return 'Transferring';
     if (hasPending && pendingStatus) return 'Pending';
     switch (status) {
       case 'active': return 'Active';
@@ -185,6 +212,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
       case 'missing': return 'Missing';
       case 'broken': return 'Broken';
       case 'disposed': return 'Disposed';
+      case 'no_longer_required': return 'No Longer Required';
       default: return status;
     }
   };
@@ -463,7 +491,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                       <span><b>Department:</b> {asset.department}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined)}</span></span>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, asset.has_pending_transfer || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, asset.has_pending_transfer || false)}</span></span>
                     </div>
                   </div>
                 </div>
@@ -488,16 +516,13 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
             <div className={styles.assetsControls}>
               <div className={styles.searchAndFilters}>
                 <div className={styles.statusFilters}>
-                  {['All', 'Active', 'Transferring', 'Audited', 'Missing', 'Broken', 'Disposed'].map(status => (
+                  {statusOptions.map(opt => (
                     <button
-                      key={status}
-                      className={`${styles.filterButton} ${activeFilter === status ? styles.active : ''}`}
-                      onClick={() => {
-                        setActiveFilter(status);
-                        setCurrentPage(1);
-                      }}
+                      key={opt.value}
+                      className={`${styles.filterButton} ${activeFilter === opt.value ? styles.active : ''}`}
+                      onClick={() => setActiveFilter(opt.value)}
                     >
-                      {status}
+                      {opt.label}
                     </button>
                   ))}
                 </div>
@@ -610,8 +635,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                       </td>
                       <td data-label="Department">{asset.department || '-'}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
-                        <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false)}`}>
-                          {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined)}
+                        <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false, asset.has_pending_transfer || false)}`}>
+                          {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, asset.has_pending_transfer || false)}
                         </span>
                       </td>
                     </tr>

@@ -21,6 +21,7 @@ const {
   createAsset,
   validateAssetStatus,
   VALID_STATUSES,
+  createAssetTransfer,
 } = require("../models/asset.js");
 
 const { createAssetAudit, getAssetAudits } = require("../models/assetAudit.js");
@@ -358,19 +359,34 @@ async function updateAssetById(req, res) {
       location_id: locationId,
     };
 
-    // ถ้ามีการเปลี่ยน status ให้สร้าง audit log pending เท่านั้น ไม่อัปเดต status ใน assets ทันที
-    if (updateData.status) {
-      // ไม่อัปเดต status จริงใน assets
-      const asset = await getAssetById(id);
+    // ตรวจสอบว่าเปลี่ยน department หรือ status หรือทั้งสอง
+    const assetBefore = await getAssetById(id);
+    const isDepartmentChanged = departmentId && departmentId !== assetBefore.department_id;
+    const isStatusChanged = updateData.status && updateData.status !== assetBefore.status;
+    if (isDepartmentChanged && isStatusChanged) {
+      return res.status(400).json({ error: 'Cannot transfer department and verify status at the same time. Please do one action at a time.' });
+    }
+    // ตรวจนับ: สร้าง audit log เฉพาะเมื่อเปลี่ยน status (และ department ไม่เปลี่ยน)
+    if (isStatusChanged && !isDepartmentChanged) {
       await createAssetAudit({
-        asset_id: asset.id,
+        asset_id: assetBefore.id,
         user_id: user.id,
-        department_id: asset.department_id,
+        department_id: assetBefore.department_id,
         status: updateData.status,
         note: updateData.note || null,
       });
-      // อัปเดต field อื่นๆ ตามปกติ ยกเว้น status
       delete mappedData.status;
+    }
+    // โอนย้าย: สร้าง transfer เฉพาะเมื่อเปลี่ยน department (และ status ไม่เปลี่ยน)
+    if (isDepartmentChanged && !isStatusChanged) {
+      await createAssetTransfer({
+        asset_id: id,
+        from_department_id: assetBefore.department_id,
+        to_department_id: departmentId,
+        requested_by: user.id,
+        note: updateData.note || null,
+      });
+      delete mappedData.department_id;
     }
 
     const success = await updateAsset(id, mappedData);
@@ -662,6 +678,16 @@ async function getAllAssetAudits(req, res) {
   }
 }
 
+async function getAssetTransferLogs(req, res) {
+  const { id } = req.params;
+  try {
+    const logs = await require('../models/asset').getAssetTransferLogs(id);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch transfer logs' });
+  }
+}
+
 module.exports = {
   getAssetByBarcode,
   patchAssetStatus,
@@ -682,4 +708,5 @@ module.exports = {
   confirmAssetAudits,
   getAssetAuditHistory,
   getAllAssetAudits,
+  getAssetTransferLogs,
 };

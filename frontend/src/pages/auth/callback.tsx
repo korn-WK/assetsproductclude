@@ -19,10 +19,22 @@ const AuthCallbackPage = () => {
       console.error('Authentication error from callback:', error);
       router.push(`/login?error=${error}`);
     } else {
-      // If no error, assume success and backend has set the cookie.
-      // Redirect to dashboard (backend should have already redirected to /dashboard anyway)
-      // This ensures if somehow user lands here without error, they still go to dashboard.
-      router.push('/dashboard');
+      // ตรวจสอบ role ก่อน redirect
+      fetch('/api/auth/me', { credentials: 'include' })
+        .then(res => res.json())
+        .then(user => {
+          const role = user?.role?.toLowerCase();
+          if (role === 'user' || role === 'admin') {
+            router.push('/user/dashboard');
+          } else if (role === 'superadmin') {
+            router.push('/admin/dashboard');
+          } else {
+            router.push('/dashboard');
+          }
+        })
+        .catch(() => {
+          router.push('/dashboard');
+        });
     }
   }, [router, error]);
 

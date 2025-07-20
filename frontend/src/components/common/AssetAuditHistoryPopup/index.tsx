@@ -13,33 +13,37 @@ interface AuditLog {
 }
 
 interface AssetAuditHistoryPopupProps {
-  assetId: number | string;
+  assetId?: number | string;
   open: boolean;
   onClose: () => void;
+  type?: 'audit' | 'transfer';
+  logs?: any[];
+  asset?: any;
 }
 
-const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId, open, onClose }) => {
+const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId, open, onClose, type = 'audit', logs = [], asset }) => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const rowsPerPage = 5;
 
   useEffect(() => {
-    if (open && assetId) {
+    if (type === 'audit' && open && assetId) {
       setLoading(true);
       fetch(`/api/assets/asset-audits/${assetId}`)
         .then(res => res.json())
         .then(data => {
           setAuditLogs(data);
-          setCurrentPage(1); // Reset to first page when asset changes
+          setCurrentPage(1);
         })
         .catch(() => setAuditLogs([]))
         .finally(() => setLoading(false));
     }
-  }, [open, assetId]);
+  }, [open, assetId, type]);
 
-  const totalPages = Math.ceil(auditLogs.length / rowsPerPage);
-  const paginatedLogs = auditLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const displayLogs = type === 'transfer' ? (Array.isArray(logs) ? logs : []) : auditLogs;
+  const totalPages = Math.ceil(displayLogs.length / rowsPerPage);
+  const paginatedLogs = displayLogs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   if (!open) return null;
 
@@ -48,35 +52,57 @@ const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId
       <div className={styles.popup} onClick={e => e.stopPropagation()}>
         <div className={styles.header}>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <AiOutlineHistory /> ประวัติการตรวจนับ
+            <AiOutlineHistory />{type === 'transfer' ? ' ประวัติการโอนย้าย' : ' ประวัติการตรวจนับ'}
           </h2>
           <button className={styles.closeButton} onClick={onClose} title="Close">
             <AiOutlineClose />
           </button>
         </div>
         <div className={styles.content}>
-          {loading ? (
+          {loading && type === 'audit' ? (
             <div style={{ color: '#888', fontSize: 15 }}>กำลังโหลดประวัติ...</div>
-          ) : auditLogs.length === 0 ? (
-            <div style={{ color: '#888', fontSize: 15 }}>ไม่พบประวัติการตรวจนับ</div>
+          ) : displayLogs.length === 0 ? (
+            <div style={{ color: '#888', fontSize: 15 }}>{type === 'transfer' ? 'ไม่พบประวัติการโอนย้าย' : 'ไม่พบประวัติการตรวจนับ'}</div>
           ) : (
             <>
               <table className={styles.auditHistoryTable}>
                 <thead>
+                  {type === 'transfer' ? (
+                    <tr style={{ background: '#f3f4f6' }}>
+                      <th>วันที่</th>
+                      <th>จากแผนก</th>
+                      <th>ไปแผนก</th>
+                      <th>ผู้ดำเนินการ</th>
+                      <th>สถานะ</th>
+                      <th>หมายเหตุ</th>
+                    </tr>
+                  ) : (
                   <tr style={{ background: '#f3f4f6' }}>
-                    <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>วันที่</th>
-                    <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>สถานะ</th>
-                    <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>หมายเหตุ</th>
-                    <th style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>ผู้ตรวจ</th>
+                      <th>วันที่</th>
+                      <th>สถานะ</th>
+                      <th>หมายเหตุ</th>
+                      <th>ผู้ตรวจ</th>
                   </tr>
+                  )}
                 </thead>
                 <tbody>
-                  {paginatedLogs.map(log => (
+                  {type === 'transfer'
+                    ? paginatedLogs.map((log, i) => (
+                        <tr key={i}>
+                          <td>{formatDate(log.requested_at || log.transfer_date)}</td>
+                          <td>{log.from_department_name || '-'}</td>
+                          <td>{log.to_department_name || '-'}</td>
+                          <td>{log.requested_by_name || log.transferred_by_name || '-'}</td>
+                          <td>{log.status}</td>
+                          <td>{log.note || '-'}</td>
+                        </tr>
+                      ))
+                    : paginatedLogs.map(log => (
                     <tr key={log.id}>
-                      <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{formatDate(log.checked_at)}</td>
-                      <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{log.status}</td>
-                      <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{log.note}</td>
-                      <td style={{ padding: '6px 8px', borderBottom: '1px solid #e5e7eb' }}>{log.user_name}</td>
+                          <td>{formatDate(log.checked_at)}</td>
+                          <td>{log.status}</td>
+                          <td>{log.note}</td>
+                          <td>{log.user_name}</td>
                     </tr>
                   ))}
                 </tbody>

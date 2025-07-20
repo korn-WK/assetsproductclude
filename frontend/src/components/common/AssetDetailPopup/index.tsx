@@ -141,13 +141,23 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     }
   };
 
+  const statusColors = {
+    active: '#22c55e',
+    missing: '#f97316',
+    broken: '#ef4444',
+    no_longer_required: '#6b7280',
+  };
+  const statusLabels = {
+    active: 'Active',
+    missing: 'Missing',
+    broken: 'Broken',
+    no_longer_required: 'No Longer Required',
+  };
   const statusOptions = [
-    { id: 'active', name: 'Active' },
-    { id: 'transferring', name: 'Transferring' },
-    { id: 'audited', name: 'Audited' },
-    { id: 'missing', name: 'Missing' },
-    { id: 'broken', name: 'Broken' },
-    { id: 'disposed', name: 'Disposed' },
+    { value: 'active', label: 'Active' },
+    { value: 'missing', label: 'Missing' },
+    { value: 'broken', label: 'Broken' },
+    { value: 'no_longer_required', label: 'No Longer Required' },
   ];
 
   const handleInputChange = (field: keyof Asset, value: string) => {
@@ -348,7 +358,39 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         }
       }
 
-      const finalAssetData = { ...editedAsset, image_url: imageUrl };
+      // ตรวจสอบว่าเปลี่ยน department หรือ status หรือทั้งสอง
+      const isDepartmentChanged = editedAsset.department_id !== asset?.department_id;
+      const isStatusChanged = editedAsset.status !== asset?.status;
+      // ไม่อนุญาตให้โอนย้ายไป department เดิม (เฉพาะตอน Edit)
+      if (!isCreating && isDepartmentChanged && editedAsset.department_id === asset?.department_id) {
+        Swal.fire({
+          title: 'Error',
+          text: 'Cannot transfer to the same department. Please select a different department.',
+          icon: 'error'
+        });
+        setLoading(false);
+        return;
+      }
+      // เฉพาะกรณีแก้ไข (Edit) เท่านั้นที่ต้องเช็ค validation นี้
+      if (!isCreating && isDepartmentChanged && isStatusChanged) {
+        Swal.fire({
+          title: 'Error',
+          text: 'Cannot transfer department and verify status at the same time. Please do one action at a time.',
+          icon: 'error'
+        });
+        setLoading(false);
+        return;
+      }
+      let finalAssetData: any = { ...editedAsset, image_url: imageUrl };
+      if (isDepartmentChanged && !isStatusChanged) {
+        // โอนย้าย: ส่งเฉพาะ department_id (และ field อื่น ๆ ที่ไม่ใช่ status)
+        finalAssetData = { ...finalAssetData, status: asset?.status };
+      } else if (!isDepartmentChanged && isStatusChanged) {
+        // ตรวจนับ: ส่งเฉพาะ status (และ field อื่น ๆ ที่ไม่ใช่ department_id)
+        finalAssetData = { ...finalAssetData, department_id: asset?.department_id };
+      } else if (!isDepartmentChanged && !isStatusChanged) {
+        // อัปเดต field อื่น ๆ ปกติ
+      }
 
       const url = isCreating ? '/api/assets' : `/api/assets/${editedAsset.id}`;
       const method = isCreating ? 'POST' : 'PUT';
@@ -489,7 +531,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             <label>{renderLabel()}</label>
             <DropdownSelect
               label=""
-              options={statusOptions.map(option => ({ id: option.id, name: option.name }))}
+              options={statusOptions.map(option => ({ id: option.value, name: option.label }))}
               value={value}
               onChange={(value) => handleInputChange(field, value)}
               placeholder="Select status"
@@ -537,24 +579,38 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           </div>
         );
       } else if (field === 'department') {
-        return (
-          <div className={styles.infoItem}>
-            <label>{renderLabel()}</label>
-            {dropdownLoading ? (
-              <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
-            ) : (
-              <DropdownSelect
-                label=""
-                options={departments.map(dep => ({ id: dep.id, name: dep.name_th, name_th: dep.name_th }))}
-                value={editedAsset.department_id ?? ''}
-                onChange={(value) => handleInputChange('department_id', value)}
-                placeholder="Select a department"
-                className={styles.editSelect}
-                disabled={dropdownLoading}
-              />
-            )}
-          </div>
-        );
+        // เฉพาะ admin หรือ superadmin หรือ isCreating เท่านั้นที่แก้ไขได้
+        const canEditDepartment = (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin' || isCreating);
+        if (canEditDepartment) {
+          return (
+            <div className={styles.infoItem}>
+              <label>{renderLabel()}</label>
+              {dropdownLoading ? (
+                <div className={styles.loadingText}>กำลังโหลดข้อมูล...</div>
+              ) : (
+                <DropdownSelect
+                  label=""
+                  options={departments.map(dep => ({ id: dep.id, name: dep.name_th, name_th: dep.name_th }))}
+                  value={editedAsset.department_id ?? ''}
+                  onChange={(value) => handleInputChange('department_id', value)}
+                  placeholder="Select a department"
+                  className={styles.editSelect}
+                  disabled={dropdownLoading}
+                />
+              )}
+            </div>
+          );
+        } else {
+          // user: read-only
+          return (
+            <div className={styles.infoItem}>
+              <label>{renderLabel()}</label>
+              <span className={styles.readOnlyField}>
+                {departments.find(dep => dep.id === editedAsset.department_id)?.name_th || editedAsset.department || 'N/A'}
+              </span>
+            </div>
+          );
+        }
       } else if (type === 'datetime-local') {
         const formatForInput = (dateString: string) => {
           // The dateString from the DB is already in local time format (e.g., "2025-06-21 02:00:00").

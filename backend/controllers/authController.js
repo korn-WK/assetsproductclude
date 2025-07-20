@@ -55,8 +55,15 @@ const googleAuthCallback = (req, res) => {
 
     // Check if user is admin and redirect accordingly
     const isSuperAdmin = req.user.role === 'SuperAdmin' || req.user.email === 'admin@mfu.ac.th' || req.user.email?.toLowerCase().includes('superadmin');
-    const isAdmin = req.user.role === 'Admin';
-    const redirectUrl = isSuperAdmin ? `${process.env.CLIENT_URL}/admin/dashboard` : `${process.env.CLIENT_URL}/user/asset-browser`;
+    const isAdmin = req.user.role === 'Admin' || req.user.role === 'admin';
+    let redirectUrl;
+    if (isSuperAdmin) {
+      redirectUrl = `${process.env.CLIENT_URL}/admin/dashboard`;
+    } else if (isAdmin || req.user.role === 'User' || req.user.role === 'user') {
+      redirectUrl = `${process.env.CLIENT_URL}/user/dashboard`;
+    } else {
+      redirectUrl = `${process.env.CLIENT_URL}/user/dashboard`;
+    }
     // Redirect to appropriate page based on role
     res.redirect(redirectUrl);
   } else {
