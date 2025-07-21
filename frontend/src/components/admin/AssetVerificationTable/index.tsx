@@ -53,7 +53,20 @@ const statusOptions = [
   { value: 'no_longer_required', label: 'No Longer Required' },
 ];
 
-const AssetVerificationTableSuperAdmin: React.FC = () => {
+// ฟังก์ชัน highlightText
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+
+interface AssetVerificationTableSuperAdminProps {
+  searchTerm?: string;
+}
+
+const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdminProps> = ({ searchTerm = '' }) => {
   const [pendingAudits, setPendingAudits] = useState<PendingAudit[]>([]);
   const [totalAudits, setTotalAudits] = useState(0);
   const [departments, setDepartments] = useState<{ id: number, name_th: string }[]>([]);
@@ -118,6 +131,20 @@ const AssetVerificationTableSuperAdmin: React.FC = () => {
         !!checkedDate &&
         (isAfter(checkedDate, start) || isEqual(checkedDate, start)) &&
         (isBefore(checkedDate, end) || isEqual(checkedDate, end));
+    }
+    // Search filter เฉพาะคอลัมน์ที่ต้องการ
+    const q = searchTerm.toLowerCase();
+    if (q) {
+      pass = pass && (
+        (audit.inventory_number || '').toLowerCase().includes(q) ||
+        (audit.asset_name || '').toLowerCase().includes(q) ||
+        (statusLabels[audit.status] || audit.status || '').toLowerCase().includes(q) ||
+        (audit.note || '').toLowerCase().includes(q) ||
+        (audit.user_name || '').toLowerCase().includes(q) ||
+        (audit.department_name || '').toLowerCase().includes(q) ||
+        (formatDate(audit.checked_at) || '').toLowerCase().includes(q) ||
+        (audit.confirmed ? 'approved' : 'pending').includes(q)
+      );
     }
     return pass;
   });
@@ -408,20 +435,17 @@ const AssetVerificationTableSuperAdmin: React.FC = () => {
                     }}
                   />
                 </td>
-                <td>{audit.inventory_number}</td>
-                <td>{audit.asset_name}</td>
+                <td>{highlightText(audit.inventory_number || '', searchTerm)}</td>
+                <td>{highlightText(audit.asset_name || '', searchTerm)}</td>
                 <td>
-                  <span
-                    className={styles.statusBadge}
-                    style={{ background: statusColors[audit.status] || '#e5e7eb', color: '#fff' }}
-                  >
-                    {statusLabels[audit.status] || audit.status}
+                  <span className={styles.statusBadge} style={{ background: statusColors[audit.status] || '#e5e7eb', color: '#fff' }}>
+                    {highlightText(statusLabels[audit.status] || audit.status, searchTerm)}
                   </span>
                 </td>
-                <td>{audit.note}</td>
-                <td>{audit.user_name}</td>
-                <td>{audit.department_name}</td>
-                <td>{formatDate(audit.checked_at)}</td>
+                <td>{highlightText(audit.note || '', searchTerm)}</td>
+                <td>{highlightText(audit.user_name || '', searchTerm)}</td>
+                <td>{highlightText(audit.department_name || '', searchTerm)}</td>
+                <td>{highlightText(formatDate(audit.checked_at) || '', searchTerm)}</td>
                 <td>
                   <span style={{
                     background: audit.confirmed ? '#22c55e' : '#facc15',
@@ -431,7 +455,7 @@ const AssetVerificationTableSuperAdmin: React.FC = () => {
                     fontWeight: 500,
                     fontSize: '0.95em'
                   }}>
-                    {audit.confirmed ? 'Approved' : 'Pending'}
+                    {highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}
                   </span>
                 </td>
               </tr>

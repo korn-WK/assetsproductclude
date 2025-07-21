@@ -34,9 +34,19 @@ interface Asset {
 
 interface AdminAssetsTableProps {
   onScanBarcodeClick?: () => void;
+  searchTerm?: string; // เพิ่ม prop searchTerm
 }
 
-const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick }) => {
+// ฟังก์ชันสำหรับ highlight ข้อความที่ตรงกับ searchTerm
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+
+const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick, searchTerm }) => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -157,9 +167,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
 
   const filteredAssets = patchedAssets.filter(asset => {
     const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
-
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
-
     // Filter by createdAt (ช่วงวันที่)
     let matchesDate = true;
     if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
@@ -170,14 +178,13 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
       end.setHours(23, 59, 59, 999);
       matchesDate = created >= start && created <= end;
     }
-
-    const q = searchQuery.trim().toLowerCase();
+    const q = (typeof searchTerm === 'string' ? searchTerm : searchQuery).trim().toLowerCase();
     const matchesSearch = !q ||
       asset.asset_code.toLowerCase().includes(q) ||
+      (asset.inventory_number || '').toLowerCase().includes(q) ||
       asset.name.toLowerCase().includes(q) ||
       asset.department.toLowerCase().includes(q) ||
       asset.location.toLowerCase().includes(q);
-
     return matchesStatus && matchesDepartment && matchesDate && matchesSearch;
   });
 
@@ -477,18 +484,18 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                 <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
                   <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
                   <div className={styles.assetCardContent}>
-                    <div className={styles.assetCardTitle}>{asset.name}</div>
+                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
                     <div className={styles.assetCardMetaRow}>
-                      <span className={styles.assetId}><b>Asset Code:</b> {asset.asset_code}</span>
+                      <span className={styles.assetId}><b>Asset Code:</b> {highlightText(asset.asset_code, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Inventory No.:</b> {asset.inventory_number || '-'}</span>
+                      <span><b>Inventory No.:</b> {highlightText(asset.inventory_number || '-', searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</span>
+                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Department:</b> {asset.department}</span>
+                      <span><b>Department:</b> {highlightText(asset.department, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
                       <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, asset.has_pending_transfer || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, asset.has_pending_transfer || false)}</span></span>
@@ -624,16 +631,16 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                           />
                         )}
                       </td>
-                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{asset.asset_code}</td>
-                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{asset.inventory_number || '-'}</td>
+                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{highlightText(asset.asset_code, searchTerm || '')}</td>
+                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{highlightText(asset.inventory_number || '-', searchTerm || '')}</td>
                       <td data-label="Name">{/* left-aligned for readability */}
-                        <div className={styles.assetName}>{asset.name}</div>
+                        <div className={styles.assetName}>{highlightText(asset.name, searchTerm || '')}</div>
                         <div className={styles.assetDescription}>{asset.description}</div>
                       </td>
                       <td data-label="Location" style={{ textAlign: 'center' }}>
-                        {asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}
+                        {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}
                       </td>
-                      <td data-label="Department">{asset.department || '-'}</td>
+                      <td data-label="Department">{highlightText(asset.department || '-', searchTerm || '')}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
                         <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false, asset.has_pending_transfer || false)}`}>
                           {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, asset.has_pending_transfer || false)}

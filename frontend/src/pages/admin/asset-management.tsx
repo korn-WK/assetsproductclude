@@ -16,6 +16,7 @@ const AssetManagementPage: React.FC = () => {
   const [scannedAsset, setScannedAsset] = useState(null);
   const [showAssetPopup, setShowAssetPopup] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState(''); // เพิ่ม state สำหรับ search
 
   const handleOpenScanner = () => {
     setShowScanner(true);
@@ -64,9 +65,10 @@ const AssetManagementPage: React.FC = () => {
               title="Asset Management"
               isAdmin={true}
               onMenuClick={() => setSidebarOpen(true)}
+              onSearch={setSearchTerm} // ส่งฟังก์ชันนี้ให้ Navbar
             />
             <div> 
-              <AdminAssetsTable onScanBarcodeClick={handleOpenScanner} />
+              <AdminAssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} />
             </div>
           </AssetProvider>
         </Layout>

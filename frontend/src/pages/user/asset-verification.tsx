@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../contexts/AuthContext';
 import Sidebar from '../../components/user/Sidebar';
@@ -10,6 +10,7 @@ const AssetVerificationUserPage: React.FC = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!loading) {
@@ -29,6 +30,7 @@ const AssetVerificationUserPage: React.FC = () => {
         title="Asset Verification"
         isAdmin={user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'admin'}
         onMenuClick={() => setSidebarOpen(true)}
+        onSearch={setSearchTerm}
       />
       <div style={{
         padding: '2rem',
@@ -37,7 +39,7 @@ const AssetVerificationUserPage: React.FC = () => {
         boxShadow: 'var(--shadow-sm)'
       }}>
         <h1></h1>
-        <AssetVerificationTable />
+        <AssetVerificationTable searchTerm={searchTerm} />
       </div>
     </Layout>
   );

@@ -22,6 +22,7 @@ const LocationManagementPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchLocations = async () => {
     try {
@@ -160,7 +161,7 @@ const LocationManagementPage: React.FC = () => {
         </Head>
 
         <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-          <Navbar title="Location Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
+          <Navbar title="Location Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
           <div>
             <AdminTable
               title=""
@@ -171,6 +172,7 @@ const LocationManagementPage: React.FC = () => {
               onDelete={handleDelete}
               loading={loading}
               searchPlaceholder="Search locations..."
+              searchTerm={searchTerm}
             />
 
             <FormModal

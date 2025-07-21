@@ -57,9 +57,19 @@ interface AssetTransferVerificationTableProps {
   isSuperAdmin?: boolean;
   departmentFilter?: number | 'all';
   onDepartmentChange?: (value: number | 'all') => void;
+  searchTerm?: string;
 }
 
-const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTableProps> = ({ isSuperAdmin = false, departmentFilter = 'all', onDepartmentChange }) => {
+// ฟังก์ชัน highlightText
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+
+const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTableProps> = ({ isSuperAdmin = false, departmentFilter = 'all', onDepartmentChange, searchTerm = '' }) => {
   const { user } = useAuth();
   const [tab, setTab] = useState('all');
   const [viewMode, setViewMode] = useState<'in' | 'out'>('in');
@@ -99,7 +109,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
     // eslint-disable-next-line
   }, [tab, viewMode, isSuperAdmin, departmentFilter]);
 
-  // Filter by date range + from department
+  // Filter by date range + from department + search
   const filteredTransfers = transfers.filter(t => {
     // filter by date
     const startDate = range[0].startDate;
@@ -109,14 +119,27 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
       const reqDate = t.requested_at ? parse(t.requested_at, 'yyyy-MM-dd HH:mm:ss', new Date()) : undefined;
       const start = new Date(startDate); start.setHours(0,0,0,0);
       const end = new Date(endDate); end.setHours(23,59,59,999);
-      dateOk = reqDate && (isAfter(reqDate, start) || isEqual(reqDate, start)) && (isBefore(reqDate, end) || isEqual(reqDate, end));
+      dateOk = !!reqDate && (isAfter(reqDate, start) || isEqual(reqDate, start)) && (isBefore(reqDate, end) || isEqual(reqDate, end));
     }
     // filter by from department (เฉพาะ superadmin)
     let fromOk = true;
     if (isSuperAdmin) {
       fromOk = fromDepartment === 'all' || t.from_department_id === fromDepartment;
     }
-    return dateOk && fromOk;
+    // filter by search term เฉพาะคอลัมน์ที่ต้องการ
+    const q = searchTerm.toLowerCase();
+    let searchOk = true;
+    if (q) {
+      searchOk = (
+        (typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)).toLowerCase().includes(q) ||
+        (typeof t.from_department_name === 'string' ? t.from_department_name : String(t.from_department_id ?? '')).toLowerCase().includes(q) ||
+        (typeof t.to_department_name === 'string' ? t.to_department_name : String(t.to_department_id ?? '')).toLowerCase().includes(q) ||
+        (statusLabels[t.status] || t.status).toLowerCase().includes(q) ||
+        (t.requested_by_name ? t.requested_by_name : (typeof t.requested_by === 'string' ? t.requested_by : t.requested_by?.toString() || '')).toLowerCase().includes(q) ||
+        (t.requested_at || '').toLowerCase().includes(q)
+      );
+    }
+    return dateOk && fromOk && searchOk;
   });
 
   // Pagination
@@ -285,7 +308,8 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                 <option value="all">All Departments</option>
                 {/* departments state ต้องมีข้อมูล department ทั้งหมด */}
                 {Array.isArray(transfers) && transfers.length > 0 && Array.from(new Set(transfers.map(t => t.from_department_id && t.from_department_name ? JSON.stringify({id: t.from_department_id, name: t.from_department_name}) : null).filter(Boolean))).map(depStr => {
-                  const dep = JSON.parse(depStr);
+                  if (!depStr) return null;
+                  const dep = JSON.parse(depStr as string);
                   return <option key={dep.id} value={dep.id}>{dep.name}</option>;
                 })}
               </select>
@@ -357,26 +381,26 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
               <td style={{ textAlign: 'center' }}>
                 <img
                   src={t.image_url || '/file.svg'}
-                  alt={t.asset_name || t.asset_id}
+                  alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
                   width={60}
                   height={60}
                   style={{ objectFit: 'cover', borderRadius: 8 }}
                   onError={e => { e.currentTarget.src = '/file.svg'; }}
                 />
               </td>
-              <td>{t.asset_name || t.asset_id}</td>
-              <td>{t.from_department_name || t.from_department_id}</td>
-              <td>{t.to_department_name || t.to_department_id}</td>
+              <td>{highlightText(typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id), searchTerm)}</td>
+              <td>{highlightText(typeof t.from_department_name === 'string' ? t.from_department_name : String(t.from_department_id ?? ''), searchTerm)}</td>
+              <td>{highlightText(typeof t.to_department_name === 'string' ? t.to_department_name : String(t.to_department_id ?? ''), searchTerm)}</td>
               <td>
                 <span
                   className={styles.statusBadge}
                   style={{ background: statusColors[t.status] || '#e5e7eb', fontWeight: 600 }}
                 >
-                  {statusLabels[t.status] || t.status}
+                  {highlightText(statusLabels[t.status] || t.status, searchTerm)}
                 </span>
               </td>
-              <td>{t.requested_by_name ? t.requested_by_name : (typeof t.requested_by === 'string' ? t.requested_by : t.requested_by?.toString() || '')}</td>
-              <td>{t.requested_at}</td>
+              <td>{highlightText(t.requested_by_name ? t.requested_by_name : (typeof t.requested_by === 'string' ? t.requested_by : t.requested_by?.toString() || ''), searchTerm)}</td>
+              <td>{highlightText(t.requested_at || '', searchTerm)}</td>
               <td>
                 {/* ให้ superadmin หรือ admin ที่เกี่ยวข้อง approve/reject ได้ถ้า pending */}
                 {t.status === 'pending' && (

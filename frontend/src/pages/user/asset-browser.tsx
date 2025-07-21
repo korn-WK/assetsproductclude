@@ -16,6 +16,7 @@ const AssetBrowserPage: React.FC = () => {
   const [scannedAsset, setScannedAsset] = useState(null);
   const [showAssetPopup, setShowAssetPopup] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const handleOpenScanner = () => {
     setShowScanner(true);
@@ -62,8 +63,9 @@ const AssetBrowserPage: React.FC = () => {
           <Navbar
             title="Asset Browser"
             onMenuClick={() => setSidebarOpen(true)}
+            onSearch={setSearchTerm}
           />
-          <AssetsTable onScanBarcodeClick={handleOpenScanner} />
+          <AssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} />
         </AssetProvider>
       </Layout>
 

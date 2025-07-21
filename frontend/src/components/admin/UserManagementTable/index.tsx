@@ -22,11 +22,23 @@ interface UserType {
   created_at: string;
 }
 
-const UserManagementTable: React.FC = () => {
+interface UserManagementTableProps {
+  searchTerm?: string;
+}
+
+// ฟังก์ชัน highlightText
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+
+const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm }) => {
   const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
-  const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
 
@@ -102,27 +114,15 @@ const UserManagementTable: React.FC = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    const searchLower = searchTerm.toLowerCase();
-    const matchesSearch = searchTerm === '' ||
-      (user.name && user.name.toLowerCase().includes(searchLower)) ||
-      (user.email && user.email.toLowerCase().includes(searchLower)) ||
-      (user.username && user.username.toLowerCase().includes(searchLower));
-
-    // เปรียบเทียบ role แบบไม่สนใจตัวพิมพ์เล็ก/ใหญ่
-    const matchesRole = roleFilter === 'all' || String(user.role || '').toLowerCase() === roleFilter.toLowerCase();
-
-    // กรองตามช่วงวันที่ created_at
-    let matchesDate = true;
-    if (dateRange.startDate && dateRange.endDate) {
-      const createdAt = new Date(user.created_at);
-      const start = new Date(dateRange.startDate);
-      start.setHours(0,0,0,0);
-      const end = new Date(dateRange.endDate);
-      end.setHours(23,59,59,999);
-      matchesDate = createdAt >= start && createdAt <= end;
-    }
-
-    return matchesSearch && matchesRole && matchesDate;
+    const q = (searchTerm || '').toLowerCase();
+    return (
+      user.username?.toLowerCase().includes(q) ||
+      user.name?.toLowerCase().includes(q) ||
+      user.email?.toLowerCase().includes(q) ||
+      user.department_name?.toLowerCase().includes(q) ||
+      user.role?.toLowerCase().includes(q) ||
+      formatDate(user.created_at).toLowerCase().includes(q)
+    );
   });
 
   const handleExportPDF = async () => {
@@ -317,13 +317,14 @@ const UserManagementTable: React.FC = () => {
                   </div>
                 )}
                 <div className={styles.cardMainInfo}>
-                  <div className={styles.cardName}>{user.name}</div>
-                  <div className={styles.cardEmail}>{user.email}</div>
+                  <div className={styles.cardName}>{highlightText(user.name, searchTerm || '')}</div>
+                  <div className={styles.cardEmail}>{highlightText(user.email, searchTerm || '')}</div>
                 </div>
               </div>
               <div className={styles.cardFields}>
-                <div className={styles.cardField}><span>Department:</span> {user.department_name || 'Not Assigned'}</div>
-                <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{user.role}</span></div>
+                <div className={styles.cardField}><span>Department:</span> {highlightText(user.department_name || 'Not Assigned', searchTerm || '')}</div>
+                <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.role, searchTerm || '')}</span></div>
+                <div className={styles.cardField}><span>Created At:</span> {highlightText(formatDate(user.created_at), searchTerm || '')}</div>
               </div>
               <div className={styles.cardActions}>
                 <button
@@ -447,12 +448,11 @@ const UserManagementTable: React.FC = () => {
                       </div>
                     )}
                   </td>
-                  <td style={{ fontWeight: '600' }}>{user.username}</td>
-                  <td>{user.name}</td>
-                  <td>{user.email}</td>
+                  <td style={{ fontWeight: '600' }}>{highlightText(user.username, searchTerm || '')}</td>
+                  <td>{highlightText(user.name, searchTerm || '')}</td>
+                  <td>{highlightText(user.email, searchTerm || '')}</td>
                   <td>
-                    {/* Department */}
-                    {user.department_name ? user.department_name : (user.department_id ? user.department_id : 'Not Assigned')}
+                    {highlightText(user.department_name ? user.department_name : (user.department_id ? String(user.department_id) : 'Not Assigned'), searchTerm || '')}
                   </td>
                   <td>
                     <span className={
@@ -467,10 +467,10 @@ const UserManagementTable: React.FC = () => {
                       {user.role === 'SuperAdmin' && <FaCrown style={{marginRight: 4}} />}
                       {user.role === 'Admin' && <FaUserShield style={{marginRight: 4}} />}
                       {user.role === 'User' && <FaUser style={{marginRight: 4}} />}
-                      {user.role}
+                      {highlightText(user.role, searchTerm || '')}
                     </span>
                   </td>
-                  <td>{formatDate(user.created_at)}</td>
+                  <td>{highlightText(formatDate(user.created_at), searchTerm || '')}</td>
                   <td>
                     <div className={styles.actions}>
                       <button

@@ -22,6 +22,7 @@ const DepartmentManagementPage: React.FC = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingDepartment, setEditingDepartment] = useState<Department | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const fetchDepartments = async () => {
     try {
@@ -160,7 +161,7 @@ const DepartmentManagementPage: React.FC = () => {
         </Head>
 
         <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-          <Navbar title="Department Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
+          <Navbar title="Department Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
           <div>
             <AdminTable
               title=""
@@ -171,6 +172,7 @@ const DepartmentManagementPage: React.FC = () => {
               onDelete={handleDelete}
               loading={loading}
               searchPlaceholder="Search departments..."
+              searchTerm={searchTerm}
             />
 
             <FormModal

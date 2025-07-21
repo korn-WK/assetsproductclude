@@ -8,6 +8,7 @@ import styles from '../../user/AssetsTable/AssetsTable.module.css';
 
 const AssetVerificationAllPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   return (
     <>
@@ -17,9 +18,9 @@ const AssetVerificationAllPage: React.FC = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-        <Navbar title="Asset Verification (All)" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
+        <Navbar title="Asset Verification (All)" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
         <div>
-          <AssetVerificationTableSuperAdmin />
+          <AssetVerificationTableSuperAdmin searchTerm={searchTerm} />
         </div>
       </Layout>
     </>

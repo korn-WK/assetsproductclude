@@ -37,9 +37,18 @@ interface Asset {
 
 interface AssetsTableProps {
   onScanBarcodeClick?: () => void;
+  searchTerm?: string;
 }
 
-const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+
+const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTerm }) => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
   const { user } = useAuth();
@@ -205,10 +214,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
 
   const filteredAssets = assets.filter(asset => {
     const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
-
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
-
-    // Filter by createdAt (ช่วงวันที่)
     let matchesDate = true;
     if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
       const created = new Date((asset as any).created_at);
@@ -218,14 +224,14 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
       end.setHours(23, 59, 59, 999);
       matchesDate = created >= start && created <= end;
     }
-
-    const q = searchQuery.trim().toLowerCase();
+    const q = (typeof searchTerm === 'string' ? searchTerm : '').trim().toLowerCase();
     const matchesSearch = !q ||
       asset.asset_code.toLowerCase().includes(q) ||
+      (asset.inventory_number || '').toLowerCase().includes(q) ||
       asset.name.toLowerCase().includes(q) ||
       asset.department.toLowerCase().includes(q) ||
-      asset.location.toLowerCase().includes(q);
-
+      asset.location.toLowerCase().includes(q) ||
+      (statusLabels[asset.status] || asset.status).toLowerCase().includes(q);
     return matchesStatus && matchesDepartment && matchesDate && matchesSearch;
   });
 
@@ -430,18 +436,18 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                 <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
                   <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
                   <div className={styles.assetCardContent}>
-                    <div className={styles.assetCardTitle}>{asset.name}</div>
+                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
                     <div className={styles.assetCardMetaRow}>
-                      <span className={styles.assetId}><b>ID:</b> {asset.asset_code}</span>
+                      <span className={styles.assetId}><b>ID:</b> {highlightText(asset.asset_code, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</span>
+                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Department:</b> {asset.department}</span>
+                      <span><b>Department:</b> {highlightText(asset.department, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status, !!asset.has_pending_transfer)}</span></span>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>{highlightText(getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status, !!asset.has_pending_transfer), searchTerm || '')}</span></span>
                     </div>
                   </div>
                 </div>
@@ -594,26 +600,26 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick }) => {
                           />
                         )}
                       </td>
-                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{asset.asset_code}</td>
-                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{asset.inventory_number}</td>
-                      <td data-label="Name">{/* left-aligned for readability */}
-                        <div className={styles.assetName}>{asset.name}</div>
+                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{highlightText(asset.asset_code || '', searchTerm || '')}</td>
+                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{highlightText(asset.inventory_number || '', searchTerm || '')}</td>
+                      <td data-label="Name">
+                        <div className={styles.assetName}>{highlightText(asset.name || '', searchTerm || '')}</div>
                         <div className={styles.assetDescription}>{asset.description}</div>
                       </td>
-                      <td data-label="Location" style={{ textAlign: 'center' }}>{asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'}</td>
-                      <td data-label="Department">{asset.department}</td>
+                      <td data-label="Location" style={{ textAlign: 'center' }}>{highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</td>
+                      <td data-label="Department">{highlightText(asset.department || '', searchTerm || '')}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
                         {asset.has_pending_transfer ? (
                           <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, false, true)}`}>
-                            {getStatusDisplay(asset.status, false, undefined, true)}
+                            {highlightText(getStatusDisplay(asset.status, false, undefined, true), searchTerm || '')}
                           </span>
                         ) : pendingAudits[asset.id] ? (
                           <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
-                            Pending
+                            {highlightText('Pending', searchTerm || '')}
                           </span>
                         ) : (
                           <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>
-                            {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer)}
+                            {highlightText(getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer), searchTerm || '')}
                           </span>
                         )}
                       </td>

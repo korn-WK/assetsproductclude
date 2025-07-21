@@ -12,9 +12,10 @@ interface NavbarProps {
   onMenuClick?: () => void;
   scanBarcodeIcon?: boolean;
   onScanBarcodeClick?: () => void;
+  onSearch?: (keyword: string) => void; // เพิ่ม prop onSearch
 }
 
-const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, scanBarcodeIcon = false, onScanBarcodeClick }) => {
+const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, scanBarcodeIcon = false, onScanBarcodeClick, onSearch }) => {
   const { user, loading, logout } = useAuth();
   const { searchAssets, fetchAssets } = useAssets();
   const [isDropdownOpen, setDropdownOpen] = useState(false);
@@ -23,27 +24,22 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
   const [isMobile, setIsMobile] = useState(false);
 
   const handleSearch = () => {
-    console.log('Search triggered with query:', searchQuery);
-    if (searchQuery.trim()) {
-      console.log('Calling searchAssets with:', searchQuery);
-      searchAssets(searchQuery);
-    } else {
-      console.log('Calling fetchAssets (empty search)');
-      fetchAssets(); // If search is empty, fetch all assets
+    if (onSearch) {
+      onSearch(searchQuery);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      console.log('Enter key pressed');
       handleSearch();
     }
   };
 
   const handleClearSearch = () => {
-    console.log('Clearing search');
     setSearchQuery('');
-    fetchAssets();
+    if (onSearch) {
+      onSearch('');
+    }
   };
 
   console.log('User data in Navbar:', user);
@@ -92,10 +88,15 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
         <div className={styles.searchContainer}>
           <input
             type="text"
-            placeholder="Search by code, name, department..."
+            placeholder="Search in table..."
             className={styles.searchInput}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (onSearch) {
+                onSearch(e.target.value); // เรียกทุกครั้งที่พิมพ์
+              }
+            }}
             onKeyDown={handleKeyDown}
           />
           <button 

@@ -22,7 +22,18 @@ const TABS = [
   { key: 'rejected', label: 'Rejected' },
 ];
 
-const AssetTransferTable: React.FC = () => {
+interface AssetTransferTableProps {
+  searchTerm?: string;
+}
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+
+const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm }) => {
   const [tab, setTab] = useState<'pending' | 'approved' | 'rejected'>('pending');
   const [transfers, setTransfers] = useState<AssetTransfer[]>([]);
   const [loading, setLoading] = useState(false);
@@ -54,6 +65,19 @@ const AssetTransferTable: React.FC = () => {
     fetchTransfers();
   };
 
+  const q = (typeof searchTerm === 'string' ? searchTerm : '').trim().toLowerCase();
+  const filteredTransfers = transfers.filter(tr => {
+    if (!q) return true;
+    return (
+      (tr.asset_code || '').toLowerCase().includes(q) ||
+      (tr.asset_name || '').toLowerCase().includes(q) ||
+      (tr.from_department || '').toLowerCase().includes(q) ||
+      (tr.to_department || '').toLowerCase().includes(q) ||
+      (tr.requested_by_name || '').toLowerCase().includes(q) ||
+      (tr.requested_at || '').toLowerCase().includes(q) ||
+      (tr.status || '').toLowerCase().includes(q)
+    );
+  });
   return (
     <div>
       <h2>Asset Transfer Verification</h2>
@@ -95,23 +119,23 @@ const AssetTransferTable: React.FC = () => {
           <tbody>
             {loading ? (
               <tr><td colSpan={10} style={{ textAlign: 'center', padding: 24 }}>Loading...</td></tr>
-            ) : transfers.length === 0 ? (
+            ) : filteredTransfers.length === 0 ? (
               <tr><td colSpan={10} style={{ textAlign: 'center', padding: 24 }}>No data</td></tr>
             ) : (
-              transfers.map(tr => (
+              filteredTransfers.map(tr => (
                 <tr key={tr.id} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: 8 }}>{tr.asset_code}</td>
-                  <td style={{ padding: 8 }}>{tr.asset_name}</td>
-                  <td style={{ padding: 8 }}>{tr.from_department}</td>
-                  <td style={{ padding: 8 }}>{tr.to_department}</td>
-                  <td style={{ padding: 8 }}>{tr.requested_by_name}</td>
-                  <td style={{ padding: 8 }}>{new Date(tr.requested_at).toLocaleString()}</td>
-                  {tab !== 'pending' && <td style={{ padding: 8 }}>{tr.approved_by_name || '-'}</td>}
-                  {tab !== 'pending' && <td style={{ padding: 8 }}>{tr.approved_at ? new Date(tr.approved_at).toLocaleString() : '-'}</td>}
+                  <td style={{ padding: 8 }}>{highlightText(tr.asset_code || '', searchTerm || '')}</td>
+                  <td style={{ padding: 8 }}>{highlightText(tr.asset_name || '', searchTerm || '')}</td>
+                  <td style={{ padding: 8 }}>{highlightText(tr.from_department || '', searchTerm || '')}</td>
+                  <td style={{ padding: 8 }}>{highlightText(tr.to_department || '', searchTerm || '')}</td>
+                  <td style={{ padding: 8 }}>{highlightText(tr.requested_by_name || '', searchTerm || '')}</td>
+                  <td style={{ padding: 8 }}>{highlightText(new Date(tr.requested_at).toLocaleString(), searchTerm || '')}</td>
+                  {tab !== 'pending' && <td style={{ padding: 8 }}>{highlightText(tr.approved_by_name || '-', searchTerm || '')}</td>}
+                  {tab !== 'pending' && <td style={{ padding: 8 }}>{highlightText(tr.approved_at ? new Date(tr.approved_at).toLocaleString() : '-', searchTerm || '')}</td>}
                   <td style={{ padding: 8 }}>
-                    {tr.status === 'pending' && <span style={{ color: '#f59e42', fontWeight: 600 }}>Pending</span>}
-                    {tr.status === 'approved' && <span style={{ color: '#10b981', fontWeight: 600 }}>Approved</span>}
-                    {tr.status === 'rejected' && <span style={{ color: '#ef4444', fontWeight: 600 }}>Rejected</span>}
+                    {tr.status === 'pending' && <span style={{ color: '#f59e42', fontWeight: 600 }}>{highlightText('Pending', searchTerm || '')}</span>}
+                    {tr.status === 'approved' && <span style={{ color: '#10b981', fontWeight: 600 }}>{highlightText('Approved', searchTerm || '')}</span>}
+                    {tr.status === 'rejected' && <span style={{ color: '#ef4444', fontWeight: 600 }}>{highlightText('Rejected', searchTerm || '')}</span>}
                   </td>
                   {tab === 'pending' && (
                     <td style={{ padding: 8 }}>

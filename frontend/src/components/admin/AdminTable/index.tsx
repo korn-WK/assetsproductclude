@@ -17,6 +17,16 @@ interface AdminTableProps {
   onDelete: (id: string | number) => Promise<void>;
   loading?: boolean;
   searchPlaceholder?: string;
+  searchTerm?: string;
+}
+
+// ฟังก์ชัน highlightText
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
 }
 
 const AdminTable: React.FC<AdminTableProps> = ({
@@ -27,9 +37,10 @@ const AdminTable: React.FC<AdminTableProps> = ({
   onEdit,
   onDelete,
   loading = false,
-  searchPlaceholder = "Search..."
+  searchPlaceholder = "Search...",
+  searchTerm: propSearchTerm // Destructure searchTerm from props
 }) => {
-  const [searchTerm, setSearchTerm] = useState('');
+  // searchTerm now comes from props
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
   const [isMobile, setIsMobile] = useState(false);
@@ -43,9 +54,15 @@ const AdminTable: React.FC<AdminTableProps> = ({
 
   // Filter data based on search term
   const filteredData = data.filter(item =>
-    Object.values(item).some(value =>
-      value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    columns.some(col => {
+      // เฉพาะคอลัมน์ที่ต้องการค้นหา (เช่น name_th, name_en, description, created_at)
+      const value = item[col.key];
+      // created_at อาจต้องแปลงเป็น string ที่แสดงจริง
+      if (col.key === 'created_at' && value) {
+        return new Date(value).toLocaleDateString('en-US').toLowerCase().includes(propSearchTerm?.toLowerCase() || '');
+      }
+      return value && value.toString().toLowerCase().includes(propSearchTerm?.toLowerCase() || '');
+    })
   );
 
   // Pagination
@@ -175,9 +192,19 @@ const AdminTable: React.FC<AdminTableProps> = ({
                       <div key={column.key} className={styles.cardField}>
                         <span className={styles.cardLabel}>{column.label}:</span>
                         <span className={styles.cardValue}>
-                          {column.render
-                            ? column.render(item[column.key], item)
-                            : item[column.key] || '-'}
+                          {(() => {
+                            // ถ้า column นี้มี render function ให้ wrap ด้วย highlightText ถ้าเป็นคอลัมน์ที่ค้นหาได้
+                            const value = item[column.key];
+                            if (column.render) {
+                              const rendered = column.render(value, item);
+                              // ถ้าเป็น string ให้ highlight ได้
+                              if (typeof rendered === 'string') {
+                                return highlightText(rendered, propSearchTerm || '');
+                              }
+                              return rendered;
+                            }
+                            return highlightText(value || '-', propSearchTerm || '');
+                          })()}
                         </span>
                       </div>
                     ))}
@@ -236,9 +263,19 @@ const AdminTable: React.FC<AdminTableProps> = ({
                     <tr key={item.id || index}>
                       {columns.map((column) => (
                         <td key={column.key}>
-                          {column.render 
-                            ? column.render(item[column.key], item)
-                            : item[column.key] || '-'}
+                          {(() => {
+                            // ถ้า column นี้มี render function ให้ wrap ด้วย highlightText ถ้าเป็นคอลัมน์ที่ค้นหาได้
+                            const value = item[column.key];
+                            if (column.render) {
+                              const rendered = column.render(value, item);
+                              // ถ้าเป็น string ให้ highlight ได้
+                              if (typeof rendered === 'string') {
+                                return highlightText(rendered, propSearchTerm || '');
+                              }
+                              return rendered;
+                            }
+                            return highlightText(value || '-', propSearchTerm || '');
+                          })()}
                         </td>
                       ))}
                       <td className={styles.actions}>

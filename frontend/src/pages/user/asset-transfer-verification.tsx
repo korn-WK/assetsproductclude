@@ -10,6 +10,7 @@ const AssetTransferVerificationPage: React.FC = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (!loading) {
@@ -31,6 +32,7 @@ const AssetTransferVerificationPage: React.FC = () => {
         title="Asset Transfer Verification"
         isAdmin={true}
         onMenuClick={() => setSidebarOpen(true)}
+        onSearch={setSearchTerm}
       />
       <div style={{
         padding: '2rem',
@@ -38,7 +40,7 @@ const AssetTransferVerificationPage: React.FC = () => {
         borderRadius: '15px',
         boxShadow: 'var(--shadow-sm)'
       }}>
-        <AssetTransferVerificationTable />
+        <AssetTransferVerificationTable searchTerm={searchTerm} />
       </div>
     </Layout>
   );

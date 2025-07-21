@@ -12,6 +12,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<'all' | number>('all');
+  const [searchTerm, setSearchTerm] = useState('');
 
   React.useEffect(() => {
     console.log('DEBUG: user:', user, 'loading:', loading);
@@ -36,6 +37,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
         title="Asset Transfer Verification (All)"
         isAdmin={true}
         onMenuClick={() => setSidebarOpen(true)}
+        onSearch={setSearchTerm}
       />
       <div style={{
         padding: '2rem',
@@ -47,6 +49,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
           isSuperAdmin={true}
           departmentFilter={selectedDepartment}
           onDepartmentChange={setSelectedDepartment}
+          searchTerm={searchTerm}
         />
       </div>
     </Layout>

@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-import Sidebar from '../../components/user/Sidebar/index';
+import AdminSidebar from '../../components/admin/AdminSidebar';
 import Navbar from '../../components/common/Navbar';
 import Layout from '../../components/common/Layout';
-import UserRoute from '../../components/auth/UserRoute';
+import AdminRoute from '../../components/auth/AdminRoute';
+import DepartmentSelector from '../../components/common/DepartmentSelector';
 import ReportAssetsTable from '../../components/admin/ReportAssetsTable';
 import { useAssets } from '../../contexts/AssetContext';
+import { useDropdown } from '../../contexts/DropdownContext';
 import { AiOutlineDownload } from 'react-icons/ai';
 import styles from '../../components/user/AssetsTable/AssetsTable.module.css';
 import DateRangeFilterButton from '../../components/common/DateRangeFilterButton';
@@ -18,23 +20,25 @@ const ASSET_STATUSES = [
   { key: 'no_longer_required', label: 'ครุภัณท์ที่ไม่มีความจำเป็นต้องใช้ในหน่วยงาน' },
 ];
 
-const statusLabels: Record<string, string> = {
-  active: 'Active',
-  missing: 'Missing',
-  broken: 'Broken',
-  no_longer_required: 'No Longer Required',
-};
-
-const UserReportPage = () => {
+const ReportPage = () => {
+  const [selectedDepartment, setSelectedDepartment] = useState<'all' | number>('all');
   const [collapse, setCollapse] = useState<Record<string, boolean>>({});
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { assets, loading, error, fetchAssets } = useAssets();
   const [dateRanges, setDateRanges] = useState<Record<string, { startDate?: Date; endDate?: Date }>>({});
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { departments } = useDropdown();
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetchAssets(); // ดึง assets เฉพาะของ department user
-  }, [fetchAssets]);
+    if (selectedDepartment === 'all') {
+      fetchAssets();
+    } else if (typeof selectedDepartment === 'number' && !isNaN(selectedDepartment)) {
+      const dep = departments.find(d => d.id === selectedDepartment);
+      if (dep) {
+        fetchAssets({ department: dep.name_th });
+      }
+    }
+  }, [selectedDepartment, fetchAssets, departments]);
 
   const handleToggle = (status: string) => {
     setCollapse((prev) => {
@@ -45,11 +49,11 @@ const UserReportPage = () => {
     });
   };
 
-  // ฟิลเตอร์ assets ตาม status และ dateRange (ไม่ต้อง filter department)
+  // ฟิลเตอร์ assets ตาม status, department, และ dateRange
   const getFilteredAssets = (status: string) => {
     const range = dateRanges[status] || {};
     return assets
-      .filter((a) => a.status === status)
+      .filter((a) => a.status === status && (selectedDepartment === 'all' || String(a.department_id) === String(selectedDepartment)))
       .filter((a) => {
         const createdAt = (a as any).created_at || '';
         if (range.startDate && range.endDate && createdAt) {
@@ -138,31 +142,42 @@ const UserReportPage = () => {
     window.URL.revokeObjectURL(url);
   };
 
+  const statusLabels: Record<string, string> = {
+    active: 'Active',
+    missing: 'Missing',
+    broken: 'Broken',
+    no_longer_required: 'No Longer Required',
+  };
+
   return (
-    <UserRoute>
+    <AdminRoute>
       <>
         <Head>
-          <title>Asset Report - User</title>
-          <meta name="description" content="Asset report for user" />
+          <title>Asset Report - Admin Dashboard</title>
+          <meta name="description" content="Asset report for administrators" />
           <link rel="icon" href="/favicon.ico" />
         </Head>
-        <Layout sidebar={<Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-          <Navbar
-            title="Asset Reports"
-            onMenuClick={() => setSidebarOpen(true)}
-            onSearch={setSearchTerm}
-          />
+        <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
+          <Navbar title="Asset Report" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
           <div style={{
             padding: '2rem',
             backgroundColor: 'var(--card-bg)',
             borderRadius: '15px',
             boxShadow: 'var(--shadow-sm)'
           }}>
+            <div style={{ maxWidth: 300, marginBottom: 24 }}>
+              <DepartmentSelector
+                value={selectedDepartment}
+                onChange={setSelectedDepartment}
+                showAllOption
+              />
+            </div>
             {ASSET_STATUSES.map((status) => (
               <div key={status.key} style={{ marginBottom: 16, border: '1px solid #eee', borderRadius: 8 }}>
                 <div
                   style={{ cursor: 'pointer', padding: 16, background: '#f9f9f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                   onClick={e => {
+                    // toggle เฉพาะเมื่อคลิกที่หัวข้อ ไม่ใช่ปุ่มหรือ calendar
                     if (e.target === e.currentTarget) {
                       handleToggle(status.key);
                     }
@@ -206,8 +221,8 @@ const UserReportPage = () => {
           </div>
         </Layout>
       </>
-    </UserRoute>
+    </AdminRoute>
   );
 };
 
-export default UserReportPage; 
+export default ReportPage; 

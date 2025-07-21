@@ -49,7 +49,17 @@ const statusLabels: Record<string, string> = {
   disposed: 'Disposed',
 };
 
-const AssetVerificationTable: React.FC = () => {
+interface AssetVerificationTableProps {
+  searchTerm?: string;
+}
+function highlightText(text: string, keyword: string) {
+  if (!keyword) return text;
+  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
+  return text.split(regex).map((part, i) =>
+    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
+  );
+}
+const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchTerm }) => {
   const [pendingAudits, setPendingAudits] = useState<PendingAudit[]>([]);
   const [selected, setSelected] = useState<number[]>([]);
   const [showPopup, setShowPopup] = useState(false);
@@ -89,11 +99,9 @@ const AssetVerificationTable: React.FC = () => {
     const startDate = range[0].startDate;
     const endDate = range[0].endDate;
     if (startDate && endDate) {
-      // parse checked_at as local time
       const checkedDate = audit.checked_at
         ? parse(audit.checked_at, 'yyyy-MM-dd HH:mm:ss', new Date())
         : undefined;
-      // set start to 00:00:00, end to 23:59:59
       const start = new Date(startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);
@@ -103,6 +111,20 @@ const AssetVerificationTable: React.FC = () => {
         !!checkedDate &&
         (isAfter(checkedDate, start) || isEqual(checkedDate, start)) &&
         (isBefore(checkedDate, end) || isEqual(checkedDate, end));
+    }
+    // Search filter
+    const q = (typeof searchTerm === 'string' ? searchTerm : '').trim().toLowerCase();
+    if (q) {
+      pass = pass && (
+        (audit.inventory_number || '').toLowerCase().includes(q) ||
+        (audit.asset_name || '').toLowerCase().includes(q) ||
+        (statusLabels[audit.status] || audit.status || '').toLowerCase().includes(q) ||
+        (audit.note || '').toLowerCase().includes(q) ||
+        (audit.user_name || '').toLowerCase().includes(q) ||
+        (audit.department_name || '').toLowerCase().includes(q) ||
+        (formatDate(audit.checked_at) || '').toLowerCase().includes(q) ||
+        (audit.confirmed ? 'approved' : 'pending').includes(q)
+      );
     }
     return pass;
   });
@@ -418,8 +440,8 @@ const AssetVerificationTable: React.FC = () => {
                   }}
                 />
               </td>
-              <td>{audit.inventory_number}</td>
-              <td>{audit.asset_name}</td>
+              <td>{highlightText(audit.inventory_number || '', searchTerm || '')}</td>
+              <td>{highlightText(audit.asset_name || '', searchTerm || '')}</td>
               <td>
                 <span style={{
                   background: statusColors[audit.status] || '#e5e7eb',
@@ -429,13 +451,13 @@ const AssetVerificationTable: React.FC = () => {
                   fontWeight: 500,
                   fontSize: '0.95em'
                 }}>
-                  {statusLabels[audit.status] || audit.status}
+                  {highlightText(statusLabels[audit.status] || audit.status, searchTerm || '')}
                 </span>
               </td>
-              <td>{audit.note}</td>
-              <td>{audit.user_name}</td>
-              <td>{audit.department_name}</td>
-              <td>{formatDate(audit.checked_at)}</td>
+              <td>{highlightText(audit.note || '', searchTerm || '')}</td>
+              <td>{highlightText(audit.user_name || '', searchTerm || '')}</td>
+              <td>{highlightText(audit.department_name || '', searchTerm || '')}</td>
+              <td>{highlightText(formatDate(audit.checked_at) || '', searchTerm || '')}</td>
               <td>
                 <span style={{
                   background: audit.confirmed ? '#22c55e' : '#facc15',
@@ -445,7 +467,7 @@ const AssetVerificationTable: React.FC = () => {
                   fontWeight: 500,
                   fontSize: '0.95em'
                 }}>
-                  {audit.confirmed ? 'Approved' : 'Pending'}
+                  {highlightText(audit.confirmed ? 'Approved' : 'Pending', searchTerm || '')}
                 </span>
               </td>
             </tr>

@@ -85,16 +85,9 @@ const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({ value, onChange
 
   return (
     <div className={compact ? styles.containerCompact : styles.container}>
-      {!compact && <h3>Select Your Department</h3>}
-      {!compact && (
-      <p className={styles.description}>
-        Choose your department to see only relevant assets. 
-        Select &quot;All Departments&quot; to see all assets.
-      </p>
-      )}
-      
-      <div className={compact ? styles.selectorCompact : styles.selector}>
+      <div className={styles.dropdownWrapper}>
         <select
+          className={styles.departmentDropdown}
           value={selectedDepartment === 'all' ? '' : selectedDepartment}
           onChange={(e) => {
             const value = e.target.value;
@@ -102,23 +95,16 @@ const DepartmentSelector: React.FC<DepartmentSelectorProps> = ({ value, onChange
             handleDepartmentChange(departmentId);
           }}
           disabled={loading}
-          className={compact ? styles.selectCompact : styles.select}
         >
           {showAllOption && <option value="">All Departments</option>}
-          {departments.map((dept) => (
-            <option key={dept.id} value={dept.id}>
-              {dept.name_th}
-            </option>
+          {departments.map((dep) => (
+            <option key={dep.id} value={dep.id}>{dep.name_th}</option>
           ))}
         </select>
+        <span className={styles.dropdownIcon}>▼</span>
       </div>
-
-      {loading && !compact && <p className={styles.loading}>Updating...</p>}
-      {message && !compact && (
-        <p className={`${styles.message} ${message.includes('successfully') ? styles.success : styles.error}`}>
-          {message}
-        </p>
-      )}
+      {loading && <div className={styles.loading}>Loading...</div>}
+      {message && <div className={styles.message}>{message}</div>}
     </div>
   );
 };

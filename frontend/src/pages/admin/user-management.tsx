@@ -8,6 +8,7 @@ import React, { useState } from 'react';
 
 const UserManagementPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(''); // เพิ่ม state สำหรับ search
 
   return (
     <AdminRoute>
@@ -19,9 +20,9 @@ const UserManagementPage: React.FC = () => {
         </Head>
 
         <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-          <Navbar title="User Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} />
+          <Navbar title="User Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
           <div>
-            <UserManagementTable />
+            <UserManagementTable searchTerm={searchTerm} />
           </div>
         </Layout>
       </>
