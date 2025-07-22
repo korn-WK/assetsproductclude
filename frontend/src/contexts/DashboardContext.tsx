@@ -1,13 +1,14 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
 
+// เพิ่ม type สำหรับ dynamic status
+export interface AssetStatusCount {
+  status: string;
+  count: number;
+}
+
 interface DashboardStats {
   totalAssets: number;
-  activeAssets: number;
-  brokenAssets: number;
-  missingAssets: number;
-  transferringAssets: number;
-  auditedAssets: number;
-  disposedAssets: number;
+  statuses: AssetStatusCount[]; // เปลี่ยนจาก field เดิมเป็น array
   monthlyData: Array<{
     month: string;
     count: number;
@@ -19,7 +20,7 @@ interface DashboardContextType {
   loading: boolean;
   error: string | null;
   fetchStats: () => void;
-  fetchStatsByYear: (year: number) => Promise<void>;
+  fetchStatsByYear: (year: number, department?: string) => Promise<void>;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -30,15 +31,12 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
 
   const fetchStats = useCallback(async () => {
-    console.log('DashboardContext: fetchStats called');
     setLoading(true);
     setError(null);
     try {
       const response = await fetch('/api/assets/stats', {
         credentials: 'include'
       });
-      console.log('DashboardContext: fetchStats response status:', response.status);
-      
       if (!response.ok) {
         if (response.status === 401) {
           throw new Error('Authentication required. Please login again.');
@@ -48,18 +46,23 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
           throw new Error(`Failed to fetch stats: ${response.statusText}`);
         }
       }
-      
       const data = await response.json();
-      console.log('DashboardContext: fetchStats data:', data);
-      setStats(data);
+      // แปลง object statuses เป็น array
+      let statuses: AssetStatusCount[] = [];
+      if (data.statuses && typeof data.statuses === 'object' && !Array.isArray(data.statuses)) {
+        statuses = Object.entries(data.statuses).map(([status, count]) => ({ status, count }));
+      } else if (Array.isArray(data.statuses)) {
+        statuses = data.statuses;
+      }
+      setStats({
+        totalAssets: data.total,
+        statuses,
+        monthlyData: data.monthlyData || [],
+      });
     } catch (err) {
-      console.error('DashboardContext: fetchStats error:', err);
       setError(err instanceof Error ? err.message : 'An unknown error occurred');
-      
-      // Retry after 3 seconds for network errors
       if (err instanceof Error && !err.message.includes('Authentication') && !err.message.includes('Access denied')) {
         setTimeout(() => {
-          console.log('DashboardContext: Retrying fetchStats...');
           fetchStats();
         }, 3000);
       }
@@ -68,18 +71,32 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const fetchStatsByYear = useCallback(async (year: number) => {
+  const fetchStatsByYear = useCallback(async (year: number, department?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`/api/assets/stats?year=${year}`, {
+      let url = `/api/assets/stats?year=${year}`;
+      if (department && department !== 'ทุกหน่วยงาน') {
+        url += `&department=${encodeURIComponent(department)}`;
+      }
+      const response = await fetch(url, {
         credentials: 'include',
       });
       if (!response.ok) {
         throw new Error(`Failed to fetch stats for year ${year}: ${response.statusText}`);
       }
       const data = await response.json();
-      setStats(data);
+      let statuses: AssetStatusCount[] = [];
+      if (data.statuses && typeof data.statuses === 'object' && !Array.isArray(data.statuses)) {
+        statuses = Object.entries(data.statuses).map(([status, count]) => ({ status, count }));
+      } else if (Array.isArray(data.statuses)) {
+        statuses = data.statuses;
+      }
+      setStats({
+        totalAssets: data.total,
+        statuses,
+        monthlyData: data.monthlyData || [],
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch stats');
     } finally {

@@ -1,74 +1,134 @@
 // src/components/DashboardContent/index.tsx
 import React, { useState, useRef, useEffect } from 'react';
-import DashboardCards from './DashboardCards';
-import DashboardChart from './DashboardChart';
 import { useDashboard } from '../../../contexts/DashboardContext';
-import { AiOutlineLeft, AiOutlineRight } from 'react-icons/ai';
 import styles from './DashboardContent.module.css';
 import axios from 'axios';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import { FaRegCalendarAlt } from 'react-icons/fa';
 
-// *** เพิ่ม import สำหรับ ApexCharts.ApexOptions ที่นี่ ***
-import type { ApexOptions } from 'apexcharts'; // ใช้ 'type' เพื่อให้ import เฉพาะ type ไม่ได้เอาโค้ดมาด้วย
+const CARD_COLORS = [
+  '#28a745', // ฟ้า
+  '#b35f00', // เขียว
+  '#6f42c1', // ส้ม
+  '#adb5bd', // แดง
+  '#dc3545', // ม่วง
+  '#b02a37', // เหลือง
+  '#795548', // น้ำเงิน
+  '#218838', // แดงเข้ม
+  '#6c757d', // ฟ้าอมเขียว
+  '#17a2b8',
+  '#fd7e14', 
+  '#e0a800', 
+  '#007bff', 
+  '#6c757d', 
+  '#5bc0de', 
+  '#ffc107', 
+  '#6cb2eb',
+  '#20c997 ',
+  '#c82333', 
+  '#bd2130', // เหลืองเข้ม
+];
+
+const LINE_COLORS = ['#06b6d4', '#facc15', '#6366f1', '#f43f5e', '#10b981', '#f59e42', '#a78bfa', '#ef4444', '#14b8a6', '#eab308'];
 
 const DashboardContent: React.FC = () => {
   const { stats, loading, error, fetchStatsByYear } = useDashboard();
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(false);
-  // เลือกปี
-  const currentYear = new Date().getFullYear();
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
-  // ปีที่ให้เลือก (ย้อนหลัง 5 ปี)
-  const yearOptions = Array.from({ length: 6 }, (_, i) => currentYear - i);
   const [graphData, setGraphData] = useState<any>(null);
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [departments, setDepartments] = useState<{ id: number; name_th: string }[]>([]);
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('ทุกหน่วยงาน');
+  const ALL_STATUSES = [
+    'พร้อมใช้งาน',
+    'รอใช้งาน',
+    'รอตัดจำหน่าย',
+    'ชำรุด',
+    'รอซ่อม',
+    'ระหว่างการปรับปรุง',
+    'ไม่มีความจำเป็นต้องใช้',
+    'สูญหาย',
+    'รอแลกเปลี่ยน',
+    'แลกเปลี่ยน',
+    'มีกรรมสิทธิ์ภายใต้สัญญาเช่า',
+    'รอโอนย้าย',
+    'รอโอนกรรมสิทธิ์',
+    'ชั่วคราว',
+    'ขาย',
+    'แปรสภาพ',
+    'ทำลาย',
+    'สอบข้อเท็จจริง',
+    'เงินชดเชยที่ดินและอาสิน',
+    'ระหว่างทาง'
+  ];
 
-  // Check scroll position
-  const checkScrollPosition = () => {
-    if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
-      setCanScrollLeft(scrollLeft > 0);
-      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
-    }
-  };
+  // ใช้ข้อมูลจริงจาก backend
+  const backendStatusMap = new Map((stats?.statuses || []).map(s => [s.status, s.count]));
+  const mergedStatuses = ALL_STATUSES.map(status => ({
+    status,
+    count: backendStatusMap.get(status) || 0
+  }));
+  const sortedStatuses = mergedStatuses.slice().sort((a, b) => a.status.localeCompare(b.status, 'th'));
+  const readyCardTop = sortedStatuses.find(c => c.status === 'พร้อมใช้งาน');
+  const otherCards = sortedStatuses.filter(c => c.status !== 'พร้อมใช้งาน');
+  const allCards = readyCardTop ? [readyCardTop, ...otherCards] : sortedStatuses;
 
-  // Scroll functions
-  const scrollLeft = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: -300, behavior: 'smooth' });
-    }
-  };
+  // เตรียมข้อมูลสำหรับกราฟเส้น: ทุก status ตามลำดับ card
+  const statusChartData = allCards.map(c => ({ status: c.status, count: c.count }));
 
-  const scrollRight = () => {
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollBy({ left: 300, behavior: 'smooth' });
-    }
-  };
+  // สำหรับกราฟเส้นแบบ multi-line ใช้ข้อมูลจริงจาก graphData.bar
+  let lineKeys: string[] = [];
+  let multiLineData: any[] = [];
+  if (graphData && graphData.bar && graphData.bar.series && graphData.bar.labels) {
+    lineKeys = graphData.bar.series.map((s: { name: string }) => s.name);
+    multiLineData = graphData.bar.labels.map((month: string, i: number) => {
+      const obj: any = { month };
+      graphData.bar.series.forEach((s: { name: string; data: number[] }) => {
+        obj[s.name] = s.data[i];
+      });
+      return obj;
+    });
+  }
+  const [visibleLines, setVisibleLines] = useState<{ [key: string]: boolean }>(() => {
+    const initial: { [key: string]: boolean } = {};
+    lineKeys.forEach((k: string) => { initial[k] = true; });
+    return initial;
+  });
 
-  // Add scroll event listener
+  // สำหรับ bar chart: state สำหรับ checkbox
+  const [visibleBarStatuses, setVisibleBarStatuses] = useState<{ [key: string]: boolean }>(() => {
+    const initial: { [key: string]: boolean } = {};
+    allCards.forEach(c => { initial[c.status] = true; });
+    return initial;
+  });
+  const filteredBarChartData = statusChartData.filter(d => visibleBarStatuses[d.status]);
+
+  // สร้าง mapping status → สี (คงที่)
+  const statusColorMap: { [status: string]: string } = {};
+  allCards.forEach((c, idx) => {
+    statusColorMap[c.status] = CARD_COLORS[idx % CARD_COLORS.length];
+  });
+
+  // หาจำนวนทั้งหมดและจำนวนพร้อมใช้งาน
+  const totalCount = allCards.reduce((sum, c) => sum + c.count, 0);
+  const readyCount = allCards.find(c => c.status === 'พร้อมใช้งาน')?.count || 0;
+
+  // ดึงรายชื่อหน่วยงาน
   useEffect(() => {
-    const container = scrollContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', checkScrollPosition);
-      // ตรวจสอบหลังจาก DOM render แล้ว
-      setTimeout(checkScrollPosition, 100);
-      
-      return () => {
-        container.removeEventListener('scroll', checkScrollPosition);
-      };
+    async function fetchDepartments() {
+      try {
+        const res = await axios.get('/api/assets/departments');
+        setDepartments(res.data || []);
+      } catch (e) {
+        setDepartments([]);
+      }
     }
+    fetchDepartments();
   }, []);
 
-  // Check scroll position when stats change
+  // ดึงข้อมูล assets ตาม department ที่เลือก
   useEffect(() => {
-    // ตรวจสอบหลังจาก stats โหลดแล้ว
-    setTimeout(checkScrollPosition, 200);
-  }, [stats]);
-
-  // โหลดข้อมูลใหม่เมื่อเปลี่ยนปี
-  useEffect(() => {
-    fetchStatsByYear(selectedYear);
+    fetchStatsByYear(selectedYear, selectedDepartment);
     // eslint-disable-next-line
-  }, [selectedYear]);
+  }, [selectedYear, selectedDepartment]);
 
   useEffect(() => {
     async function fetchGraphs() {
@@ -82,248 +142,143 @@ const DashboardContent: React.FC = () => {
     fetchGraphs();
   }, []);
 
-  // Show loading state
   if (loading) {
-    return (
-      <div className={styles.dashboardContent}>
-        <div style={{ textAlign: 'center', padding: '50px' }}>
-          <div>Loading dashboard data...</div>
-        </div>
-      </div>
-    );
+    return <div className={styles.dashboardContent}><div style={{ textAlign: 'center', padding: '50px' }}>Loading dashboard data...</div></div>;
   }
-
-  // Show error state
   if (error) {
-    return (
-      <div className={styles.dashboardContent}>
-        <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>
-          <div>Error: {error}</div>
-        </div>
-      </div>
-    );
+    return <div className={styles.dashboardContent}><div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>Error: {error}</div></div>;
   }
 
-  // Use real data from stats or fallback to default values
-  const cardData = [
-    { title: "Total Assets", value: stats?.totalAssets || 0, color: "#4f46e5", icon: "X" },
-    { title: "Active Assets", value: stats?.activeAssets || 0, color: "#22c55e", icon: "X" },
-    { title: "Broken Assets", value: stats?.brokenAssets || 0, color: "#f97316", icon: "X" },
-    {
-      title: "Missing Assets",
-      value: stats?.missingAssets || 0,
-      color: "#ef4444",
-      icon: "X"
-    },
-    {
-      title: "Transferring Assets",
-      value: stats?.transferringAssets || 0,
-      color: "#3b82f6",
-      icon: "X"
-    },
-    {
-      title: "Audited Assets",
-      value: stats?.auditedAssets || 0,
-      color: "#8b5cf6",
-      icon: "X"
-    },
-    {
-      title: "Disposed Assets",
-      value: stats?.disposedAssets || 0,
-      color: "#6b7280",
-      icon: "X"
-    },
-  ];
+  // ฟังก์ชันเลือกสี border
+  const getCardColor = (idx: number) => CARD_COLORS[idx % CARD_COLORS.length];
 
-  // Prepare chart data
-  const barChartSeries = [
-    {
-      name: "Assets",
-      data: [
-        stats?.totalAssets || 0,
-        stats?.activeAssets || 0,
-        stats?.brokenAssets || 0,
-        stats?.missingAssets || 0,
-        stats?.transferringAssets || 0,
-        stats?.auditedAssets || 0,
-        stats?.disposedAssets || 0,
-      ],
-    },
-  ];
-  const barChartOptions: ApexOptions = {
-    chart: { height: 300, type: "bar", toolbar: { show: false } },
-    plotOptions: { bar: { borderRadius: 8, columnWidth: "40%", distributed: true } },
-    colors: [
-      "#4f46e5", "#22c55e", "#f97316", "#ef4444", "#3b82f6", "#8b5cf6", "#6b7280",
-    ],
-    xaxis: {
-      categories: [
-        "Total", "Active", "Broken", "Missing", "Transferring", "Audited", "Disposed",
-      ],
-      labels: {
-        style: {
-          colors: [
-            "#4f46e5", "#22c55e", "#f97316", "#ef4444", "#3b82f6", "#8b5cf6", "#6b7280",
-          ],
-          fontSize: "13px",
-          fontWeight: 600,
-        },
-      },
-    },
-    yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: "#666", fontSize: "12px" } } },
-    grid: { borderColor: "#f0f0f0", strokeDashArray: 4, position: "back" },
-    tooltip: { enabled: true, y: { formatter: (value: number) => value + " Assets" } },
-    legend: { show: false },
-  };
-
-  // Line/Area Chart: Trend รายเดือน
-  const months = stats?.monthlyData?.map((m: any) => m.month) || [];
-  const monthlyCounts = stats?.monthlyData?.map((m: any) => m.count) || [];
-  const lineChartSeries = [{ name: "Acquired", data: monthlyCounts }];
-  const lineChartOptions: ApexOptions = {
-    chart: { type: "line", height: 300, toolbar: { show: false } },
-    xaxis: { categories: months },
-    stroke: { curve: "smooth", width: 3 },
-    colors: ["#4f46e5"],
-    markers: { size: 5, colors: ["#4f46e5"] },
-    yaxis: { min: 0, tickAmount: 4, labels: { style: { colors: "#666", fontSize: "12px" } } },
-    grid: { borderColor: "#f0f0f0", strokeDashArray: 4, position: "back" },
-    tooltip: { enabled: true },
-    legend: { show: false },
-  };
-  const areaChartSeries = lineChartSeries;
-  const areaChartOptions: ApexOptions = {
-    ...lineChartOptions,
-    chart: { ...lineChartOptions.chart, type: "area" },
-    fill: { type: "gradient", gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.1 } },
-  };
-
-  // Pie/Donut Chart: Distribution by status
-  const pieChartSeries = [
-    stats?.activeAssets || 0,
-    stats?.brokenAssets || 0,
-    stats?.missingAssets || 0,
-    stats?.transferringAssets || 0,
-    stats?.auditedAssets || 0,
-    stats?.disposedAssets || 0,
-  ];
-  const pieLabels = [
-    "Active", "Broken", "Missing", "Transferring", "Audited", "Disposed"
-  ];
-  const pieColors = [
-    "#22c55e", "#f97316", "#ef4444", "#3b82f6", "#8b5cf6", "#6b7280"
-  ];
-  const pieChartOptions: ApexOptions = {
-    labels: pieLabels,
-    colors: pieColors,
-    legend: { position: "bottom" },
-    dataLabels: { enabled: true },
-    tooltip: { enabled: true },
-    chart: { type: "pie" },
-  };
-  const donutChartSeries = pieChartSeries;
-  const donutChartOptions: ApexOptions = {
-    ...pieChartOptions,
-    chart: { type: "donut" },
-    plotOptions: { pie: { donut: { size: "65%" } } },
-  };
-
-  // ปรับความสูง chart ให้เหมาะสม (ขนาดเล็กลง)
-  const chartHeight = 180;
-
-  const barChartOptionsFinal: ApexOptions = {
-    ...barChartOptions,
-    chart: { ...barChartOptions.chart, height: chartHeight },
-  };
-  const lineChartOptionsFinal: ApexOptions = {
-    ...lineChartOptions,
-    chart: { ...lineChartOptions.chart, height: chartHeight },
-  };
-  const areaChartOptionsFinal: ApexOptions = {
-    ...areaChartOptions,
-    chart: { ...areaChartOptions.chart, height: chartHeight },
-  };
-  const pieChartOptionsFinal: ApexOptions = {
-    ...pieChartOptions,
-    chart: { ...pieChartOptions.chart, height: chartHeight },
-  };
-  const donutChartOptionsFinal: ApexOptions = {
-    ...donutChartOptions,
-    chart: { ...donutChartOptions.chart, height: chartHeight },
-  };
+  // จำกัดให้แสดงแค่ 7 card แรก (แต่ scroll ดูที่เหลือได้)
+  const VISIBLE_CARDS = 7;
 
   return (
-    <div className={styles.dashboardContent}>
-      {/* Asset Statistics Section (เดิม) */}
-      <div className={styles.cardsSection}>
-        <div className={styles.cardsHeader}>
-          <h3>Asset Statistics</h3>
-          <div className={styles.scrollControls}>
-            <button onClick={scrollLeft} disabled={!canScrollLeft} className={`${styles.scrollButton} ${!canScrollLeft ? styles.disabled : ''}`} aria-label="Scroll left"><AiOutlineLeft /></button>
-            <button onClick={scrollRight} disabled={!canScrollRight} className={`${styles.scrollButton} ${!canScrollRight ? styles.disabled : ''}`} aria-label="Scroll right"><AiOutlineRight /></button>
+    <div className={styles.dashboardContent} style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
+      {/* Sidebar Cards */}
+      <div style={{
+        flex: '0 0 340px',
+        marginTop: 80,
+        maxHeight: `${VISIBLE_CARDS * 100 + 40}px`, // ปรับ maxHeight ให้เหมาะกับ card ที่สูงขึ้นและ padding ใหม่
+        overflowY: 'auto', // scroll mouse อยู่ใน container นี้เท่านั้น
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 20, // ระยะห่างระหว่าง card มากขึ้น
+        background: '#f8fafc',
+        borderRadius: 20,
+        padding: 20, // padding container มากขึ้น
+        boxShadow: '0 2px 8px #0001',
+        minHeight: 200
+      }}>
+        {/* หัวข้อครุภัณฑ์ทั้งหมด */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontWeight: 700, fontSize: 20, color: '#222' }}>ครุภัณฑ์ทั้งหมด</div>
+          <div style={{ fontWeight: 400, fontSize: 15, color: '#555', marginTop: 2 }}>
+            รวม {totalCount} รายการ
           </div>
         </div>
-        <div className={styles.cardsWrapper}>
-          <DashboardCards cards={cardData} ref={scrollContainerRef} />
-        </div>
+        {allCards.map((card, idx) => (
+          <div
+            key={card.status}
+            style={{
+              border: 'none',
+              borderRadius: 10, // ให้เหลี่ยมขึ้นและพอดีกับแถบสี
+              padding: '18px 20px', // ใหญ่ขึ้น
+              background: '#fff',
+              marginBottom: 0,
+              boxShadow: '0 1px 4px #0001',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'flex-start',
+              minHeight: 80, // ใหญ่ขึ้น
+              fontSize: 15,
+              width: '100%',
+              boxSizing: 'border-box',
+              transition: 'box-shadow 0.2s',
+              position: 'relative',
+              overflow: 'hidden', // ให้แถบสีโค้งมนไปกับขอบ
+            }}
+          >
+            {/* แถบสีโค้งซ้ายบน */}
+            <div style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              height: '100%',
+              width: 8,
+              borderRadius: 10, // โค้งมนเท่ากับ card
+              background: getCardColor(idx),
+            }} />
+            <div style={{ fontSize: 15, color: '#444', fontWeight: 500, marginLeft: 16 }}>{card.status}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: '#222', marginTop: 2, marginLeft: 16 }}>{card.count}</div>
+          </div>
+        ))}
       </div>
-      {/* กราฟ 3 แบบ (Line, Bar, Donut) */}
-      {graphData && (
-        <div className={styles.graphsGrid2col}>
-          <div className={styles.graphsColLeft}>
-            <DashboardChart
-              series={[{ name: 'Acquired', data: graphData.line.data }]}
-              options={{
-                chart: { type: 'area', height: 220, toolbar: { show: false }, background: 'transparent' },
-                xaxis: { categories: graphData.line.labels, labels: { style: { colors: '#a3a3a3', fontSize: '13px' } } },
-                stroke: { curve: 'smooth', width: 3 },
-                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.3, opacityTo: 0.05, stops: [0, 100] } },
-                colors: ['#7c3aed'],
-                markers: { size: 6, colors: ['#fff'], strokeColors: ['#7c3aed'], strokeWidth: 3 },
-                grid: { borderColor: '#f3f4f6', strokeDashArray: 4 },
-                tooltip: { enabled: true, style: { fontSize: '15px' } },
-                legend: { show: false },
-              }}
-              type="area"
-              title="Total balance overview"
-              className={styles.graphCard}
-            />
-            <DashboardChart
-              series={graphData.bar.series}
-              options={{
-                chart: { type: 'bar', height: 220, background: 'transparent', toolbar: { show: false } },
-                plotOptions: { bar: { borderRadius: 8, columnWidth: '40%' } },
-                colors: ['#7c3aed', '#38bdf8', '#a5b4fc', '#f3f4f6', '#6366f1', '#818cf8'],
-                xaxis: { categories: graphData.bar.labels, labels: { style: { colors: '#a3a3a3', fontSize: '13px' } } },
-                yaxis: { min: 0, labels: { style: { colors: '#a3a3a3', fontSize: '12px' } } },
-                grid: { borderColor: '#f3f4f6', strokeDashArray: 4 },
-                legend: { show: true, position: 'top', labels: { colors: '#7c3aed' } },
-                tooltip: { enabled: true },
-              }}
-              type="bar"
-              title="Comparing of status by month"
-              className={styles.graphCard}
-            />
-          </div>
-          <div className={styles.graphsColRight}>
-            <DashboardChart
-              series={graphData.donut.data}
-              options={{
-                chart: { type: 'donut', background: 'transparent' },
-                labels: graphData.donut.labels,
-                colors: ['#7c3aed', '#38bdf8', '#a5b4fc', '#f3f4f6', '#6366f1', '#818cf8'],
-                legend: { show: true, position: 'bottom', labels: { colors: '#6b7280', useSeriesColors: false } },
-                dataLabels: { enabled: true, style: { fontSize: '16px', fontWeight: 'bold' } },
-                tooltip: { enabled: true },
-                plotOptions: { pie: { donut: { size: '70%', labels: { show: true, name: { show: true }, value: { show: true }, total: { show: true, label: 'Total', formatter: () => graphData.donut.data.reduce((a: number, b: number) => a + b, 0) } } } } },
-              }}
-              type="donut"
-              title="Statistics"
-              className={styles.graphCard}
-            />
-          </div>
+
+      {/* Main Content */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
+        {/* Filter Bar */}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+          <select
+            style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 15 }}
+            value={selectedDepartment}
+            onChange={e => setSelectedDepartment(e.target.value)}
+          >
+            <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
+            {departments.map(dep => (
+              <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
+            ))}
+          </select>
         </div>
-      )}
+
+        {/* Graph: จำนวนแต่ละ status (Line Chart) */}
+        <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</div>
+          <ResponsiveContainer width="100%" height={260}>
+            <LineChart data={statusChartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="status" interval={0} angle={-30} textAnchor="end" height={80} />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} dot={{ r: 6 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* กราฟด้านล่าง (Bar Chart) */}
+        <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
+          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 17 }}>bar chart</div>
+          {/* Checkbox filter สำหรับ bar chart */}
+          <div style={{ marginBottom: 12, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
+            {allCards.map((c, idx) => (
+              <label key={c.status} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>
+                <input
+                  type="checkbox"
+                  checked={visibleBarStatuses[c.status]}
+                  onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.status]: !visibleBarStatuses[c.status] })}
+                />
+                <span style={{ color: CARD_COLORS[idx % CARD_COLORS.length], fontWeight: 500 }}>{c.status}</span>
+              </label>
+            ))}
+          </div>
+          <ResponsiveContainer width="100%" height={260}>
+            <BarChart data={filteredBarChartData}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="status" interval={0} angle={-30} textAnchor="end" height={80} />
+              <YAxis allowDecimals={false} />
+              <Tooltip />
+              <Bar dataKey="count" barSize={32}>
+                {filteredBarChartData.map((entry) => (
+                  <Cell key={entry.status} fill={statusColorMap[entry.status]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {/* สามารถเพิ่มกราฟอื่น ๆ ต่อด้านล่างนี้ได้ */}
+      </div>
     </div>
   );
 };

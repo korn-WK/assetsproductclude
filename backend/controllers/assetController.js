@@ -211,37 +211,31 @@ async function getStats(req, res) {
     // Get user's department_id and role from the JWT token
     const userDepartmentId = req.user.department_id;
     const userRole = req.user.role;
-    const { year } = req.query;
+    const { year, department } = req.query;
 
     let assets;
 
-    // If user is admin, get all assets; otherwise filter by department
-    if (userRole === "admin") {
+    if (department && department !== 'ทุกหน่วยงาน') {
+      // filter ตาม department ที่เลือก
+      const departmentId = await getDepartmentIdByName(department);
+      if (!departmentId) {
+        return res.status(400).json({ error: "Invalid department name" });
+      }
+      assets = await getAssetsByUserDepartment(departmentId);
+    } else if (userRole === "admin") {
       assets = await getAllAssets();
     } else {
       assets = await getAssetsByUserDepartment(userDepartmentId);
     }
 
-    // Calculate stats
-    const totalAssets = assets.length;
-    const activeAssets = assets.filter(
-      (asset) => asset.status === "active"
-    ).length;
-    const brokenAssets = assets.filter(
-      (asset) => asset.status === "broken"
-    ).length;
-    const missingAssets = assets.filter(
-      (asset) => asset.status === "missing"
-    ).length;
-    const transferringAssets = assets.filter(
-      (asset) => asset.status === "transferring"
-    ).length;
-    const auditedAssets = assets.filter(
-      (asset) => asset.status === "audited"
-    ).length;
-    const disposedAssets = assets.filter(
-      (asset) => asset.status === "disposed"
-    ).length;
+    // Dynamic status count (ภาษาไทยหรืออะไรก็ได้)
+    const statusCounts = {};
+    assets.forEach(asset => {
+      statusCounts[asset.status] = (statusCounts[asset.status] || 0) + 1;
+    });
+    const statuses = Object.entries(statusCounts)
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => a.status.localeCompare(b.status, 'th'));
 
     // Calculate monthly data for chart (12 months of selected year)
     let targetYear = parseInt(year);
@@ -267,13 +261,8 @@ async function getStats(req, res) {
     }
 
     const stats = {
-      totalAssets,
-      activeAssets,
-      brokenAssets,
-      missingAssets,
-      transferringAssets,
-      auditedAssets,
-      disposedAssets,
+      total: assets.length,
+      statuses, // array of { status, count }
       monthlyData,
     };
 
@@ -554,17 +543,15 @@ async function getDashboardGraphs(req, res) {
           return d.getMonth() === m;
         }).length
     );
-    // Bar Chart: Status per month
-    const statuses = [
-      "active",
-      "broken",
-      "transferring",
-      "audited",
-      "missing",
-      "disposed",
-    ];
-    const barSeries = statuses.map((status) => ({
-      name: status.charAt(0).toUpperCase() + status.slice(1),
+    // กำหนด status หลักที่ต้องการแสดงในกราฟ
+    const mainStatuses = ['พร้อมใช้งาน', 'ชำรุด', 'รอโอนย้าย', 'สูญหาย'];
+    // Dynamic statuses (ภาษาไทย)
+    const allStatuses = Array.from(new Set(assets.map(a => a.status)))
+      .filter(s => mainStatuses.includes(s))
+      .sort((a, b) => a.localeCompare(b, 'th'));
+    // Bar Chart: Status per month (เฉพาะ status หลัก)
+    const barSeries = allStatuses.map((status) => ({
+      name: status,
       data: months.map(
         (_, m) =>
           assets.filter((a) => {
@@ -575,14 +562,14 @@ async function getDashboardGraphs(req, res) {
       ),
     }));
     // Donut Chart: Status distribution
-    const donutData = statuses.map(
+    const donutData = allStatuses.map(
       (status) => assets.filter((a) => a.status === status).length
     );
     res.json({
       line: { labels: months, data: lineData },
       bar: { labels: months, series: barSeries },
       donut: {
-        labels: statuses.map((s) => s.charAt(0).toUpperCase() + s.slice(1)),
+        labels: allStatuses,
         data: donutData,
       },
     });
