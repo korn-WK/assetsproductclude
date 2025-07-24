@@ -11,6 +11,7 @@ const AssetVerificationUserPage: React.FC = () => {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -19,6 +20,13 @@ const AssetVerificationUserPage: React.FC = () => {
       }
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   if (loading || !user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'superadmin')) {
     return null;
@@ -32,12 +40,11 @@ const AssetVerificationUserPage: React.FC = () => {
         onMenuClick={() => setSidebarOpen(true)}
         onSearch={setSearchTerm}
       />
-      <div style={{
-        padding: '2rem',
-        backgroundColor: 'var(--card-bg)',
-        borderRadius: '15px',
-        boxShadow: 'var(--shadow-sm)'
-      }}>
+      <div style={
+        isMobile
+          ? { padding: '1rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)', marginTop: 40 }
+          : { padding: '2rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)' }
+      }>
         <h1></h1>
         <AssetVerificationTable searchTerm={searchTerm} />
       </div>

@@ -26,6 +26,7 @@ const {
   getAssetAuditList,
   getAllAssetAudits, // <-- เพิ่มตรงนี้
   getAssetTransferLogs,
+  getValidStatuses,
 } = require("../controllers/assetController.js");
 
 const router = express.Router();
@@ -93,6 +94,16 @@ router.post(
     }
   }
 );
+
+// API สำหรับดึงรายการสถานะทั้งหมด (dynamic dropdown)
+router.get("/statuses", (req, res) => {
+  try {
+    const statuses = getValidStatuses();
+    res.json(statuses);
+  } catch (err) {
+    res.status(500).json({ error: "Failed to fetch statuses" });
+  }
+});
 
 // --- Audit routes ---
 router.get("/audits/list", verifyToken, getAssetAuditList);

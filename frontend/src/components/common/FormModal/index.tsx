@@ -6,7 +6,7 @@ import styles from './FormModal.module.css';
 interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'textarea' | 'email' | 'password' | 'number';
+  type: 'text' | 'textarea' | 'email' | 'password' | 'number' | 'color';
   required?: boolean;
   placeholder?: string;
 }
@@ -115,6 +115,16 @@ const FormModal: React.FC<FormModalProps> = ({
                   placeholder={field.placeholder}
                   className={styles.textarea}
                   rows={4}
+                />
+              ) : field.type === 'color' ? (
+                <input
+                  id={field.name}
+                  name={field.name}
+                  type="color"
+                  value={formData[field.name] || '#adb5bd'}
+                  onChange={(e) => handleInputChange(field.name, e.target.value)}
+                  className={styles.input}
+                  style={{ width: 40, height: 28, border: 'none', background: 'none', cursor: 'pointer', verticalAlign: 'middle' }}
                 />
               ) : (
                 <input

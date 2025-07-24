@@ -58,11 +58,11 @@ const googleAuthCallback = (req, res) => {
     const isAdmin = req.user.role === 'Admin' || req.user.role === 'admin';
     let redirectUrl;
     if (isSuperAdmin) {
-      redirectUrl = `${process.env.CLIENT_URL}/admin/dashboard`;
+      redirectUrl = `${process.env.CLIENT_URL}/admin/asset-management`;
     } else if (isAdmin || req.user.role === 'User' || req.user.role === 'user') {
-      redirectUrl = `${process.env.CLIENT_URL}/user/dashboard`;
+      redirectUrl = `${process.env.CLIENT_URL}/user/asset-browser`;
     } else {
-      redirectUrl = `${process.env.CLIENT_URL}/user/dashboard`;
+      redirectUrl = `${process.env.CLIENT_URL}/user/asset-browser`;
     }
     // Redirect to appropriate page based on role
     res.redirect(redirectUrl);

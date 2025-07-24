@@ -9,6 +9,7 @@ import { formatDate } from '../../../lib/utils';
 import ExcelJS from 'exceljs';
 import { AiOutlineDownload } from 'react-icons/ai';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
+import AddUserPopup from '../AddUserPopup';
 
 interface UserType {
   id: number;
@@ -41,6 +42,19 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [roleFilter, setRoleFilter] = useState('all');
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
+  const [showAddUserPopup, setShowAddUserPopup] = useState(false);
+
+  // Move fetchUsers to be accessible for refresh
+  const fetchUsers = async () => {
+    try {
+      const response = await axios.get('/api/users');
+      setUsers(response.data);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Pre-warm the PDF generator on component mount to ensure the font is ready.
@@ -52,17 +66,6 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
   }, []);
 
   useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        const response = await axios.get('/api/users');
-        setUsers(response.data);
-      } catch (error) {
-        console.error('Error fetching users:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchUsers();
   }, []);
 
@@ -113,16 +116,30 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
     });
   };
 
+  // Combine all filters: role, date, search
   const filteredUsers = users.filter(user => {
+    // 1. Role filter
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+    // 2. Date filter
+    let matchesDate = true;
+    if (dateRange.startDate && dateRange.endDate && user.created_at) {
+      const created = new Date(user.created_at);
+      const start = new Date(dateRange.startDate);
+      start.setHours(0, 0, 0, 0);
+      const end = new Date(dateRange.endDate);
+      end.setHours(23, 59, 59, 999);
+      matchesDate = created >= start && created <= end;
+    }
+    // 3. Search filter
     const q = (searchTerm || '').toLowerCase();
-    return (
+    const matchesSearch = !q ||
       user.username?.toLowerCase().includes(q) ||
       user.name?.toLowerCase().includes(q) ||
       user.email?.toLowerCase().includes(q) ||
       user.department_name?.toLowerCase().includes(q) ||
       user.role?.toLowerCase().includes(q) ||
-      formatDate(user.created_at).toLowerCase().includes(q)
-    );
+      formatDate(user.created_at).toLowerCase().includes(q);
+    return matchesRole && matchesDate && matchesSearch;
   });
 
   const handleExportPDF = async () => {
@@ -215,14 +232,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
     window.URL.revokeObjectURL(url);
   };
 
-  const handleAddUser = () => {
-    Swal.fire({
-      title: "Add New User",
-      text: "This feature will be available soon",
-      icon: "info",
-      confirmButtonText: "OK"
-    });
-  };
+  const handleAddUser = () => setShowAddUserPopup(true);
 
   let userTitle = '';
   if (roleFilter === 'all') userTitle = 'All Users';
@@ -501,6 +511,13 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
           user={editingUser}
           onClose={handleClosePopup}
           onUpdate={handleUpdateUser as any}
+        />
+      )}
+      {showAddUserPopup && (
+        <AddUserPopup
+          onClose={() => setShowAddUserPopup(false)}
+          onUserAdded={user => { setUsers([...users, user]); fetchUsers(); }}
+          onUsersImported={importedUsers => { setUsers([...users, ...importedUsers]); fetchUsers(); }}
         />
       )}
     </>

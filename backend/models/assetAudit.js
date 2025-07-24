@@ -1,7 +1,13 @@
 const pool = require('../lib/db.js');
+const { validateAssetStatus } = require('./asset.js');
 
 // เพิ่ม log การตรวจนับ
 async function createAssetAudit({ asset_id, user_id, department_id, status, note }) {
+  // ตรวจสอบสถานะ
+  const { isValid, validStatuses } = await validateAssetStatus(status);
+  if (!isValid) {
+    throw new Error(`สถานะไม่ถูกต้อง: ${status}. สถานะที่อนุญาตคือ: ${validStatuses.join(', ')}`);
+  }
   const query = `
     INSERT INTO asset_audits (asset_id, user_id, department_id, status, note)
     VALUES (?, ?, ?, ?, ?)

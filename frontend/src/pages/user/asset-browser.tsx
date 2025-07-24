@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Sidebar from '../../components/user/Sidebar/index';
 import Navbar from '../../components/common/Navbar';
@@ -9,6 +9,10 @@ import AssetDetailPopup from '../../components/common/AssetDetailPopup';
 import Layout from '../../components/common/Layout';
 import { axiosInstance } from '../../lib/axios';
 import UserRoute from '../../components/auth/UserRoute';
+import { toast } from 'react-toastify';
+import { AiOutlineInfoCircle, AiOutlineClose } from 'react-icons/ai';
+import styles from '../../components/user/AssetsTable/AssetsTable.module.css';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AssetBrowserPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -17,6 +21,30 @@ const AssetBrowserPage: React.FC = () => {
   const [showAssetPopup, setShowAssetPopup] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [auditWindow, setAuditWindow] = useState<{ start_date?: string; end_date?: string } | null>(null);
+  const [showAuditWindowNotice, setShowAuditWindowNotice] = useState(true);
+  const { user } = useAuth();
+  const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/settings/user-edit-window')
+      .then(res => res.json())
+      .then(data => setAuditWindow(data));
+  }, []);
+
+  useEffect(() => {
+    if (auditWindow?.start_date && auditWindow?.end_date && showAuditWindowNotice) {
+      const timer = setTimeout(() => setShowAuditWindowNotice(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [auditWindow, showAuditWindowNotice]);
+
+  useEffect(() => {
+    if (user && user.department_id === null && showViewOnlyNotice) {
+      const timer = setTimeout(() => setShowViewOnlyNotice(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [user, showViewOnlyNotice]);
 
   const handleOpenScanner = () => {
     setShowScanner(true);
@@ -65,6 +93,35 @@ const AssetBrowserPage: React.FC = () => {
             onMenuClick={() => setSidebarOpen(true)}
             onSearch={setSearchTerm}
           />
+          {/* Stackable notification banners */}
+          <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 1000, display: 'flex', flexDirection: 'column', gap: 16, maxWidth: 350 }}>
+            {auditWindow?.start_date && auditWindow?.end_date && showAuditWindowNotice && (
+              <div className={styles.viewOnlyNotice} style={{ position: 'static', marginTop: 0, maxWidth: 350 }}>
+                <div className={styles.viewOnlyNoticeContent}>
+                  <button className={styles.noticeCloseBtn} onClick={() => setShowAuditWindowNotice(false)} title="Close notice">
+                    <AiOutlineClose />
+                  </button>
+                  <p>
+                    <strong>ช่วงเวลาตรวจนับคุรุภัณฑ์:</strong><br />
+                    <span style={{ color: '#b45309' }}>{new Date(auditWindow.start_date).toLocaleString()} - {new Date(auditWindow.end_date).toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
+            )}
+            {user && user.department_id === null && showViewOnlyNotice && (
+              <div className={styles.viewOnlyNotice} style={{ position: 'static', marginTop: 0, maxWidth: 350 }}>
+                <div className={styles.viewOnlyNoticeContent}>
+                  <button className={styles.noticeCloseBtn} onClick={() => setShowViewOnlyNotice(false)} title="Close notice">
+                    <AiOutlineClose />
+                  </button>
+                  <p>
+                    <strong>View Only Mode:</strong> You can only view assets.<br />Contact your administrator to assign a department for editing permissions.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* ลบ banner แจ้งเตือนออก */}
           <AssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} />
         </AssetProvider>
       </Layout>

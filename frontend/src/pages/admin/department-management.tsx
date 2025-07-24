@@ -164,7 +164,7 @@ const DepartmentManagementPage: React.FC = () => {
           <Navbar title="Department Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
           <div>
             <AdminTable
-              title=""
+              title="Department"
               data={departments}
               columns={columns}
               onAdd={handleAdd}

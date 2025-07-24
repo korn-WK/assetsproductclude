@@ -31,7 +31,7 @@
 }
 
 .addButton {
-  background-color: var(--button-primary-bg);
+  background: linear-gradient(135deg, #3D86CB 0%, #28409C 100%);
   color: var(--button-primary-text);
   border: none;
   border-radius: 10px;
@@ -47,7 +47,7 @@
 }
 
 .addButton:hover {
-  background-color: var(--button-primary-hover);
+  background: linear-gradient(135deg, #3D86CB 0%, #28409C 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }

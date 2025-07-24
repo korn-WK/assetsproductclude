@@ -13,6 +13,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<'all' | number>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
   React.useEffect(() => {
     console.log('DEBUG: user:', user, 'loading:', loading);
@@ -24,6 +25,13 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
       }
     }
   }, [user, loading, router]);
+
+  React.useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const role = user?.role?.toLowerCase();
   if (loading || !user || role !== 'superadmin') {
@@ -40,7 +48,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
         onSearch={setSearchTerm}
       />
       <div style={{
-        padding: '2rem',
+        padding: isMobile ? '0.5rem' : '2rem',
         backgroundColor: 'var(--card-bg)',
         borderRadius: '15px',
         boxShadow: 'var(--shadow-sm)'

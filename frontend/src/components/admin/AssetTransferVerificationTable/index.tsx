@@ -12,6 +12,7 @@ import Swal from 'sweetalert2';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
 import Pagination from '../../common/Pagination';
 import DepartmentSelector from '../../common/DepartmentSelector';
+import { useDropdown } from '../../../contexts/DropdownContext';
 
 const statusColors: Record<string, string> = {
   pending: '#facc15',
@@ -69,7 +70,7 @@ function highlightText(text: string, keyword: string) {
   );
 }
 
-const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTableProps> = ({ isSuperAdmin = false, departmentFilter = 'all', onDepartmentChange, searchTerm = '' }) => {
+const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTableProps> = ({ isSuperAdmin = false, departmentFilter = 'all', onDepartmentChange }) => {
   const { user } = useAuth();
   const [tab, setTab] = useState('all');
   const [viewMode, setViewMode] = useState<'in' | 'out'>('in');
@@ -86,6 +87,16 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
   const [transferLogs, setTransferLogs] = useState([]);
   // เพิ่ม state สำหรับ from department (ลบ toDepartment)
   const [fromDepartment, setFromDepartment] = useState<'all' | number>('all');
+  const { departments, loading: dropdownLoading } = useDropdown();
+  const [isMobile, setIsMobile] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const fetchTransfers = () => {
     setLoading(true);
@@ -189,24 +200,25 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
     setTransferLogs(logs);
   };
 
-  // Export XLSX
+  // Export XLSX logic (reuse from ReportAssetsTable)
   const handleExportXLSX = async () => {
-    if (filteredTransfers.length === 0) return;
-    const rows = filteredTransfers.map(t => ([
-      t.asset_name || t.asset_id,
-      t.from_department_name || t.from_department_id,
-      t.to_department_name || t.to_department_id,
-      statusLabels[t.status] || t.status,
-      t.requested_by_name || t.requested_by,
-      t.requested_at,
-    ]));
+    if (!filteredTransfers || filteredTransfers.length === 0) return;
+    const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asset Transfers');
     worksheet.addRow([
       'Asset', 'From Department', 'To Department', 'Status', 'Requested By', 'Requested At'
     ]);
-    rows.forEach(row => worksheet.addRow(row));
-    // Auto width columns
+    filteredTransfers.forEach(t => {
+      worksheet.addRow([
+        t.asset_name || t.asset_id,
+        t.from_department_name || t.from_department_id,
+        t.to_department_name || t.to_department_id,
+        statusLabels[t.status] || t.status,
+        t.requested_by_name || t.requested_by,
+        t.requested_at,
+      ]);
+    });
     worksheet.columns.forEach((column, i) => {
       let maxLength = 10;
       column.eachCell?.({ includeEmpty: true }, (cell) => {
@@ -245,209 +257,369 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
   };
 
   return (
-    <div className={styles.assetsTableContainer}>
-      <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          {!isSuperAdmin && VIEW_MODES.map(vm => (
-            <button
-              key={vm.key}
-              className={styles.filterButton + (viewMode === vm.key ? ' ' + styles.active : '')}
-              onClick={() => setViewMode(vm.key as 'in' | 'out')}
-              style={{ height: 44, minWidth: 110 }}
+    <>
+      {isMobile ? (
+        <>
+          {/* Row 1: All Department */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem 0.3rem 0.5rem', marginBottom: 8, marginTop: 40 }}>
+            <select
+              className={styles.filterDropdown}
+              value={fromDepartment}
+              onChange={e => setFromDepartment(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 12, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
             >
-              {vm.label}
-            </button>
-          ))}
-          {/* Status filter: superadmin = ปุ่ม, user = dropdown */}
-          {isSuperAdmin ? (
-            <div className={styles.statusFilters}>
-              {TABS.map(t => (
-                <button
-                  key={t.key}
-                  className={`${styles.filterButton} ${tab === t.key ? styles.active : ''}`}
-                  onClick={() => setTab(t.key)}
-                >
-                  {t.label}
-                </button>
+              <option value="all">All Departments</option>
+              {departments.map(dep => (
+                <option key={dep.id} value={dep.id}>{dep.name_th}</option>
               ))}
-            </div>
-          ) : (
-            <div style={{ position: 'relative', minWidth: 70 }}>
-              <button
-                className={styles.filterButton}
-                onClick={() => setShowStatusDropdown(v => !v)}
-                style={{ minWidth: 70, height: 44 }}
-              >
-                {TABS.find(t => t.key === tab)?.label || 'สถานะ'} <AiOutlineDown style={{ marginLeft: 4 }} />
-              </button>
-              {showStatusDropdown && (
-                <div style={{ position: 'absolute', top: '110%', left: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10, minWidth: 70 }}>
-                  {TABS.map(t => (
-                    <div
-                      key={t.key}
-                      style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: tab === t.key ? '#6366f1' : '#222', background: tab === t.key ? '#f3f4f6' : 'transparent' }}
-                      onClick={() => {
-                        setTab(t.key);
-                        setShowStatusDropdown(false);
-                      }}
-                    >
-                      {t.label}
-                    </div>
-                  ))}
+            </select>
+          </div>
+          {/* Row 2: Status, Calendar, Export */}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem', marginBottom: 8, position: 'relative' }}>
+            <select
+              className={styles.filterDropdown}
+              value={tab}
+              onChange={e => setTab(e.target.value)}
+              style={{ flex: 1, background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
+            >
+              {TABS.map(t => (
+                <option key={t.key} value={t.key}>{t.label}</option>
+              ))}
+            </select>
+            <button
+              style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              onClick={() => setShowPicker(v => !v)}
+              type="button"
+            >
+              <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
+            </button>
+            {showPicker && (
+              <div style={{ position: 'absolute', zIndex: 20, top: 50,  right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12 }}>
+                <DateRange
+                  editableDateInputs={true}
+                  onChange={(item: any) => setRange([item.selection])}
+                  moveRangeOnFirstSelection={false}
+                  ranges={range}
+                  showSelectionPreview={true}
+                  showMonthAndYearPickers={true}
+                  maxDate={new Date()}
+                  rangeColors={['#11998e']}
+                />
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem', background: '#fff' }}>
+                  <button
+                    style={{ padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+                    onClick={() => {
+                      setRange([{ startDate: undefined, endDate: undefined, key: 'selection' }]);
+                      setShowPicker(false);
+                    }}
+                  >
+                    Reset
+                  </button>
+                  <button
+                    style={{ marginLeft: 8, padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+                    onClick={() => setShowPicker(false)}
+                  >
+                    OK
+                  </button>
                 </div>
-              )}
-            </div>
-          )}
-          {isSuperAdmin && (
-            <div className={styles.dropdownWrapper}>
-              <select
-                className={styles.departmentDropdown}
-                value={fromDepartment}
-                onChange={e => setFromDepartment(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              >
-                <option value="all">All Departments</option>
-                {/* departments state ต้องมีข้อมูล department ทั้งหมด */}
-                {Array.isArray(transfers) && transfers.length > 0 && Array.from(new Set(transfers.map(t => t.from_department_id && t.from_department_name ? JSON.stringify({id: t.from_department_id, name: t.from_department_name}) : null).filter(Boolean))).map(depStr => {
-                  if (!depStr) return null;
-                  const dep = JSON.parse(depStr as string);
-                  return <option key={dep.id} value={dep.id}>{dep.name}</option>;
-                })}
-              </select>
-              <span className={styles.dropdownIcon}>▼</span>
-            </div>
-          )}
-        </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
-          <button className={styles.iconButton} onClick={() => setShowPicker(v => !v)}>
-            <AiOutlineCalendar />
-          </button>
-          {showPicker && (
-            <div style={{ position: 'absolute', zIndex: 20, top: '110%', left: 0, border: '1.5px solid #e5e7eb', background: '#fff' }}>
-              <DateRange
-                editableDateInputs={true}
-                onChange={(item: any) => setRange([item.selection])}
-                moveRangeOnFirstSelection={false}
-                ranges={range}
-                showSelectionPreview={true}
-                showMonthAndYearPickers={true}
-                maxDate={new Date()}
-                rangeColors={['#11998e']}
-              />
-              <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem 0.8rem', background: '#ffffff' }}>
-                <button
-                  style={{ padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
-                  onClick={() => {
-                    setRange([{ startDate: undefined, endDate: undefined, key: 'selection' }]);
-                    setShowPicker(false);
-                  }}
-                >
-                  Reset
-                </button>
-                <button
-                  style={{ marginLeft: 8, padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
-                  onClick={() => setShowPicker(false)}
-                >
-                  OK
-                </button>
               </div>
-            </div>
-          )}
-          <button className={styles.exportPdfButton} onClick={handleExportXLSX} style={{ marginLeft: 8 }}>
-            <AiOutlineDownload style={{ fontSize: '1.3em' }} />
-            Export XLSX
-          </button>
-        </div>
-      </div>
-      <table className={styles.assetsTable}>
-        <thead>
-          <tr>
-            <th style={{ width: 60, minWidth: 60, maxWidth: 60 }}>Image</th>
-            <th style={{ width: 120 }}>Asset</th>
-            <th style={{ width: 120 }}>From Department</th>
-            <th style={{ width: 120 }}>To Department</th>
-            <th style={{ width: 100 }}>Status</th>
-            <th style={{ width: 120 }}>Requested By</th>
-            <th style={{ width: 140 }}>Requested At</th>
-            <th style={{ width: 120 }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr><td colSpan={8} style={{ textAlign: 'center' }}>Loading...</td></tr>
-          ) : paginatedTransfers.length === 0 ? (
-            <tr><td colSpan={8} className={styles.noResults}>No data</td></tr>
-          ) : paginatedTransfers.map(t => (
-            <tr key={t.id} onClick={() => handleAssetClick(t)} style={{ cursor: 'pointer' }}>
-              <td style={{ textAlign: 'center' }}>
+            )}
+            <button className={styles.exportXlsxButtonSmall} style={{ background: 'linear-gradient(135deg, #5768D2 0%, #EB9CED 100%)', color: '#fff', border: 'none', borderRadius: 10, padding: '0.5rem 1.2rem', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, height: 44, boxShadow: 'var(--shadow-md)' }} onClick={handleExportXLSX}>
+              <AiOutlineDownload style={{ fontSize: '1.3em' }} />
+              Export
+            </button>
+          </div>
+          {/* Row 3: search box */}
+          <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              style={{width: '100%', borderRadius: 10, border: '1.5px solid #e5e7eb', height: 44, fontSize: '1rem', background: '#fff', color: '#222', marginTop: 0, marginBottom: 0}}
+            />
+          </div>
+          {/* Card view */}
+          <div className={styles.assetCardList}>
+            {paginatedTransfers.map(t => (
+              <div className={styles.assetCard} key={t.id}>
                 <img
                   src={t.image_url || '/file.svg'}
                   alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
-                  width={60}
-                  height={60}
-                  style={{ objectFit: 'cover', borderRadius: 8 }}
-                  onError={e => { e.currentTarget.src = '/file.svg'; }}
+                  className={styles.assetCardImage}
+                  onError={e => { (e.target as HTMLImageElement).src = '/file.svg'; }}
                 />
-              </td>
-              <td>{highlightText(typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id), searchTerm)}</td>
-              <td>{highlightText(typeof t.from_department_name === 'string' ? t.from_department_name : String(t.from_department_id ?? ''), searchTerm)}</td>
-              <td>{highlightText(typeof t.to_department_name === 'string' ? t.to_department_name : String(t.to_department_id ?? ''), searchTerm)}</td>
-              <td>
-                <span
-                  className={styles.statusBadge}
-                  style={{ background: statusColors[t.status] || '#e5e7eb', fontWeight: 600 }}
-                >
-                  {highlightText(statusLabels[t.status] || t.status, searchTerm)}
-                </span>
-              </td>
-              <td>{highlightText(t.requested_by_name ? t.requested_by_name : (typeof t.requested_by === 'string' ? t.requested_by : t.requested_by?.toString() || ''), searchTerm)}</td>
-              <td>{highlightText(t.requested_at || '', searchTerm)}</td>
-              <td>
-                {/* ให้ superadmin หรือ admin ที่เกี่ยวข้อง approve/reject ได้ถ้า pending */}
-                {t.status === 'pending' && (
-                  (isSuperAdmin || (user && t.to_department_id === user.department_id)) ? (
-                    <div className={styles.actionButtons}>
+                <div className={styles.assetCardContent}>
+                  <div className={styles.assetCardTitle}>{highlightText(typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id), searchTerm)}</div>
+                  <div className={styles.assetCardMetaRow}><b>From:</b> {highlightText(typeof t.from_department_name === 'string' ? t.from_department_name : String(t.from_department_id ?? ''), searchTerm)}</div>
+                  <div className={styles.assetCardMetaRow}><b>To:</b> {highlightText(typeof t.to_department_name === 'string' ? t.to_department_name : String(t.to_department_id ?? ''), searchTerm)}</div>
+                  <div className={styles.assetCardMetaRow}>
+                    <b>Status:</b> <span className={
+                      `${styles.statusBadge} ` +
+                      (t.status === 'approved' ? styles.statusApproved : t.status === 'rejected' ? styles.statusRejected : t.status === 'pending' ? styles.statusPending : '')
+                    }>
+                      {highlightText(statusLabels[t.status] || t.status, searchTerm)}
+                    </span>
+                  </div>
+                  <div className={styles.assetCardMetaRow}><b>Requested By:</b> {highlightText(t.requested_by_name ? t.requested_by_name : (typeof t.requested_by === 'string' ? t.requested_by : t.requested_by?.toString() || ''), searchTerm)}</div>
+                  <div className={styles.assetCardMetaRow}><b>Requested At:</b> {highlightText(t.requested_at || '', searchTerm)}</div>
+                  {/* ปุ่ม approve/reject (mobile) */}
+                  {t.status === 'pending' && (
+                    <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
                       <button
                         className={styles.actionButton}
-                        style={{ background: '#22c55e', color: '#fff' }}
+                        style={{ background: '#22c55e', color: '#fff', flex: 1 }}
                         onClick={e => { e.stopPropagation(); handleApprove(t.id); }}
                       >
                         Approve
                       </button>
                       <button
                         className={styles.actionButton}
-                        style={{ background: '#ef4444', color: '#fff', marginLeft: 8 }}
+                        style={{ background: '#ef4444', color: '#fff', flex: 1 }}
                         onClick={e => { e.stopPropagation(); handleReject(t.id); }}
                       >
                         Reject
                       </button>
                     </div>
-                  ) : null
-                )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+                  )}
+                </div>
+              </div>
+            ))}
+            {totalPages > 1 && (
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </div>
+        </>
+      ) : (
+        <div className={styles.assetsTableContainer}>
+          <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              {!isSuperAdmin && VIEW_MODES.map(vm => (
+                <button
+                  key={vm.key}
+                  className={styles.filterButton + (viewMode === vm.key ? ' ' + styles.active : '')}
+                  onClick={() => setViewMode(vm.key as 'in' | 'out')}
+                  style={{ height: 44, minWidth: 110 }}
+                >
+                  {vm.label}
+                </button>
+              ))}
+              {/* Status filter: superadmin = ปุ่ม, user = dropdown */}
+              {isSuperAdmin ? (
+                <div className={styles.statusFilters}>
+                  {TABS.map(t => (
+                    <button
+                      key={t.key}
+                      className={`${styles.filterButton} ${tab === t.key ? styles.active : ''}`}
+                      onClick={() => setTab(t.key)}
+                    >
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ position: 'relative', minWidth: 70 }}>
+                  <button
+                    className={styles.filterButton}
+                    onClick={() => setShowStatusDropdown(v => !v)}
+                    style={{ minWidth: 70, height: 44 }}
+                  >
+                    {TABS.find(t => t.key === tab)?.label || 'สถานะ'} <AiOutlineDown style={{ marginLeft: 4 }} />
+                  </button>
+                  {showStatusDropdown && (
+                    <div style={{ position: 'absolute', top: '110%', left: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10, minWidth: 70 }}>
+                      {TABS.map(t => (
+                        <div
+                          key={t.key}
+                          style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: tab === t.key ? '#6366f1' : '#222', background: tab === t.key ? '#f3f4f6' : 'transparent' }}
+                          onClick={() => {
+                            setTab(t.key);
+                            setShowStatusDropdown(false);
+                          }}
+                        >
+                          {t.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {isSuperAdmin && (
+                <div className={styles.dropdownWrapper}>
+                  <select
+                    className={styles.departmentDropdown}
+                    value={fromDepartment}
+                    onChange={e => setFromDepartment(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  >
+                    <option value="all">All Departments</option>
+                    {departments.map(dep => (
+                      <option key={dep.id} value={dep.id}>{dep.name_th}</option>
+                    ))}
+                  </select>
+                  <span className={styles.caretIcon}><AiOutlineDown /></span>
+                </div>
+              )}
+            </div>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
+              <button className={styles.iconButton} onClick={() => setShowPicker(v => !v)}>
+                <AiOutlineCalendar />
+              </button>
+              {showPicker && (
+                <div style={{
+                  position: 'absolute',
+                  zIndex: 20,
+                  top: '110%',
+                  right: 20,
+                  border: '1.5px solid #e5e7eb',
+                  background: '#fff',
+                }}>
+                  <DateRange
+                    editableDateInputs={true}
+                    onChange={(item: any) => setRange([item.selection])}
+                    moveRangeOnFirstSelection={false}
+                    ranges={range}
+                    showSelectionPreview={true}
+                    showMonthAndYearPickers={true}
+                    maxDate={new Date()}
+                    rangeColors={['#11998e']}
+                  />
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem 0.8rem', background: '#ffffff' }}>
+                    <button
+                      style={{ padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+                      onClick={() => {
+                        setRange([{ startDate: undefined, endDate: undefined, key: 'selection' }]);
+                        setShowPicker(false);
+                      }}
+                    >
+                      Reset
+                    </button>
+                    <button
+                      style={{ marginLeft: 8, padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+                      onClick={() => setShowPicker(false)}
+                    >
+                      OK
+                    </button>
+                  </div>
+                </div>
+              )}
+              <button className={styles.exportPdfButton} onClick={handleExportXLSX} style={{
+                marginLeft: 8,
+                background: 'linear-gradient(135deg, #5768D2 0%, #EB9CED 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '0.5rem 1.2rem',
+                fontSize: '1rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                height: 44,
+                boxShadow: 'var(--shadow-md)',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+              }}>
+                <AiOutlineDownload style={{ fontSize: '1.3em' }} />
+                Export XLSX
+              </button>
+            </div>
+          </div>
+          <table className={styles.assetsTable}>
+            <thead>
+              <tr>
+                <th style={{ width: 60, minWidth: 60, maxWidth: 60 }}>Image</th>
+                <th style={{ width: 120 }}>Asset</th>
+                <th style={{ width: 120 }}>From Department</th>
+                <th style={{ width: 120 }}>To Department</th>
+                <th style={{ width: 100 }}>Status</th>
+                <th style={{ width: 120 }}>Requested By</th>
+                <th style={{ width: 140 }}>Requested At</th>
+                <th style={{ width: 120 }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr><td colSpan={8} style={{ textAlign: 'center' }}>Loading...</td></tr>
+              ) : paginatedTransfers.length === 0 ? (
+                <tr><td colSpan={8} className={styles.noResults}>No data</td></tr>
+              ) : paginatedTransfers.map(t => (
+                <tr key={t.id} onClick={() => handleAssetClick(t)} style={{ cursor: 'pointer' }}>
+                  <td style={{ textAlign: 'center' }}>
+                    <img
+                      src={t.image_url || '/file.svg'}
+                      alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
+                      width={60}
+                      height={60}
+                      style={{ objectFit: 'cover', borderRadius: 8 }}
+                      onError={e => { e.currentTarget.src = '/file.svg'; }}
+                    />
+                  </td>
+                  <td>{highlightText(typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id), searchTerm)}</td>
+                  <td>{highlightText(typeof t.from_department_name === 'string' ? t.from_department_name : String(t.from_department_id ?? ''), searchTerm)}</td>
+                  <td>{highlightText(typeof t.to_department_name === 'string' ? t.to_department_name : String(t.to_department_id ?? ''), searchTerm)}</td>
+                  <td>
+                    <span
+                      className={styles.statusBadge}
+                      style={{ background: statusColors[t.status] || '#e5e7eb', fontWeight: 600 }}
+                    >
+                      {highlightText(statusLabels[t.status] || t.status, searchTerm)}
+                    </span>
+                  </td>
+                  <td>{highlightText(t.requested_by_name ? t.requested_by_name : (typeof t.requested_by === 'string' ? t.requested_by : t.requested_by?.toString() || ''), searchTerm)}</td>
+                  <td>{highlightText(t.requested_at || '', searchTerm)}</td>
+                  <td>
+                    {/* ให้ superadmin หรือ admin ที่เกี่ยวข้อง approve/reject ได้ถ้า pending */}
+                    {t.status === 'pending' && (
+                      (isSuperAdmin || (user && t.to_department_id === user.department_id)) ? (
+                        <div className={styles.actionButtons}>
+                          <button
+                            className={styles.actionButton}
+                            style={{ background: '#22c55e', color: '#fff' }}
+                            onClick={e => { e.stopPropagation(); handleApprove(t.id); }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            className={styles.actionButton}
+                            style={{ background: '#ef4444', color: '#fff', marginLeft: 8 }}
+                            onClick={e => { e.stopPropagation(); handleReject(t.id); }}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      ) : null
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+          {showHistoryPopup && selectedAsset && (
+            <AssetAuditHistoryPopup
+              open={showHistoryPopup}
+              onClose={() => setShowHistoryPopup(false)}
+              assetId={selectedAsset.asset_id}
+              logs={transferLogs}
+              type="transfer"
+            />
+          )}
         </div>
       )}
-      {showHistoryPopup && selectedAsset && (
-        <AssetAuditHistoryPopup
-          open={showHistoryPopup}
-          onClose={() => setShowHistoryPopup(false)}
-          assetId={selectedAsset.asset_id}
-          logs={transferLogs}
-          type="transfer"
-        />
-      )}
-    </div>
+    </>
   );
 };
 

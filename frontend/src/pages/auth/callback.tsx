@@ -25,9 +25,9 @@ const AuthCallbackPage = () => {
         .then(user => {
           const role = user?.role?.toLowerCase();
           if (role === 'user' || role === 'admin') {
-            router.push('/user/dashboard');
+            router.push('/user/asset-browser');
           } else if (role === 'superadmin') {
-            router.push('/admin/dashboard');
+            router.push('/admin/asset-management');
           } else {
             router.push('/dashboard');
           }

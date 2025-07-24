@@ -22,7 +22,7 @@ const UserRoute: React.FC<UserRouteProps> = ({ children }) => {
 
   // Redirect to admin dashboard if superadmin
   if (user?.role?.toLowerCase() === 'superadmin') {
-    router.push('/admin/dashboard');
+    router.push('/admin/asset-management');
     return null;
   }
 

@@ -1,16 +1,42 @@
 const pool = require("../lib/db.js");
 
-// Valid status values for assets
+// Valid status values for assets (อัปเดตตามคำขอผู้ใช้)
 const VALID_STATUSES = [
-  "active",
-  "missing",
-  "broken",
-  "no_longer_required"
+  "พร้อมใช้งาน",
+  "รอใช้งาน",
+  "รอตัดจำหน่าย",
+  "ชำรุด",
+  "รอซ่อม",
+  "ระหว่างการปรับปรุง",
+  "ไม่มีความจำเป็นต้องใช้",
+  "สูญหาย",
+  "รอแลกเปลี่ยน",
+  "แลกเปลี่ยน",
+  "มีกรรมสิทธิ์ภายใต้สัญญาเช่า",
+  "รอโอนย้าย",
+  "รอโอนกรรมสิทธิ์",
+  "ชั่วคราว",
+  "ขาย",
+  "แปรสภาพ",
+  "ทำลาย",
+  "สอบข้อเท็จจริง",
+  "เงินชดเชยที่ดินและอาสิน",
+  "ระหว่างทาง"
 ];
 
-// Validate asset status
-function validateAssetStatus(status) {
-  return VALID_STATUSES.includes(status);
+// Validate asset status (dynamic from DB)
+async function getValidStatuses() {
+  const [rows] = await pool.query('SELECT value FROM statuses');
+  console.log('getValidStatuses:', rows.map(r => r.value));
+  return rows.map(r => r.value);
+}
+
+async function validateAssetStatus(status) {
+  const validStatuses = await getValidStatuses();
+  return {
+    isValid: validStatuses.includes(status),
+    validStatuses
+  };
 }
 
 // Get all assets with department and location information
@@ -368,11 +394,10 @@ async function getDepartmentAssetsReport(departmentId = null) {
 // Update asset status
 async function updateAssetStatus(assetId, status) {
   // Validate status
-  if (!validateAssetStatus(status)) {
+  const { isValid, validStatuses } = await validateAssetStatus(status);
+  if (!isValid) {
     throw new Error(
-      `Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(
-        ", "
-      )}`
+      `Invalid status: ${status}. Valid statuses are: ${validStatuses.join(", ")}`
     );
   }
 
@@ -386,12 +411,13 @@ async function updateAssetStatus(assetId, status) {
 // Create new asset
 async function createAsset(assetData) {
   // Validate status if provided
-  if (assetData.status && !validateAssetStatus(assetData.status)) {
-    throw new Error(
-      `Invalid status: ${
-        assetData.status
-      }. Valid statuses are: ${VALID_STATUSES.join(", ")}`
-    );
+  if (assetData.status) {
+    const { isValid, validStatuses } = await validateAssetStatus(assetData.status);
+    if (!isValid) {
+      throw new Error(
+        `Invalid status: ${assetData.status}. Valid statuses are: ${validStatuses.join(", ")}`
+      );
+    }
   }
 
   const query = `
@@ -422,12 +448,13 @@ async function createAsset(assetData) {
 // Update asset
 async function updateAsset(assetId, assetData) {
   // Validate status if provided
-  if (assetData.status && !validateAssetStatus(assetData.status)) {
-    throw new Error(
-      `Invalid status: ${
-        assetData.status
-      }. Valid statuses are: ${VALID_STATUSES.join(", ")}`
-    );
+  if (assetData.status) {
+    const { isValid, validStatuses } = await validateAssetStatus(assetData.status);
+    if (!isValid) {
+      throw new Error(
+        `Invalid status: ${assetData.status}. Valid statuses are: ${validStatuses.join(", ")}`
+      );
+    }
   }
 
   // Build the query dynamically based on provided fields
@@ -621,6 +648,6 @@ module.exports = {
   getUserNameById,
   getLocationIdByName,
   getLocationNameById,
+  getValidStatuses,
   validateAssetStatus,
-  VALID_STATUSES,
 };

@@ -68,7 +68,7 @@ const AssetManagementPage: React.FC = () => {
               onSearch={setSearchTerm} // ส่งฟังก์ชันนี้ให้ Navbar
             />
             <div> 
-              <AdminAssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} />
+              <AdminAssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} onSearch={setSearchTerm} />
             </div>
           </AssetProvider>
         </Layout>

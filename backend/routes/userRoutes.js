@@ -12,4 +12,7 @@ router.put('/users/:id', verifyToken, authorizeRoles('SuperAdmin'), userControll
 // DELETE user by ID (SuperAdmin only)
 router.delete('/users/:id', verifyToken, authorizeRoles('SuperAdmin'), userController.deleteUser);
 
+// POST create user (SuperAdmin only)
+router.post('/users', verifyToken, authorizeRoles('SuperAdmin'), userController.createUser);
+
 module.exports = router; 

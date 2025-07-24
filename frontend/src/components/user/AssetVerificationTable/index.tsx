@@ -13,6 +13,8 @@ import { DateRange } from 'react-date-range';
 import { format, parse, isAfter, isBefore, isEqual } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
+import { useStatusOptions } from '../../../lib/statusOptions';
+import Swal from 'sweetalert2';
 
 interface PendingAudit {
   id: number;
@@ -28,26 +30,6 @@ interface PendingAudit {
   inventory_number?: string; // เพิ่ม inventory_number เพื่อเก็บหมายเลขสินค้า
   department_name?: string; // เพิ่ม department_name เพื่อเก็บชื่อแผนก
 }
-
-const statusColors: Record<string, string> = {
-  pending: '#facc15',
-  active: '#22c55e',
-  broken: '#ef4444',
-  missing: '#f97316',
-  transferring: '#3b82f6',
-  audited: '#6366f1',
-  disposed: '#6b7280',
-};
-
-const statusLabels: Record<string, string> = {
-  pending: 'Pending',
-  active: 'Active',
-  broken: 'Broken',
-  missing: 'Missing',
-  transferring: 'Transferring',
-  audited: 'Audited',
-  disposed: 'Disposed',
-};
 
 interface AssetVerificationTableProps {
   searchTerm?: string;
@@ -81,6 +63,24 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     },
   ]);
   const [showPicker, setShowPicker] = useState(false);
+  const [search, setSearch] = useState(searchTerm || '');
+  const [departments, setDepartments] = useState<{ id: number, name_th: string }[]>([]);
+  const [departmentFilter, setDepartmentFilter] = useState<'all' | number>('all');
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  useEffect(() => {
+    fetch('/api/assets/departments')
+      .then(res => res.json())
+      .then(data => setDepartments(data));
+  }, []);
+
+  const { options: statusOptions, loading: statusLoading } = useStatusOptions();
+  const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
 
   useEffect(() => {
     fetch('/api/assets/audits/list')
@@ -113,7 +113,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
         (isBefore(checkedDate, end) || isEqual(checkedDate, end));
     }
     // Search filter
-    const q = (typeof searchTerm === 'string' ? searchTerm : '').trim().toLowerCase();
+    const q = (typeof search === 'string' ? search : '').trim().toLowerCase();
     if (q) {
       pass = pass && (
         (audit.inventory_number || '').toLowerCase().includes(q) ||
@@ -134,8 +134,11 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     setCurrentPage(1);
   }, [verificationFilter, pendingAudits]);
 
-  const totalPages = Math.ceil(filteredAudits.length / rowsPerPage);
-  const paginatedAudits = filteredAudits.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const auditsByDepartment = departmentFilter === 'all'
+    ? filteredAudits
+    : filteredAudits.filter(a => a.department_name && departments.find(d => d.id === departmentFilter && d.name_th === a.department_name));
+  const paginatedAudits = auditsByDepartment.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const totalPages = Math.ceil(auditsByDepartment.length / rowsPerPage);
 
   const toggleSelect = (id: number) => {
     setSelected(sel => sel.includes(id) ? sel.filter(i => i !== id) : [...sel, id]);
@@ -149,7 +152,23 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   };
 
   const confirmSelected = async () => {
-    if (selected.length === 0) return;
+    if (selected.length === 0) {
+      Swal.fire({
+        icon: 'warning',
+        title: 'กรุณาเลือกอย่างน้อย 1 รายการ',
+        confirmButtonText: 'ตกลง',
+      });
+      return;
+    }
+    const result = await Swal.fire({
+      title: 'ยืนยันการตรวจนับ',
+      text: `คุณต้องการยืนยันรายการที่เลือก (${selected.length} รายการ) ใช่หรือไม่?`,
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'ยืนยัน',
+      cancelButtonText: 'ยกเลิก',
+    });
+    if (!result.isConfirmed) return;
     await fetch('/api/assets/audits/confirm', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -158,6 +177,12 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     // อัปเดตสถานะใน state เป็น approved แทนการลบแถว
     setPendingAudits(audits => audits.map(a => selected.includes(a.id) ? { ...a, confirmed: 1 } : a));
     setSelected([]);
+    Swal.fire({
+      icon: 'success',
+      title: 'ยืนยันสำเร็จ',
+      text: 'ยืนยันการตรวจนับเรียบร้อยแล้ว',
+      confirmButtonText: 'ตกลง',
+    });
   };
 
   const openHistoryPopup = (assetId: number) => {
@@ -293,54 +318,33 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
 
   return (
     <>
-      <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-        {/* Left: status filters only */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div className={styles.statusFilters}>
-            {filterTabs.map(f => (
-              <button
-                key={f.key}
-                className={`${styles.filterButton} ${verificationFilter === f.key ? styles.active : ''}`}
-                onClick={() => setVerificationFilter(f.key as any)}
-              >
-                {f.label}
-              </button>
-            ))}
-          </div>
-        </div>
-        {/* Right: date picker + export */}
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
-            <button
-              onClick={() => setShowPicker(v => !v)}
-              style={{
-                background: '#fafbfc',
-                border: '1.5px solid #e5e7eb',
-                borderRadius: '12px',
-                padding: '0.6rem 0.9rem',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                minWidth: 0,
-                minHeight: 0,
-                height: '51px', // << เพิ่มบรรทัดนี้
-                width:'55px',
-                boxShadow: 'none',
-                cursor: 'pointer',
-                transition: 'border 0.2s',
-                outline: showPicker ? '2px solid #11998e' : 'none',
-              }}
-              title="เลือกช่วงวันที่"
+      {isMobile ? (
+        <div style={{  backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)' }}>
+          {/* Row 1: Department dropdown */}
+          <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem 0.3rem 0.5rem', marginBottom: 8 }}>
+            <select
+              className={styles.filterDropdown}
+              value={departmentFilter}
+              onChange={e => setDepartmentFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 12, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
             >
-              <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
+              <option value="all">All Departments</option>
+              {departments.map(dep => (
+                <option key={dep.id} value={dep.id}>{dep.name_th}</option>
+              ))}
+            </select>
+          </div>
+          {/* Row 2: Calendar, Status, Export */}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem', marginBottom: 8, position: 'relative' }}>
+            <button
+              style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              onClick={() => setShowPicker(v => !v)}
+              type="button"
+            >
+              <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
             </button>
-            {range[0].startDate && range[0].endDate && (
-              <span style={{ marginLeft: 8, fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
-                {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
-              </span>
-            )}
             {showPicker && (
-              <div style={{ position: 'absolute', zIndex: 20, top: '110%', left: 0 ,border: '1.5px solid #e5e7eb'}}>
+              <div style={{ position: 'absolute', zIndex: 20, top: 50, left: 0, right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12 }}>
                 <DateRange
                   editableDateInputs={true}
                   onChange={(item: any) => setRange([item.selection])}
@@ -351,7 +355,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   maxDate={new Date()}
                   rangeColors={['#11998e']}
                 />
-                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem 0.8rem',background: '#ffffff',}}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem', background: '#fff' }}>
                   <button
                     style={{ padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
                     onClick={() => {
@@ -370,128 +374,294 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 </div>
               </div>
             )}
-          </div>
-          <button className={styles.exportPdfButton} onClick={handleExportXLSX} style={{ marginLeft: 8 }}>
-            <AiOutlineDownload style={{ fontSize: '1.3em' }} />
-            Export XLSX
-          </button>
-        </div>
-      </div>
-      {/* Table: let columns auto-fit content */}
-      <table className={styles.assetsTable} style={{ tableLayout: 'fixed', width: '100%' }}>
-        <thead>
-          <tr>
-            <th style={{ width: 30 }}>
-              {/* Checkbox เฉพาะถ้า filter เป็น pending หรือ all */}
-              {(verificationFilter !== 'approved') && (
-                <input
-                  type="checkbox"
-                  checked={
-                    filteredAudits.filter(a => !a.confirmed).length > 0 &&
-                    selected.length === filteredAudits.filter(a => !a.confirmed).length
-                  }
-                  onChange={selectAll}
-                />
-              )}
-            </th>
-            <th style={{ width: 70 }}>Image</th>
-            <th style={{ width: 120 }}>Inventory Number</th>
-            <th style={{ width: 180 }}>Name</th>
-            <th style={{ width: 120 }}>Status</th>
-            <th style={{ width: 120 }}>Note</th>
-            <th style={{ width: 120 }}>Auditor</th>
-            <th style={{ width: 190 }}>Department</th>
-            <th style={{ width: 140 }}>Date</th>
-            <th style={{ width: 140 }}>Verification Status</th>
-          </tr>
-        </thead>
-        <tbody>
-          {paginatedAudits.map(audit => (
-            <tr
-              key={audit.id}
-              style={{ cursor: 'pointer' }}
-              onClick={e => {
-                // ไม่ให้คลิก checkbox แล้วเปิด popup
-                if ((e.target as HTMLElement).tagName.toLowerCase() === 'input') return;
-                openHistoryPopup(audit.asset_id);
-              }}
+            <select
+              className={styles.filterDropdown}
+              value={verificationFilter}
+              onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
+              style={{ flex: 1, background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
             >
-              <td>
-                {/* แสดง checkbox เฉพาะถ้ายังไม่ approved */}
-                {!audit.confirmed && (
-                  <input
-                    type="checkbox"
-                    checked={selected.includes(audit.id)}
-                    onChange={() => toggleSelect(audit.id)}
-                    onClick={e => e.stopPropagation()} // ป้องกันเปิด popup เมื่อคลิก checkbox
-                  />
-                )}
-              </td>
-              <td style={{ textAlign: 'center' }}>
-                <Image
+              <option value="all">ทั้งหมด</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+            </select>
+            <button className={styles.exportXlsxButtonSmall} style={{ color: '#fff', border: 'none', borderRadius: 10, padding: '0.5rem 1.2rem', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, height: 44, boxShadow: 'var(--shadow-md)' }} onClick={handleExportXLSX}>
+              <AiOutlineDownload style={{ fontSize: '1.3em' }} />
+              Export
+            </button>
+          </div>
+          {/* Row 3: search box */}
+          <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
+            <input
+              type="text"
+              placeholder="Search..."
+              className={styles.mobileSearchInput}
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{width: '100%', borderRadius: 10, border: '1.5px solid #e5e7eb', height: 44, fontSize: '1rem', background: '#fff', color: '#222', marginTop: 0, marginBottom: 0}}
+            />
+          </div>
+          {/* Card view */}
+          <div className={styles.assetCardList}>
+            {paginatedAudits.map(audit => (
+              <div className={styles.assetCard} key={audit.id} onClick={() => openHistoryPopup(audit.asset_id)}>
+                <img
                   src={audit.image_url || '/file.svg'}
                   alt={audit.asset_name}
-                  width={60}
-                  height={60}
-                  style={{ objectFit: 'cover', borderRadius: 8 }}
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = '/file.svg';
-                  }}
+                  className={styles.assetCardImage}
+                  onError={e => { (e.target as HTMLImageElement).src = '/file.svg'; }}
                 />
-              </td>
-              <td>{highlightText(audit.inventory_number || '', searchTerm || '')}</td>
-              <td>{highlightText(audit.asset_name || '', searchTerm || '')}</td>
-              <td>
-                <span style={{
-                  background: statusColors[audit.status] || '#e5e7eb',
-                  color: '#fff',
-                  borderRadius: 8,
-                  padding: '0.2em 0.8em',
-                  fontWeight: 500,
-                  fontSize: '0.95em'
-                }}>
-                  {highlightText(statusLabels[audit.status] || audit.status, searchTerm || '')}
-                </span>
-              </td>
-              <td>{highlightText(audit.note || '', searchTerm || '')}</td>
-              <td>{highlightText(audit.user_name || '', searchTerm || '')}</td>
-              <td>{highlightText(audit.department_name || '', searchTerm || '')}</td>
-              <td>{highlightText(formatDate(audit.checked_at) || '', searchTerm || '')}</td>
-              <td>
-                <span style={{
-                  background: audit.confirmed ? '#22c55e' : '#facc15',
-                  color: '#fff',
-                  borderRadius: 8,
-                  padding: '0.2em 0.8em',
-                  fontWeight: 500,
-                  fontSize: '0.95em'
-                }}>
-                  {highlightText(audit.confirmed ? 'Approved' : 'Pending', searchTerm || '')}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {/* Confirm button above pagination */}
-      <div style={{ marginTop: 16, textAlign: 'right' }}>
-        <button
-          className={styles.confirmButton}
-          disabled={selected.length === 0}
-          onClick={confirmSelected}
-        >
-          Confirm Selected
-        </button>
-      </div>
-      {totalPages > 1 && (
-        <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-          <Pagination
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+                <div className={styles.assetCardContent}>
+                  <div className={styles.assetCardTitle}>{highlightText(audit.asset_name || '', search || '')}</div>
+                  <div className={styles.assetCardMetaRow}><b>Inventory:</b> {highlightText(audit.inventory_number || '', search || '')}</div>
+                  <div className={styles.assetCardMetaRow}><b>Status:</b> <span className={styles.statusBadge} style={{ background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd', color: '#fff' }}>{highlightText(statusLabels[audit.status] || audit.status, search || '')}</span></div>
+                  <div className={styles.assetCardMetaRow}><b>Note:</b> {highlightText(audit.note || '-', search || '')}</div>
+                  <div className={styles.assetCardMetaRow}><b>Auditor:</b> {highlightText(audit.user_name || '-', search || '')}</div>
+                  <div className={styles.assetCardMetaRow}><b>Department:</b> {highlightText(audit.department_name || '-', search || '')}</div>
+                  <div className={styles.assetCardMetaRow}><b>Date:</b> {highlightText(formatDate(audit.checked_at) || '-', search || '')}</div>
+                  <div className={styles.assetCardMetaRow}><b>Verification:</b> <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em' }}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), search || '')}</span></div>
+                  {(verificationFilter !== 'approved') && !audit.confirmed && (
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(audit.id)}
+                        onChange={e => { e.stopPropagation(); toggleSelect(audit.id); }}
+                        style={{ marginRight: 8 }}
+                      /> Select
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+            {totalPages > 1 && (
+              <div style={{ marginTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+                {(verificationFilter !== 'approved') && (
+                  <button
+                    className={styles.confirmButton}
+                    disabled={selected.length === 0}
+                    onClick={confirmSelected}
+                    style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 6, borderRadius: 10, padding: '0.5rem 1.2rem', fontSize: '1rem', height: 40 }}
+                  >
+                    Confirm Selected
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          {showPopup && popupAssetId && (
+            <AssetAuditHistoryPopup
+              assetId={popupAssetId}
+              open={showPopup}
+              onClose={() => setShowPopup(false)}
+            />
+          )}
         </div>
+      ) : (
+        <>
+          <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+            {/* Left: status filters only */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
+              {filterTabs.map(tab => (
+                <button
+                  key={tab.key}
+                  className={styles.filterButton + (verificationFilter === tab.key ? ' ' + styles.active : '')}
+                  onClick={() => setVerificationFilter(tab.key as any)}
+                  style={{ minWidth: 110 }}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+            {/* Right: date picker + export */}
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+                <button
+                  onClick={() => setShowPicker(v => !v)}
+                  style={{
+                    background: '#fafbfc',
+                    border: '1.5px solid #e5e7eb',
+                    borderRadius: '12px',
+                    padding: '0.6rem 0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: 0,
+                    minHeight: 0,
+                    height: '51px', // << เพิ่มบรรทัดนี้
+                    width:'55px',
+                    boxShadow: 'none',
+                    cursor: 'pointer',
+                    transition: 'border 0.2s',
+                    outline: showPicker ? '2px solid #11998e' : 'none',
+                  }}
+                  title="เลือกช่วงวันที่"
+                >
+                  <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
+                </button>
+                {range[0].startDate && range[0].endDate && (
+                  <span style={{ marginLeft: 8, fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
+                    {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                  </span>
+                )}
+                {showPicker && (
+                  <div style={{ position: 'absolute', zIndex: 20, top: '110%', left: 0 ,border: '1.5px solid #e5e7eb'}}>
+                    <DateRange
+                      editableDateInputs={true}
+                      onChange={(item: any) => setRange([item.selection])}
+                      moveRangeOnFirstSelection={false}
+                      ranges={range}
+                      showSelectionPreview={true}
+                      showMonthAndYearPickers={true}
+                      maxDate={new Date()}
+                      rangeColors={['#11998e']}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem 0.8rem',background: '#ffffff',}}>
+                      <button
+                        style={{ padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+                        onClick={() => {
+                          setRange([{ startDate: undefined, endDate: undefined, key: 'selection' }]);
+                          setShowPicker(false);
+                        }}
+                      >
+                        Reset
+                      </button>
+                      <button
+                        style={{ marginLeft: 8, padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
+                        onClick={() => setShowPicker(false)}
+                      >
+                        OK
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button className={styles.exportPdfButton} onClick={handleExportXLSX} style={{ marginLeft: 8 }}>
+                <AiOutlineDownload style={{ fontSize: '1.3em' }} />
+                Export XLSX
+              </button>
+            </div>
+          </div>
+          {/* Table: let columns auto-fit content */}
+          <table className={styles.assetsTable} style={{ tableLayout: 'fixed', width: '100%' }}>
+            <thead>
+              <tr>
+                <th style={{ width: 30 }}>
+                  {/* Checkbox เฉพาะถ้า filter เป็น pending หรือ all */}
+                  {(verificationFilter !== 'approved') && (
+                    <input
+                      type="checkbox"
+                      checked={
+                        filteredAudits.filter(a => !a.confirmed).length > 0 &&
+                        selected.length === filteredAudits.filter(a => !a.confirmed).length
+                      }
+                      onChange={selectAll}
+                    />
+                  )}
+                </th>
+                <th style={{ width: 70 }}>Image</th>
+                <th style={{ width: 120 }}>Inventory Number</th>
+                <th style={{ width: 180 }}>Name</th>
+                <th style={{ width: 120 }}>Status</th>
+                <th style={{ width: 120 }}>Note</th>
+                <th style={{ width: 120 }}>Auditor</th>
+                <th style={{ width: 190 }}>Department</th>
+                <th style={{ width: 140 }}>Date</th>
+                <th style={{ width: 140 }}>Verification Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paginatedAudits.map(audit => (
+                <tr
+                  key={audit.id}
+                  style={{ cursor: 'pointer' }}
+                  onClick={e => {
+                    // ไม่ให้คลิก checkbox แล้วเปิด popup
+                    if ((e.target as HTMLElement).tagName.toLowerCase() === 'input') return;
+                    openHistoryPopup(audit.asset_id);
+                  }}
+                >
+                  <td>
+                    {/* แสดง checkbox เฉพาะถ้ายังไม่ approved */}
+                    {!audit.confirmed && (
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(audit.id)}
+                        onChange={() => toggleSelect(audit.id)}
+                        onClick={e => e.stopPropagation()} // ป้องกันเปิด popup เมื่อคลิก checkbox
+                      />
+                    )}
+                  </td>
+                  <td style={{ textAlign: 'center' }}>
+                    <Image
+                      src={audit.image_url || '/file.svg'}
+                      alt={audit.asset_name}
+                      width={60}
+                      height={60}
+                      style={{ objectFit: 'cover', borderRadius: 8 }}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/file.svg';
+                      }}
+                    />
+                  </td>
+                  <td>{highlightText(audit.inventory_number || '', search || '')}</td>
+                  <td>{highlightText(audit.asset_name || '', search || '')}</td>
+                  <td>
+                    <span style={{
+                      background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd',
+                      color: '#fff',
+                      borderRadius: 8,
+                      padding: '0.2em 0.8em',
+                      fontWeight: 500,
+                      fontSize: '0.95em'
+                    }}>
+                      {highlightText(statusLabels[audit.status] || audit.status, search || '')}
+                    </span>
+                  </td>
+                  <td>{highlightText(audit.note || '', search || '')}</td>
+                  <td>{highlightText(audit.user_name || '', search || '')}</td>
+                  <td>{highlightText(audit.department_name || '', search || '')}</td>
+                  <td>{highlightText(formatDate(audit.checked_at) || '', search || '')}</td>
+                  <td>
+                    <span style={{
+                      background: audit.confirmed ? '#22c55e' : '#facc15',
+                      color: '#fff',
+                      borderRadius: 8,
+                      padding: '0.2em 0.8em',
+                      fontWeight: 500,
+                      fontSize: '0.95em'
+                    }}>
+                      {highlightText(audit.confirmed ? 'Approved' : 'Pending', search || '')}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {/* Confirm button above pagination */}
+          <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <button
+              className={styles.confirmButton}
+              disabled={selected.length === 0}
+              onClick={confirmSelected}
+            >
+              Confirm Selected
+            </button>
+          </div>
+          {totalPages > 1 && (
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+        </>
       )}
       {showPopup && popupAssetId && (
         <AssetAuditHistoryPopup

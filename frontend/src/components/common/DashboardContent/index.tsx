@@ -1,10 +1,11 @@
 // src/components/DashboardContent/index.tsx
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDashboard } from '../../../contexts/DashboardContext';
 import styles from './DashboardContent.module.css';
 import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { FaRegCalendarAlt } from 'react-icons/fa';
+import { AiOutlineDown } from 'react-icons/ai';
 
 const CARD_COLORS = [
   '#28a745', // ฟ้า
@@ -37,42 +38,30 @@ const DashboardContent: React.FC = () => {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [departments, setDepartments] = useState<{ id: number; name_th: string }[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('ทุกหน่วยงาน');
-  const ALL_STATUSES = [
-    'พร้อมใช้งาน',
-    'รอใช้งาน',
-    'รอตัดจำหน่าย',
-    'ชำรุด',
-    'รอซ่อม',
-    'ระหว่างการปรับปรุง',
-    'ไม่มีความจำเป็นต้องใช้',
-    'สูญหาย',
-    'รอแลกเปลี่ยน',
-    'แลกเปลี่ยน',
-    'มีกรรมสิทธิ์ภายใต้สัญญาเช่า',
-    'รอโอนย้าย',
-    'รอโอนกรรมสิทธิ์',
-    'ชั่วคราว',
-    'ขาย',
-    'แปรสภาพ',
-    'ทำลาย',
-    'สอบข้อเท็จจริง',
-    'เงินชดเชยที่ดินและอาสิน',
-    'ระหว่างทาง'
-  ];
+  const [statuses, setStatuses] = useState<{ value: string; label: string }[]>([]);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/statuses')
+      .then(res => res.json())
+      .then(data => setStatuses(data))
+      .catch(() => setStatuses([]));
+  }, []);
 
   // ใช้ข้อมูลจริงจาก backend
   const backendStatusMap = new Map((stats?.statuses || []).map(s => [s.status, s.count]));
-  const mergedStatuses = ALL_STATUSES.map(status => ({
-    status,
-    count: backendStatusMap.get(status) || 0
+  const mergedStatuses = statuses.map(s => ({
+    status: s.value,
+    label: s.label,
+    count: backendStatusMap.get(s.value) || 0
   }));
-  const sortedStatuses = mergedStatuses.slice().sort((a, b) => a.status.localeCompare(b.status, 'th'));
+  const sortedStatuses = mergedStatuses.slice().sort((a, b) => a.label.localeCompare(b.label, 'th'));
   const readyCardTop = sortedStatuses.find(c => c.status === 'พร้อมใช้งาน');
   const otherCards = sortedStatuses.filter(c => c.status !== 'พร้อมใช้งาน');
   const allCards = readyCardTop ? [readyCardTop, ...otherCards] : sortedStatuses;
 
   // เตรียมข้อมูลสำหรับกราฟเส้น: ทุก status ตามลำดับ card
-  const statusChartData = allCards.map(c => ({ status: c.status, count: c.count }));
+  const statusChartData = allCards.map(c => ({ status: c.label, count: c.count }));
 
   // สำหรับกราฟเส้นแบบ multi-line ใช้ข้อมูลจริงจาก graphData.bar
   let lineKeys: string[] = [];
@@ -142,6 +131,13 @@ const DashboardContent: React.FC = () => {
     fetchGraphs();
   }, []);
 
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   if (loading) {
     return <div className={styles.dashboardContent}><div style={{ textAlign: 'center', padding: '50px' }}>Loading dashboard data...</div></div>;
   }
@@ -156,23 +152,98 @@ const DashboardContent: React.FC = () => {
   const VISIBLE_CARDS = 7;
 
   return (
-    <div className={styles.dashboardContent} style={{ display: 'flex', gap: 24, alignItems: 'flex-start' }}>
-      {/* Sidebar Cards */}
-      <div style={{
+    <div className={styles.dashboardContent}>
+      {isMobile ? (
+        <>
+          {/* Header above cardList, not scrollable */}
+          <div style={{ marginBottom: 8, marginTop: 2 }}>
+            <div style={{ fontWeight: 700, fontSize: 18, color: '#222' }}>ครุภัณฑ์ทั้งหมด</div>
+            <div style={{ fontWeight: 400, fontSize: 14, color: '#555', marginTop: 2 }}>
+              รวม {totalCount} รายการ
+            </div>
+          </div>
+          {/* Mobile Card List for Sidebar Cards (scrollable) */}
+          <div className={styles.cardList}>
+            {allCards.map((card, idx) => (
+              <div className={styles.card} key={card.status}>
+                <div className={styles.cardLabel}>{card.label}</div>
+                <div className={styles.cardValue}>{card.count}</div>
+              </div>
+            ))}
+          </div>
+          {/* Main Content as Cards/Charts */}
+          <div className={styles.mainContent}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <select
+                className={styles.mobileDropdown}
+                value={selectedDepartment}
+                onChange={e => setSelectedDepartment(e.target.value)}
+              >
+                <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
+                {departments.map(dep => (
+                  <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
+                ))}
+              </select>
+            </div>
+            <div className={styles.chartContainer}>
+              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>จำนวนครุภัณฑ์แต่ละสถานะ</div>
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={statusChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" interval={0} angle={-30} textAnchor="end" height={60} fontSize={11} />
+                  <YAxis allowDecimals={false} fontSize={11} />
+                  <Tooltip />
+                  <Line type="monotone" dataKey="count" stroke="#6366f1" strokeWidth={3} dot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className={styles.chartContainer}>
+              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>bar chart</div>
+              <div style={{ marginBottom: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                {allCards.map((c, idx) => (
+                  <label key={c.status} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13 }}>
+                    <input
+                      type="checkbox"
+                      checked={visibleBarStatuses[c.status]}
+                      onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.status]: !visibleBarStatuses[c.status] })}
+                    />
+                    <span style={{ color: CARD_COLORS[idx % CARD_COLORS.length], fontWeight: 500 }}>{c.label}</span>
+                  </label>
+                ))}
+              </div>
+              <ResponsiveContainer width="100%" height={220}>
+                <BarChart data={filteredBarChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="status" interval={0} angle={-30} textAnchor="end" height={60} fontSize={11} />
+                  <YAxis allowDecimals={false} fontSize={11} />
+                  <Tooltip />
+                  <Bar dataKey="count" barSize={22}>
+                    {filteredBarChartData.map((entry) => (
+                      <Cell key={entry.status} fill={statusColorMap[entry.status]} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Desktop Sidebar Cards */}
+          <div className={styles.sidebarCards} style={{
         flex: '0 0 340px',
-        marginTop: 80,
-        maxHeight: `${VISIBLE_CARDS * 100 + 40}px`, // ปรับ maxHeight ให้เหมาะกับ card ที่สูงขึ้นและ padding ใหม่
-        overflowY: 'auto', // scroll mouse อยู่ใน container นี้เท่านั้น
+        marginTop: 60,
+            maxHeight: `${VISIBLE_CARDS * 100 + 40}px`,
+            overflowY: 'auto',
         display: 'flex',
         flexDirection: 'column',
-        gap: 20, // ระยะห่างระหว่าง card มากขึ้น
-        background: '#f8fafc',
+            gap: 20,
+        background: '#ffffff',
         borderRadius: 20,
-        padding: 20, // padding container มากขึ้น
+            padding: 20,
         boxShadow: '0 2px 8px #0001',
-        minHeight: 200
+        minHeight: '84vh'
       }}>
-        {/* หัวข้อครุภัณฑ์ทั้งหมด */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontWeight: 700, fontSize: 20, color: '#222' }}>ครุภัณฑ์ทั้งหมด</div>
           <div style={{ fontWeight: 400, fontSize: 15, color: '#555', marginTop: 2 }}>
@@ -184,57 +255,55 @@ const DashboardContent: React.FC = () => {
             key={card.status}
             style={{
               border: 'none',
-              borderRadius: 10, // ให้เหลี่ยมขึ้นและพอดีกับแถบสี
-              padding: '18px 20px', // ใหญ่ขึ้น
+                  borderRadius: 10,
+                  padding: '18px 20px',
               background: '#fff',
               marginBottom: 0,
               boxShadow: '0 1px 4px #0001',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'flex-start',
-              minHeight: 80, // ใหญ่ขึ้น
+                  minHeight: 80,
               fontSize: 15,
               width: '100%',
               boxSizing: 'border-box',
               transition: 'box-shadow 0.2s',
               position: 'relative',
-              overflow: 'hidden', // ให้แถบสีโค้งมนไปกับขอบ
+                  overflow: 'hidden',
             }}
           >
-            {/* แถบสีโค้งซ้ายบน */}
             <div style={{
               position: 'absolute',
               left: 0,
               top: 0,
               height: '100%',
               width: 8,
-              borderRadius: 10, // โค้งมนเท่ากับ card
+                  borderRadius: 10,
               background: getCardColor(idx),
             }} />
-            <div style={{ fontSize: 15, color: '#444', fontWeight: 500, marginLeft: 16 }}>{card.status}</div>
+            <div style={{ fontSize: 15, color: '#444', fontWeight: 500, marginLeft: 16 }}>{card.label}</div>
             <div style={{ fontSize: 22, fontWeight: 700, color: '#222', marginTop: 2, marginLeft: 16 }}>{card.count}</div>
           </div>
         ))}
       </div>
-
       {/* Main Content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {/* Filter Bar */}
+          <div className={styles.mainContent} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
         <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-          <select
-            style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 15 }}
-            value={selectedDepartment}
-            onChange={e => setSelectedDepartment(e.target.value)}
-          >
-            <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
-            {departments.map(dep => (
-              <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
-            ))}
-          </select>
+          <div style={{ position: 'relative', display: 'inline-block', maxWidth: 180 }}>
+            <select
+              style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 15, maxWidth: '180px', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', paddingRight: '2.2em' }}
+              value={selectedDepartment}
+              onChange={e => setSelectedDepartment(e.target.value)}
+            >
+              <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
+              {departments.map(dep => (
+                <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
+              ))}
+            </select>
+            <span className={styles.caretIcon} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><AiOutlineDown /></span>
+          </div>
         </div>
-
-        {/* Graph: จำนวนแต่ละ status (Line Chart) */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
+            <div className={styles.chartContainer} style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
           <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={statusChartData}>
@@ -246,11 +315,8 @@ const DashboardContent: React.FC = () => {
             </LineChart>
           </ResponsiveContainer>
         </div>
-
-        {/* กราฟด้านล่าง (Bar Chart) */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
+            <div className={styles.chartContainer} style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
           <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 17 }}>bar chart</div>
-          {/* Checkbox filter สำหรับ bar chart */}
           <div style={{ marginBottom: 12, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {allCards.map((c, idx) => (
               <label key={c.status} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>
@@ -259,7 +325,7 @@ const DashboardContent: React.FC = () => {
                   checked={visibleBarStatuses[c.status]}
                   onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.status]: !visibleBarStatuses[c.status] })}
                 />
-                <span style={{ color: CARD_COLORS[idx % CARD_COLORS.length], fontWeight: 500 }}>{c.status}</span>
+                <span style={{ color: CARD_COLORS[idx % CARD_COLORS.length], fontWeight: 500 }}>{c.label}</span>
               </label>
             ))}
           </div>
@@ -277,8 +343,9 @@ const DashboardContent: React.FC = () => {
             </BarChart>
           </ResponsiveContainer>
         </div>
-        {/* สามารถเพิ่มกราฟอื่น ๆ ต่อด้านล่างนี้ได้ */}
       </div>
+        </>
+      )}
     </div>
   );
 };

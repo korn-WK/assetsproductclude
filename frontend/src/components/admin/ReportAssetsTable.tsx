@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import styles from './AdminAssetsTable/AdminAssetsTable.module.css';
 import Pagination from '../common/Pagination';
@@ -27,16 +27,32 @@ interface ReportAssetsTableProps {
   pageSize?: number;
   onExport?: (assets: Asset[]) => void;
   showExportButton?: boolean;
+  searchTerm?: string;
 }
 
 const statusLabels: Record<string, string> = {
-  active: 'Active',
-  missing: 'Missing',
-  broken: 'Broken',
-  no_longer_required: 'No Longer Required',
+  'พร้อมใช้งาน': 'พร้อมใช้งาน',
+  'รอใช้งาน': 'รอใช้งาน',
+  'รอตัดจำหน่าย': 'รอตัดจำหน่าย',
+  'ชำรุด': 'ชำรุด',
+  'รอซ่อม': 'รอซ่อม',
+  'ระหว่างการปรับปรุง': 'ระหว่างการปรับปรุง',
+  'ไม่มีความจำเป็นต้องใช้': 'ไม่มีความจำเป็นต้องใช้',
+  'สูญหาย': 'สูญหาย',
+  'รอแลกเปลี่ยน': 'รอแลกเปลี่ยน',
+  'แลกเปลี่ยน': 'แลกเปลี่ยน',
+  'มีกรรมสิทธิ์ภายใต้สัญญาเช่า': 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า',
+  'รอโอนย้าย': 'รอโอนย้าย',
+  'รอโอนกรรมสิทธิ์': 'รอโอนกรรมสิทธิ์',
+  'ชั่วคราว': 'ชั่วคราว',
+  'ขาย': 'ขาย',
+  'แปรสภาพ': 'แปรสภาพ',
+  'ทำลาย': 'ทำลาย',
+  'สอบข้อเท็จจริง': 'สอบข้อเท็จจริง',
+  'เงินชดเชยที่ดินและอาสิน': 'เงินชดเชยที่ดินและอาสิน',
+  'ระหว่างทาง': 'ระหว่างทาง',
 };
 
-// ฟังก์ชัน highlightText
 function highlightText(text: string, keyword: string) {
   if (!keyword) return text;
   const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
@@ -45,9 +61,16 @@ function highlightText(text: string, keyword: string) {
   );
 }
 
-const ReportAssetsTable: React.FC<ReportAssetsTableProps & { searchTerm?: string }> = ({ assets, loading, error, pageSize = 5, onExport, showExportButton = true, searchTerm = '' }) => {
+const ReportAssetsTable: React.FC<ReportAssetsTableProps> = ({ assets, loading, error, pageSize = 5, onExport, showExportButton = true, searchTerm = '' }) => {
   const [currentPage, setCurrentPage] = useState(1);
-  // filter เฉพาะ columnที่ต้องการ
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const filteredAssets = assets.filter(asset => {
     const q = searchTerm.toLowerCase();
     return (
@@ -139,7 +162,7 @@ const ReportAssetsTable: React.FC<ReportAssetsTableProps & { searchTerm?: string
 
   return (
     <div>
-      {showExportButton && (
+      {showExportButton && !isMobile && (
         <div style={{ textAlign: 'right', marginBottom: 8 }}>
           <button className={styles.exportXlsxButton} onClick={() => onExport ? onExport(assets) : handleExportXLSX()}>
             <AiOutlineDownload style={{ fontSize: '1.3em', marginRight: 8 }} />
@@ -147,70 +170,109 @@ const ReportAssetsTable: React.FC<ReportAssetsTableProps & { searchTerm?: string
           </button>
         </div>
       )}
-      <div className={styles.assetsTableContainer}>
-        <table className={`${styles.assetsTable} compact`}>
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'center' }}>Image</th>
-              <th style={{ textAlign: 'center' }}>Asset Code</th>
-              <th style={{ textAlign: 'center' }}>Inventory No.</th>
-              <th style={{ textAlign: 'center' }}>Name</th>
-              <th style={{ textAlign: 'center' }}>Location</th>
-              <th style={{ textAlign: 'center' }}>Department</th>
-              <th style={{ textAlign: 'center' }}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {currentAssets.map(asset => (
-              <tr key={asset.id}>
-                <td data-label="Image" style={{ textAlign: 'center' }}>
-                  {asset.image_url ? (
-                    <Image
-                      src={asset.image_url}
-                      alt={asset.name}
-                      width={60}
-                      height={60}
-                      className={styles.assetImage}
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = '/file.svg';
-                      }}
-                    />
-                  ) : (
-                    <Image
-                      src="/file.svg"
-                      alt="No image"
-                      width={60}
-                      height={60}
-                      className={styles.assetImage}
-                    />
-                  )}
-                </td>
-                <td data-label="Asset Code" style={{ textAlign: 'center' }}>{highlightText(asset.asset_code, searchTerm)}</td>
-                <td data-label="Inventory No." style={{ textAlign: 'center' }}>{highlightText(asset.inventory_number || '-', searchTerm)}</td>
-                <td data-label="Name">
-                  <div className={styles.assetName}>{highlightText(asset.name, searchTerm)}</div>
-                  <div className={styles.assetDescription}>{asset.description}</div>
-                </td>
-                <td data-label="Location" style={{ textAlign: 'center' }}>
-                  {highlightText(asset.location && asset.room ? `${asset.location} ${asset.room}`.trim() : asset.location || asset.room || '-', searchTerm)}
-                </td>
-                <td data-label="Department">{highlightText(asset.department || '-', searchTerm)}</td>
-                <td data-label="Status" style={{ textAlign: 'center' }}>
-                  <span className={`${styles.statusBadge} compact`}>
-                    {highlightText(statusLabels[asset.status] || asset.status, searchTerm)}
-                  </span>
-                </td>
+      {isMobile ? (
+        <div className={styles.assetCardList}>
+          {currentAssets.map(asset => (
+            <div className={styles.assetCard} key={asset.id}>
+              <img
+                src={asset.image_url || '/file.svg'}
+                alt={asset.name}
+                className={styles.assetCardImage}
+                onError={e => { (e.target as HTMLImageElement).src = '/file.svg'; }}
+              />
+              <div className={styles.assetCardContent}>
+                <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Asset Code:</b> {highlightText(asset.asset_code, searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Inventory No.:</b> {highlightText(asset.inventory_number || '-', searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Description:</b> <span className={styles.assetCardDesc}>{highlightText(asset.description || '-', searchTerm)}</span></div>
+                <div className={styles.assetCardMetaRow}><b>Location:</b> {highlightText(asset.location && asset.room ? `${asset.location} ${asset.room}`.trim() : asset.location || asset.room || '-', searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Department:</b> {highlightText(asset.department || '-', searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Status:</b> <span className={styles.statusBadge}>{highlightText(statusLabels[asset.status] || asset.status, searchTerm)}</span></div>
+                <div className={styles.assetCardMetaRow}><b>Acquired Date:</b> {highlightText(asset.acquired_date || '-', searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Created At:</b> {highlightText(asset.created_at || '-', searchTerm)}</div>
+                {showExportButton && (
+                  <div style={{ marginTop: 10, textAlign: 'right' }}>
+                    <button className={styles.exportXlsxButtonSmall} onClick={() => onExport ? onExport([asset]) : handleExportXLSX()}>
+                      <AiOutlineDownload style={{ fontSize: '1.2em', marginRight: 6 }} />
+                      Export XLSX
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      ) : (
+        <div className={styles.assetsTableContainer}>
+          <table className={`${styles.assetsTable} compact`}>
+            <thead>
+              <tr>
+                <th style={{ textAlign: 'center' }}>Image</th>
+                <th style={{ textAlign: 'center' }}>Asset Code</th>
+                <th style={{ textAlign: 'center' }}>Inventory No.</th>
+                <th style={{ textAlign: 'center' }}>Name</th>
+                <th style={{ textAlign: 'center' }}>Location</th>
+                <th style={{ textAlign: 'center' }}>Department</th>
+                <th style={{ textAlign: 'center' }}>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <Pagination
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
-      />
+            </thead>
+            <tbody>
+              {currentAssets.map(asset => (
+                <tr key={asset.id}>
+                  <td data-label="Image" style={{ textAlign: 'center' }}>
+                    {asset.image_url ? (
+                      <Image
+                        src={asset.image_url}
+                        alt={asset.name}
+                        width={60}
+                        height={60}
+                        className={styles.assetImage}
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = '/file.svg';
+                        }}
+                      />
+                    ) : (
+                      <Image
+                        src="/file.svg"
+                        alt="No image"
+                        width={60}
+                        height={60}
+                        className={styles.assetImage}
+                      />
+                    )}
+                  </td>
+                  <td data-label="Asset Code" style={{ textAlign: 'center' }}>{highlightText(asset.asset_code, searchTerm)}</td>
+                  <td data-label="Inventory No." style={{ textAlign: 'center' }}>{highlightText(asset.inventory_number || '-', searchTerm)}</td>
+                  <td data-label="Name">
+                    <div className={styles.assetName}>{highlightText(asset.name, searchTerm)}</div>
+                    <div className={styles.assetDescription}>{asset.description}</div>
+                  </td>
+                  <td data-label="Location" style={{ textAlign: 'center' }}>
+                    {highlightText(asset.location && asset.room ? `${asset.location} ${asset.room}`.trim() : asset.location || asset.room || '-', searchTerm)}
+                  </td>
+                  <td data-label="Department">{highlightText(asset.department || '-', searchTerm)}</td>
+                  <td data-label="Status">
+                    <span className={`${styles.statusBadge} compact`}>
+                      {highlightText(statusLabels[asset.status] || asset.status, searchTerm)}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   );
 };

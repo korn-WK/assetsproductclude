@@ -4,13 +4,14 @@ import { useAuth } from '../../contexts/AuthContext';
 import Sidebar from '../../components/user/Sidebar';
 import Layout from '../../components/common/Layout';
 import Navbar from '../../components/common/Navbar';
-import AssetTransferVerificationTable from '../../components/admin/AssetTransferVerificationTable';
+import AssetTransferTable from '../../components/user/AssetTransferTable';
 
 const AssetTransferVerificationPage: React.FC = () => {
   const { user, loading } = useAuth();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     if (!loading) {
@@ -20,6 +21,13 @@ const AssetTransferVerificationPage: React.FC = () => {
       }
     }
   }, [user, loading, router]);
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 600);
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const role = user?.role?.toLowerCase();
   if (loading || !user || role !== 'admin') {
@@ -35,12 +43,12 @@ const AssetTransferVerificationPage: React.FC = () => {
         onSearch={setSearchTerm}
       />
       <div style={{
-        padding: '2rem',
+        padding: isMobile ? '1rem' : '2rem',
         backgroundColor: 'var(--card-bg)',
         borderRadius: '15px',
         boxShadow: 'var(--shadow-sm)'
       }}>
-        <AssetTransferVerificationTable searchTerm={searchTerm} />
+        <AssetTransferTable searchTerm={searchTerm} />
       </div>
     </Layout>
   );

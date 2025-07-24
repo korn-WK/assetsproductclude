@@ -1,5 +1,7 @@
 .sidebar {
     width: 280px;
+    min-width: 280px;
+    max-width: 280px;
     height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     color: white;
@@ -10,6 +12,7 @@
     overflow-y: auto;
     box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
     z-index: 1000;
+
 }
 
 .header {
@@ -136,11 +139,12 @@
     left: 0;
     top: 0;
     height: 100vh;
-    width: 260px;
-    z-index: 4001;
+    width: 80vw;
+    max-width: 320px;
+    z-index: 4000;
     transform: translateX(-110%);
-    transition: transform 0.25s cubic-bezier(.4,2,.3,1);
-    box-shadow: 2px 0 16px rgba(0,0,0,0.13);
+    transition: transform 0.3s cubic-bezier(.4,2,.3,1);
+    box-shadow: 2px 0 10px rgba(0,0,0,0.13);
     position: fixed;
   }
   .sidebar.open {
@@ -148,7 +152,10 @@
   }
   .overlay {
     display: block;
-    z-index: 4000;
+    z-index: 3999;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.25);
   }
   .closeBtn {
     display: block;

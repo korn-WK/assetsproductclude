@@ -14,9 +14,9 @@ const LoginPage = () => {
     if (!loading && user) {
       const role = user.role?.toLowerCase();
       if (role === 'superadmin') {
-        router.push('/admin/dashboard');
+        router.push('/admin/asset-management');
       } else if (role === 'user' || role === 'admin') {
-        router.push('/user/dashboard');
+        router.push('/user/asset-browser');
       }
     }
   }, [user, loading, router]);

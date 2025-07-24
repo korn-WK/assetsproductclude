@@ -22,6 +22,7 @@ const {
   validateAssetStatus,
   VALID_STATUSES,
   createAssetTransfer,
+  getValidStatuses,
 } = require("../models/asset.js");
 
 const { createAssetAudit, getAssetAudits } = require("../models/assetAudit.js");
@@ -331,6 +332,16 @@ async function updateAssetById(req, res) {
       updateData.acquired_date = formatDateTimeForDB(updateData.acquired_date);
     }
 
+    // Validate status using new validateAssetStatus
+    if (updateData.status) {
+      const { isValid, validStatuses } = await validateAssetStatus(updateData.status);
+      if (!isValid) {
+        throw new Error(
+          `สถานะไม่ถูกต้อง: ${updateData.status}. สถานะที่อนุญาตคือ: ${validStatuses.join(", ")}`
+        );
+      }
+    }
+
     // Remove fields that shouldn't be updated
     delete updateData.id;
     delete updateData.created_at;
@@ -392,7 +403,7 @@ async function updateAssetById(req, res) {
       res.status(404).json({ error: "Asset not found or update failed" });
     }
   } catch (error) {
-    console.error("Error updating asset:", error);
+    console.error("Error updating asset:", error, req.params, req.body);
     res.status(500).json({ error: "Failed to update asset" });
   }
 }
@@ -696,4 +707,5 @@ module.exports = {
   getAssetAuditHistory,
   getAllAssetAudits,
   getAssetTransferLogs,
+  getValidStatuses,
 };

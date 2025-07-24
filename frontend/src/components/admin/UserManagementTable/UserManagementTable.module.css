@@ -24,7 +24,7 @@
 }
 
 .addButton {
-  background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
+  background: linear-gradient(135deg, #3D86CB 0%, #28409C 100%);
   color: var(--button-primary-text);
   padding: 0.8rem 1.5rem;
   border: none;
@@ -40,7 +40,7 @@
 }
 
 .addButton:hover {
-  background: linear-gradient(135deg, var(--button-primary-hover) 0%, #3730a3 100%);
+  background: linear-gradient(135deg, #3D86CB 0%, #28409C 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
@@ -294,7 +294,7 @@
   display: flex;
   align-items: center;
   padding: 0.8rem 1.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
   color: white;
   border: none;
   border-radius: 10px;
@@ -307,7 +307,7 @@
 }
 
 .exportButton:hover {
-  background: linear-gradient(135deg, #059669 0%, #047857 100%);
+  background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }

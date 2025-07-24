@@ -12,7 +12,7 @@ const UserDashboardPage: React.FC = () => {
   return (
     <UserRoute>
       <Layout sidebar={<Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-        <Navbar title="Dashboard" onMenuClick={() => setSidebarOpen(true)} />
+        <Navbar title="Dashboard" isAdmin={false} onMenuClick={() => setSidebarOpen(true)} />
         <DashboardProvider>
           <DashboardContent />
         </DashboardProvider>

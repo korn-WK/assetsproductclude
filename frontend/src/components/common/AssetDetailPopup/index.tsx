@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, CSSProperties } from 'react';
 import Image from 'next/image';
-import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineDownload, AiOutlineHistory } from 'react-icons/ai';
+import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineDownload, AiOutlineHistory, AiOutlineInfoCircle } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AssetDetailPopup.module.css';
 import DropdownSelect from '../DropdownSelect';
@@ -10,6 +10,9 @@ import { formatDate } from '../../../lib/utils';
 import { generateBarcode, sanitizeBarcodeText, isValidBarcodeText } from '../../../lib/barcodeUtils';
 import { QRCodeCanvas } from 'qrcode.react';
 import jsQR from 'jsqr';
+import axios from 'axios';
+import { useStatusOptions } from '../../../lib/statusOptions';
+import bannerStyles from '../../user/AssetsTable/AssetsTable.module.css';
 
 interface Asset {
   id: string;
@@ -40,6 +43,7 @@ interface AssetDetailPopupProps {
   isAdmin?: boolean;
   isCreating?: boolean;
   showAuditHistory?: boolean; // เพิ่ม prop นี้
+  showUserEdit?: boolean;
 }
 
 interface AuditLog {
@@ -50,7 +54,30 @@ interface AuditLog {
   checked_at: string;
 }
 
-const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false, showAuditHistory = false }) => {
+function useUserEditWindow() {
+  const [canEditWindow, setCanEditWindow] = useState(true); // default: ให้แก้ไขได้
+  const [checked, setChecked] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings/user-edit-window')
+      .then(res => res.json())
+      .then(data => {
+        if (data.start_date && data.end_date) {
+          const now = new Date();
+          const start = new Date(data.start_date);
+          const end = new Date(data.end_date);
+          setCanEditWindow(now >= start && now <= end);
+        } else {
+          setCanEditWindow(true); // ถ้าไม่มีข้อมูล ให้แก้ไขได้
+        }
+        setChecked(true);
+      });
+  }, []);
+
+  return { canEditWindow, checked };
+}
+
+const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false, showAuditHistory = false, showUserEdit = true }) => {
   const initialAsset = asset ? { ...asset } : null;
   const [editedAsset, setEditedAsset] = useState<Asset | null>(initialAsset);
   const [isEditing, setIsEditing] = useState(false);
@@ -63,6 +90,9 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const [codeType, setCodeType] = useState<'barcode' | 'qrcode'>('barcode');
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
+  const { options: statusOptions } = useStatusOptions();
+  const { canEditWindow, checked } = useUserEditWindow();
+  const [showEditWindowNotice, setShowEditWindowNotice] = useState(false);
 
   // Camera modal state
   const [showCamera, setShowCamera] = useState(false);
@@ -71,8 +101,20 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null);
 
-  // Check if user can edit (admin or user with department)
-  const canEdit = isAdmin || (user && user.department_id !== null);
+  // ปรับ logic canEdit ให้ admin และ superadmin แก้ไขได้ตลอด
+  const isAdminOrSuperadmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
+
+  // แจ้งเตือนถ้าอยู่นอกช่วงเวลา (และไม่ใช่ admin/superadmin)
+  useEffect(() => {
+    if (checked && !canEditWindow && !isAdminOrSuperadmin) {
+      setShowEditWindowNotice(true);
+      const timer = setTimeout(() => setShowEditWindowNotice(false), 6000);
+      return () => clearTimeout(timer);
+    }
+  }, [canEditWindow, checked, isAdminOrSuperadmin]);
+
+  // ปรับ logic canEdit
+  const canEdit = isAdminOrSuperadmin || (user && user.department_id !== null && canEditWindow);
 
   // Check if user can only view (user without department)
   const canOnlyView = !isAdmin && user && user.department_id === null;
@@ -130,35 +172,32 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   if (!isOpen || !asset || !editedAsset) return null;
 
   const getStatusDisplay = (status: string) => {
-    switch (status) {
-      case 'active': return 'Active';
-      case 'transferring': return 'Transferring';
-      case 'audited': return 'Audited';
-      case 'missing': return 'Missing';
-      case 'broken': return 'Broken';
-      case 'disposed': return 'Disposed';
-      default: return status;
-    }
+    return statusLabels[status] || status;
   };
 
-  const statusColors = {
-    active: '#22c55e',
-    missing: '#f97316',
-    broken: '#ef4444',
-    no_longer_required: '#6b7280',
+  const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
+  const statusColors: Record<string, string> = {
+    'พร้อมใช้งาน': '#28a745',
+    'รอใช้งาน': '#b35f00',
+    'รอตัดจำหน่าย': '#6f42c1',
+    'ชำรุด': '#adb5bd',
+    'รอซ่อม': '#dc3545',
+    'ระหว่างการปรับปรุง': '#b02a37',
+    'ไม่มีความจำเป็นต้องใช้': '#795548',
+    'สูญหาย': '#218838',
+    'รอแลกเปลี่ยน': '#6c757d',
+    'แลกเปลี่ยน': '#17a2b8',
+    'มีกรรมสิทธิ์ภายใต้สัญญาเช่า': '#fd7e14',
+    'รอโอนย้าย': '#e0a800',
+    'รอโอนกรรมสิทธิ์': '#007bff',
+    'ชั่วคราว': '#6c757d',
+    'ขาย': '#5bc0de',
+    'แปรสภาพ': '#ffc107',
+    'ทำลาย': '#6cb2eb',
+    'สอบข้อเท็จจริง': '#20c997',
+    'เงินชดเชยที่ดินและอาสิน': '#c82333',
+    'ระหว่างทาง': '#bd2130',
   };
-  const statusLabels = {
-    active: 'Active',
-    missing: 'Missing',
-    broken: 'Broken',
-    no_longer_required: 'No Longer Required',
-  };
-  const statusOptions = [
-    { value: 'active', label: 'Active' },
-    { value: 'missing', label: 'Missing' },
-    { value: 'broken', label: 'Broken' },
-    { value: 'no_longer_required', label: 'No Longer Required' },
-  ];
 
   const handleInputChange = (field: keyof Asset, value: string) => {
     // For acquired_date, we directly use the value from the datetime-local input,
@@ -606,7 +645,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             <div className={styles.infoItem}>
               <label>{renderLabel()}</label>
               <span className={styles.readOnlyField}>
-                {departments.find(dep => dep.id === editedAsset.department_id)?.name_th || editedAsset.department || 'N/A'}
+                {departments.find(dep => String(dep.id) === String(editedAsset.department_id))?.name_th || editedAsset.department || 'N/A'}
               </span>
             </div>
           );
@@ -802,6 +841,24 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
   return (
     <div className={styles.overlay} onClick={showCamera ? undefined : handleClose}>
+      {showEditWindowNotice && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 1000, maxWidth: 350 }}>
+          <div className={bannerStyles.viewOnlyNotice} style={{ position: 'static', marginTop: 0, maxWidth: 350 }}>
+            <div className={bannerStyles.viewOnlyNoticeContent}>
+              <button className={bannerStyles.noticeCloseBtn} onClick={() => setShowEditWindowNotice(false)} title="Close notice">
+                <AiOutlineClose />
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <AiOutlineInfoCircle style={{ color: '#38bdf8', fontSize: 32 }} />
+                <div>
+                  <div style={{ fontWeight: 700, color: '#92400e', fontSize: 16 }}>ไม่อยู่ในช่วงเวลาตรวจนับ</div>
+                  <div style={{ color: '#92400e', fontSize: 15 }}>ขณะนี้ไม่สามารถแก้ไขข้อมูลได้</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2>{headerText}</h2>

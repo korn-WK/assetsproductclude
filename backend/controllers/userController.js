@@ -86,3 +86,57 @@ exports.deleteUser = async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 }; 
+
+// Create a new user (manual add, for SuperAdmin)
+exports.createUser = async (req, res) => {
+  const { username, name, email, role, department_id } = req.body;
+
+  // Basic validation
+  if (!username || !name || !email || !role) {
+    return res.status(400).json({ error: 'Missing required fields' });
+  }
+
+  // Normalize role (robust)
+  let normalizedRole = '';
+  if (role) {
+    let roleRaw = role.toString().trim().toLowerCase().replace(/\s|_/g, '');
+    // Map common variants
+    if (roleRaw === 'user') normalizedRole = 'User';
+    else if (roleRaw === 'admin') normalizedRole = 'Admin';
+    else if (roleRaw === 'superadmin' || roleRaw === 'superadministrator' || roleRaw === 'superadminuser') normalizedRole = 'SuperAdmin';
+    else normalizedRole = role.toString().trim();
+  }
+  console.log('role received:', role, 'normalized:', normalizedRole);
+  const allowedRoles = ['SuperAdmin', 'Admin', 'User'];
+  if (!allowedRoles.includes(normalizedRole)) {
+    return res.status(400).json({ error: 'Invalid role', received: normalizedRole });
+  }
+
+  // Check for duplicate username or email
+  try {
+    const [existing] = await db.query('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: 'Username or email already exists' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: 'Database error' });
+  }
+
+  // Insert user (no password, as login is via Google OAuth)
+  try {
+    const [result] = await db.query(
+      'INSERT INTO users (username, name, email, role, department_id, is_active, password_hash) VALUES (?, ?, ?, ?, ?, 1, "")',
+      [username, name, email, normalizedRole, department_id || null]
+    );
+    // Fetch the created user with department name
+    const [rows] = await db.query(
+      `SELECT u.id, u.username, u.name, u.email, u.role, u.department_id, d.name_th as department_name, u.picture, u.created_at
+       FROM users u LEFT JOIN departments d ON u.department_id = d.id WHERE u.id = ?`,
+      [result.insertId]
+    );
+    res.status(201).json(rows[0]);
+  } catch (err) {
+    console.error('Error creating user:', err);
+    res.status(500).json({ error: 'Database error' });
+  }
+}; 
