@@ -255,8 +255,10 @@
   bottom: 24px;
 }
 .uploadBtn {
-  right: 24px;
+  position: absolute;
   bottom: 24px;
+  right: 24px;
+  z-index: 11;
 }
 
 .closeBtn {
@@ -272,4 +274,30 @@
   color: #ffffff;
   font-weight: bold;
   line-height: 1;
+}
+
+.switchCameraBtn {
+  background: rgba(30,30,30,0.85);
+  border: none;
+  color: #fff;
+  border-radius: 50%;
+  width: 54px;
+  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  bottom: 24px;
+  right: 90px;
+  z-index: 11;
+  box-shadow: 0 2px 8px #0004;
+  transition: background 0.2s, color 0.2s;
+}
+.switchCameraBtn:hover {
+  background: #222;
+}
+.switchCameraBtn img {
+  width: 28px;
+  height: 28px;
+  filter: invert(1);
 } 

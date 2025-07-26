@@ -404,7 +404,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm }) =
       ) : (
         <div className={styles.assetsTableContainer}>
           <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               {/* Transfer In/Out buttons */}
               {VIEW_MODES.map(vm => (
                 <button
@@ -416,31 +416,32 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm }) =
                   {vm.label}
                 </button>
               ))}
-              {/* Status filter */}
-              <div style={{ position: 'relative', minWidth: 70 }}>
-                <button
-                  className={styles.filterButton}
-                  onClick={() => setShowStatusDropdown(v => !v)}
-                  style={{ minWidth: 70, height: 44 }}
+              {/* Status dropdown */}
+              <div className={styles.dropdownWrapper}>
+                <select
+                  className={styles.departmentDropdown}
+                  value={tab}
+                  onChange={e => setTab(e.target.value)}
                 >
-                  {TABS.find(t => t.key === tab)?.label || 'สถานะ'} <AiOutlineDown style={{ marginLeft: 4 }} />
-                </button>
-                {showStatusDropdown && (
-                  <div style={{ position: 'absolute', top: '110%', left: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10, minWidth: 70 }}>
-                    {TABS.map(t => (
-                      <div
-                        key={t.key}
-                        style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: tab === t.key ? '#6366f1' : '#222', background: tab === t.key ? '#f3f4f6' : 'transparent' }}
-                        onClick={() => {
-                          setTab(t.key);
-                          setShowStatusDropdown(false);
-                        }}
-                      >
-                        {t.label}
-                      </div>
-                    ))}
-                  </div>
-                )}
+                  {TABS.map(t => (
+                    <option key={t.key} value={t.key}>{t.label}</option>
+                  ))}
+                </select>
+                <span className={styles.caretIcon}><AiOutlineDown /></span>
+              </div>
+              {/* Department dropdown */}
+              <div className={styles.dropdownWrapper}>
+                <select
+                  className={styles.departmentDropdown}
+                  value={selectedDepartment}
+                  onChange={e => setSelectedDepartment(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                >
+                  <option value="all">All Departments</option>
+                  {departments.map(dep => (
+                    <option key={dep.id} value={dep.id}>{dep.name_th}</option>
+                  ))}
+                </select>
+                <span className={styles.caretIcon}><AiOutlineDown /></span>
               </div>
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>

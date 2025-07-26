@@ -40,7 +40,7 @@ const AssetVerificationAllPage: React.FC = () => {
         <link rel="icon" href="/favicon.ico" />
       </Head>
       <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
-        <Navbar title="Asset Verification (All)" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
+        <Navbar title="Asset Verification" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
         <div>
           <AssetVerificationTableSuperAdmin
             searchTerm={searchTerm}

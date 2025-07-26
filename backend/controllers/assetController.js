@@ -686,6 +686,21 @@ async function getAssetTransferLogs(req, res) {
   }
 }
 
+// GET /api/assets/:id - ดึงข้อมูล asset รายตัวแบบละเอียด
+async function getAssetDetailById(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ error: 'Asset ID is required' });
+    const asset = await getAssetById(id);
+    if (!asset) return res.status(404).json({ error: 'Asset not found' });
+    const transformed = transformAsset(asset);
+    res.json(transformed);
+  } catch (error) {
+    console.error('Error fetching asset detail:', error);
+    res.status(500).json({ error: 'Failed to fetch asset detail' });
+  }
+}
+
 module.exports = {
   getAssetByBarcode,
   patchAssetStatus,
@@ -708,4 +723,5 @@ module.exports = {
   getAllAssetAudits,
   getAssetTransferLogs,
   getValidStatuses,
+  getAssetDetailById,
 };

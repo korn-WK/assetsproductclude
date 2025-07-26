@@ -15,6 +15,9 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { useStatusOptions } from '../../../lib/statusOptions';
 import Swal from 'sweetalert2';
+import { AiOutlineEye } from 'react-icons/ai';
+import type { Asset } from '../../common/AssetDetailPopup';
+import AssetDetailPopup from '../../common/AssetDetailPopup';
 
 interface PendingAudit {
   id: number;
@@ -40,6 +43,60 @@ function highlightText(text: string, keyword: string) {
   return text.split(regex).map((part, i) =>
     part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
   );
+}
+// เพิ่ม dropdown menu component ภายในไฟล์นี้ (minimal inline)
+function ThreeDotsMenu({ onHistory }: { onHistory: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+  return (
+    <div style={{ position: 'relative', display: 'inline-block', marginLeft: 12 }} ref={menuRef}>
+      <button
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4 }}
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        aria-label="More actions"
+      >
+        <AiOutlineEye size={20} />
+      </button>
+      {open && (
+        <div style={{ position: 'fixed', right: 32, top: (window.event && (window.event as MouseEvent).clientY) ? (window.event as MouseEvent).clientY : 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 110, padding: 0 }}>
+          <div
+            style={{ padding: '6px 10px', cursor: 'pointer', fontWeight: 500, color: '#222', borderRadius: 8, fontSize: '0.97em' }}
+            onClick={e => { e.stopPropagation(); setOpen(false); onHistory(); }}
+          >
+            ดูประวัติการตรวจนับ
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+// ฟังก์ชันแปลง PendingAudit -> Asset
+function mapPendingAuditToAsset(audit: PendingAudit) {
+  return {
+    id: String(audit.asset_id ?? audit.id),
+    asset_code: audit.asset_code || '',
+    inventory_number: audit.inventory_number || '',
+    serial_number: '',
+    name: audit.asset_name || '',
+    description: audit.note || '',
+    location_id: '',
+    location: '',
+    department: audit.department_name || '',
+    department_id: '',
+    owner: audit.user_name || '',
+    status: audit.status || '',
+    image_url: audit.image_url || '',
+    acquired_date: audit.checked_at || '',
+    created_at: '',
+    updated_at: '',
+  };
 }
 const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchTerm }) => {
   const [pendingAudits, setPendingAudits] = useState<PendingAudit[]>([]);
@@ -67,6 +124,8 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   const [departments, setDepartments] = useState<{ id: number, name_th: string }[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<'all' | number>('all');
   const [isMobile, setIsMobile] = useState(false);
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
     handleResize();
@@ -403,7 +462,12 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
           {/* Card view */}
           <div className={styles.assetCardList}>
             {paginatedAudits.map(audit => (
-              <div className={styles.assetCard} key={audit.id} onClick={() => openHistoryPopup(audit.asset_id)}>
+              <div className={styles.assetCard} key={audit.id} onClick={() => {
+                if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
+                  setDetailAsset(mapPendingAuditToAsset(audit));
+                  setShowDetailPopup(true);
+                }
+              }}>
                 <img
                   src={audit.image_url || '/file.svg'}
                   alt={audit.asset_name}
@@ -419,6 +483,9 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   <div className={styles.assetCardMetaRow}><b>Department:</b> {highlightText(audit.department_name || '-', search || '')}</div>
                   <div className={styles.assetCardMetaRow}><b>Date:</b> {highlightText(formatDate(audit.checked_at) || '-', search || '')}</div>
                   <div className={styles.assetCardMetaRow}><b>Verification:</b> <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em' }}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), search || '')}</span></div>
+                  <div className={styles.assetCardMetaRow} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                    <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
+                  </div>
                   {(verificationFilter !== 'approved') && !audit.confirmed && (
                     <div style={{ marginTop: 8 }}>
                       <input
@@ -462,19 +529,33 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
         </div>
       ) : (
         <>
-          <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-            {/* Left: status filters only */}
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-              {filterTabs.map(tab => (
-                <button
-                  key={tab.key}
-                  className={styles.filterButton + (verificationFilter === tab.key ? ' ' + styles.active : '')}
-                  onClick={() => setVerificationFilter(tab.key as any)}
-                  style={{ minWidth: 110 }}
+          {/* --- DESKTOP filter row --- */}
+          <div className={styles.assetsControls} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'nowrap' }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <div className={styles.dropdownWrapper}>
+                <select
+                  className={styles.departmentDropdown}
+                  value={verificationFilter}
+                  onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
                 >
-                  {tab.label}
-                </button>
-              ))}
+                  <option value="all">ทั้งหมด</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                </select>
+              </div>
+              <div className={styles.dropdownWrapper}>
+                <select
+                  className={styles.filterDropdown}
+                  value={departmentFilter}
+                  onChange={e => setDepartmentFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
+                >
+                  <option value="all">All Departments</option>
+                  {departments.map(dep => (
+                    <option key={dep.id} value={dep.id}>{dep.name_th}</option>
+                  ))}
+                </select>
+              </div>
             </div>
             {/* Right: date picker + export */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -571,19 +652,17 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 <th style={{ width: 190 }}>Department</th>
                 <th style={{ width: 140 }}>Date</th>
                 <th style={{ width: 140 }}>Verification Status</th>
+                <th style={{ width: 80 }}>History</th>
               </tr>
             </thead>
             <tbody>
               {paginatedAudits.map(audit => (
-                <tr
-                  key={audit.id}
-                  style={{ cursor: 'pointer' }}
-                  onClick={e => {
-                    // ไม่ให้คลิก checkbox แล้วเปิด popup
-                    if ((e.target as HTMLElement).tagName.toLowerCase() === 'input') return;
-                    openHistoryPopup(audit.asset_id);
-                  }}
-                >
+                <tr key={audit.id} onClick={() => {
+                  if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
+                    setDetailAsset(mapPendingAuditToAsset(audit));
+                    setShowDetailPopup(true);
+                  }
+                }}>
                   <td>
                     {/* แสดง checkbox เฉพาะถ้ายังไม่ approved */}
                     {!audit.confirmed && (
@@ -626,17 +705,17 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   <td>{highlightText(audit.user_name || '', search || '')}</td>
                   <td>{highlightText(audit.department_name || '', search || '')}</td>
                   <td>{highlightText(formatDate(audit.checked_at) || '', search || '')}</td>
-                  <td>
-                    <span style={{
-                      background: audit.confirmed ? '#22c55e' : '#facc15',
-                      color: '#fff',
-                      borderRadius: 8,
-                      padding: '0.2em 0.8em',
-                      fontWeight: 500,
-                      fontSize: '0.95em'
-                    }}>
-                      {highlightText(audit.confirmed ? 'Approved' : 'Pending', search || '')}
-                    </span>
+                  <td
+                    style={{ textAlign: 'center', verticalAlign: 'middle', height: 48 }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                      <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em', display: 'inline-block' }}>
+                        {highlightText(audit.confirmed ? 'Approved' : 'Pending', search || '')}
+                      </span>
+                    </div>
+                  </td>
+                  <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
                   </td>
                 </tr>
               ))}
@@ -668,6 +747,16 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
           assetId={popupAssetId}
           open={showPopup}
           onClose={() => setShowPopup(false)}
+        />
+      )}
+      {showDetailPopup && detailAsset && (
+        <AssetDetailPopup
+          asset={detailAsset}
+          isOpen={showDetailPopup}
+          onClose={() => setShowDetailPopup(false)}
+          isAdmin={false}
+          isCreating={false}
+          showUserEdit={false}
         />
       )}
     </>

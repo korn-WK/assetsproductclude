@@ -17,35 +17,69 @@ interface NavbarProps {
 
 const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, scanBarcodeIcon = false, onScanBarcodeClick, onSearch }) => {
   const { user, loading, logout } = useAuth();
-  const { searchAssets, fetchAssets } = useAssets();
+  const { searchAssets, fetchAssets, assets } = useAssets(); // เพิ่ม assets
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(false);
+  const [suggestions, setSuggestions] = useState<any[]>([]); // สำหรับ suggestion dropdown
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
 
   const handleSearch = () => {
     if (onSearch) {
       onSearch(searchQuery);
     }
+    setShowSuggestions(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
+    if (e.key === 'ArrowDown' && suggestions.length > 0) {
+      // focus suggestion list
+      const firstItem = suggestionsRef.current?.querySelector('div');
+      if (firstItem) (firstItem as HTMLElement).focus();
+    }
   };
 
   const handleClearSearch = () => {
     setSearchQuery('');
+    setSuggestions([]);
+    setShowSuggestions(false);
     if (onSearch) {
       onSearch('');
     }
   };
 
-  console.log('User data in Navbar:', user);
+  // Suggestion filter logic
+  useEffect(() => {
+    if (searchQuery.trim() && assets && assets.length > 0) {
+      const lower = searchQuery.toLowerCase();
+      const filtered = assets.filter(
+        (a) =>
+          a.asset_code?.toLowerCase().includes(lower) ||
+          a.name?.toLowerCase().includes(lower)
+      ).slice(0, 8); // limit suggestion
+      setSuggestions(filtered);
+      setShowSuggestions(filtered.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  }, [searchQuery, assets]);
 
+  // Click outside to close suggestion
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      if (
+        suggestionsRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        !(event.target as HTMLElement).classList.contains(styles.searchInput)
+      ) {
+        setShowSuggestions(false);
+      }
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
@@ -54,7 +88,9 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [dropdownRef]);
+  }, []);
+
+  console.log('User data in Navbar:', user);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
@@ -85,7 +121,7 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
         )}
       </div>
       {!isMobile && (
-        <div className={styles.searchContainer}>
+        <div className={styles.searchContainer} style={{ position: 'relative' }}>
           <input
             type="text"
             placeholder="Search in table..."
@@ -98,6 +134,7 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
               }
             }}
             onKeyDown={handleKeyDown}
+            autoComplete="off"
           />
           <button 
             className={styles.searchButton}
@@ -124,6 +161,54 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
             >
               <AiOutlineCamera className={styles.scanBarcodeIcon} />
             </button>
+          )}
+          {/* Suggestion Dropdown */}
+          {showSuggestions && suggestions.length > 0 && (
+            <div
+              className={styles.suggestionDropdown}
+              ref={suggestionsRef}
+              tabIndex={-1}
+              style={{
+                position: 'absolute',
+                top: '110%',
+                left: 0,
+                right: 0,
+                background: 'var(--card-bg)',
+                border: '1px solid var(--border-color)',
+                borderRadius: 8,
+                zIndex: 100,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                maxHeight: 260,
+                overflowY: 'auto',
+              }}
+            >
+              {suggestions.map((item, idx) => (
+                <div
+                  key={item.id}
+                  tabIndex={0}
+                  className={styles.suggestionItem}
+                  style={{
+                    padding: '0.7rem 1rem',
+                    cursor: 'pointer',
+                    borderBottom: idx !== suggestions.length - 1 ? '1px solid var(--border-color)' : 'none',
+                  }}
+                  onClick={() => {
+                    setSearchQuery(`${item.asset_code} - ${item.name}`);
+                    setShowSuggestions(false);
+                    if (onSearch) onSearch(`${item.asset_code} - ${item.name}`);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      setSearchQuery(`${item.asset_code} - ${item.name}`);
+                      setShowSuggestions(false);
+                      if (onSearch) onSearch(`${item.asset_code} - ${item.name}`);
+                    }
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>{item.asset_code}</span> - <span>{item.name}</span>
+                </div>
+              ))}
+            </div>
           )}
         </div>
       )}

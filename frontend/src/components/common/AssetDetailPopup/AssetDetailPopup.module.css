@@ -181,12 +181,6 @@
   gap: 24px;
 }
 
-.imageSection {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .assetImage {
   border-radius: 8px;
   object-fit: cover;
@@ -356,12 +350,7 @@
   box-shadow: 0 2px 6px rgba(107, 114, 128, 0.4);
 }
 
-.imageUpload {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
+
 
 .fileInput {
   display: none;
@@ -604,16 +593,6 @@
     font-size: 16px;
   }
 
-  .content {
-    padding: 12px 16px;
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-
-  .imageSection {
-    order: 2;
-    align-items: center;
-  }
 
   .detailsSection {
     order: 1;
@@ -674,9 +653,7 @@
   }
 
   /* Barcode buttons mobile */
-  .barcodeActions {
-    gap: 8px;
-  }
+
 
   .barcodeButton {
     padding: 6px;
@@ -704,11 +681,6 @@
     font-size: 14px;
   }
 
-  .content {
-    padding: 10px 12px;
-    gap: 10px;
-  }
-
   .infoItem label {
     font-size: 0.75rem;
   }
@@ -731,9 +703,7 @@
   }
 
   /* Barcode buttons small mobile */
-  .barcodeActions {
-    gap: 6px;
-  }
+
 
   .barcodeButton {
     padding: 4px;
@@ -869,10 +839,7 @@
 }
 
 /* Barcode Container */
-.barcodeContainer {
-  margin-top: 16px;
-  text-align: center;
-}
+
 
 .barcodeActions {
   margin-top: 8px;

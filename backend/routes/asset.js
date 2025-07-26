@@ -27,6 +27,7 @@ const {
   getAllAssetAudits, // <-- เพิ่มตรงนี้
   getAssetTransferLogs,
   getValidStatuses,
+  getAssetDetailById,
 } = require("../controllers/assetController.js");
 
 const router = express.Router();
@@ -116,5 +117,6 @@ router.put("/:id", verifyToken, updateAssetById);
 router.delete("/:id", verifyToken, deleteAssetById);
 router.get("/dashboard-graphs", verifyToken, getDashboardGraphs);
 router.get('/:id/transfer-logs', verifyToken, getAssetTransferLogs);
+router.get('/:id', verifyToken, getAssetDetailById);
 
 module.exports = router;

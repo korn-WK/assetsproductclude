@@ -164,7 +164,7 @@ const LocationManagementPage: React.FC = () => {
           <Navbar title="Location Management" isAdmin={true} onMenuClick={() => setSidebarOpen(true)} onSearch={setSearchTerm} />
           <div>
             <AdminTable
-              title=""
+              title="Location"
               data={locations}
               columns={columns}
               onAdd={handleAdd}

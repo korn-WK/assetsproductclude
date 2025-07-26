@@ -11,8 +11,8 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
+  margin-bottom: 0 !important;
+  padding-bottom: 0 !important;
 
 }
 
@@ -702,4 +702,41 @@
   .mobileOnly {
     display: block !important;
   }
+} 
+
+.totalAssets {
+  /* ลด margin-bottom ให้ชิดกับข้อความถัดไป */
+  margin-bottom: 0.2rem;
+}
+
+.header p {
+  /* ลด margin-top ของ p ที่อยู่ถัดจาก .totalAssets */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+} 
+
+.dropdown {
+  margin-top: 0 !important;
+  border: 0.5px var(--border-color); /* บางมาก */
+  padding: 0.7rem 1.2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  color: var(--text-color-primary);
+  background: var(--card-bg);
+  transition: all 0.2s ease-in-out;
+  outline: none;
+  min-width: 140px;
+  cursor: pointer;
+  box-shadow: none !important;
+}
+.dropdown:focus, .dropdown:hover {
+  border: 1px solid var(--button-primary-bg) !important;
+  background: #f8fafc;
+  box-shadow: none !important;
+} 
+
+.filterButtons {
+  margin-top: 0 !important;
+  padding-top: 0 !important;
+  gap: 0 !important;
 } 

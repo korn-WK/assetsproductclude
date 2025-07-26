@@ -13,7 +13,6 @@ export const formatDate = (dateString: string): string => {
   if (!dateString) return 'N/A';
   
   try {
-    // The date string from the DB is now in local time, so we can use it directly.
     const date = new Date(dateString);
     
     // Check if date is valid
@@ -34,8 +33,9 @@ export const formatDate = (dateString: string): string => {
       hour12: true,
     };
     
-    const formattedDate = date.toLocaleDateString('en-US', dateOptions);
-    const formattedTime = date.toLocaleTimeString('en-US', timeOptions);
+    // ใช้ 'th-TH' เพื่อให้ได้รูปแบบ 01 ก.พ. 2024
+    const formattedDate = date.toLocaleDateString('th-TH', dateOptions);
+    const formattedTime = date.toLocaleTimeString('th-TH', timeOptions);
     
     return `${formattedDate} ${formattedTime}`;
   } catch (error) {
@@ -63,7 +63,8 @@ export const formatDateOnly = (dateString: string): string => {
       year: 'numeric',
     };
     
-    return date.toLocaleDateString('en-US', dateOptions);
+    // ใช้ 'th-TH' เพื่อให้ได้รูปแบบ 01 ก.พ. 2024
+    return date.toLocaleDateString('th-TH', dateOptions);
   } catch (error) {
     console.error('Error formatting date:', error);
     return 'Invalid Date';

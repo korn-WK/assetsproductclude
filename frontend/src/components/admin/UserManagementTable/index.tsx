@@ -9,7 +9,8 @@ import { formatDate } from '../../../lib/utils';
 import ExcelJS from 'exceljs';
 import { AiOutlineDownload } from 'react-icons/ai';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
-import AddUserPopup from '../AddUserPopup';
+import { useAuth } from '../../../contexts/AuthContext';
+import Pagination from '../../common/Pagination';
 
 interface UserType {
   id: number;
@@ -37,24 +38,48 @@ function highlightText(text: string, keyword: string) {
 }
 
 const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm }) => {
+  const { user } = useAuth();
   const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
   const [roleFilter, setRoleFilter] = useState('all');
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
-  const [showAddUserPopup, setShowAddUserPopup] = useState(false);
+  // Pagination for card list (mobile)
+  const [cardPage, setCardPage] = useState(1);
+  const cardsPerPage = 5;
+  // Pagination for table (desktop/tablet)
+  const [tablePage, setTablePage] = useState(1);
+  const rowsPerPage = 5;
 
-  // Move fetchUsers to be accessible for refresh
-  const fetchUsers = async () => {
-    try {
-      const response = await axios.get('/api/users');
-      setUsers(response.data);
-    } catch (error) {
-      console.error('Error fetching users:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ฟิลเตอร์ user ตาม search และ role
+  const filteredUsers = users.filter(user => {
+    const q = (searchTerm || '').toLowerCase();
+    const matchSearch = (
+      user.username?.toLowerCase().includes(q) ||
+      user.name?.toLowerCase().includes(q) ||
+      user.email?.toLowerCase().includes(q) ||
+      user.department_name?.toLowerCase().includes(q) ||
+      user.role?.toLowerCase().includes(q) ||
+      formatDate(user.created_at).toLowerCase().includes(q)
+    );
+    const matchRole = roleFilter === 'all' || user.role.toLowerCase() === roleFilter.toLowerCase();
+    return matchSearch && matchRole;
+  });
+
+  const totalCardPages = Math.ceil(filteredUsers.length / cardsPerPage);
+  const currentCardData = filteredUsers.slice((cardPage - 1) * cardsPerPage, cardPage * cardsPerPage);
+  const totalTablePages = Math.ceil(filteredUsers.length / rowsPerPage);
+  const currentTableData = filteredUsers.slice((tablePage - 1) * rowsPerPage, tablePage * rowsPerPage);
+
+  // Reset cardPage to 1 when filteredUsers changes
+  useEffect(() => {
+    setCardPage(1);
+  }, [filteredUsers.length]);
+
+  // Reset tablePage to 1 when filteredUsers changes
+  useEffect(() => {
+    setTablePage(1);
+  }, [filteredUsers.length]);
 
   useEffect(() => {
     // Pre-warm the PDF generator on component mount to ensure the font is ready.
@@ -66,6 +91,17 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
   }, []);
 
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get('/api/users');
+        setUsers(response.data);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchUsers();
   }, []);
 
@@ -115,32 +151,6 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       }
     });
   };
-
-  // Combine all filters: role, date, search
-  const filteredUsers = users.filter(user => {
-    // 1. Role filter
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    // 2. Date filter
-    let matchesDate = true;
-    if (dateRange.startDate && dateRange.endDate && user.created_at) {
-      const created = new Date(user.created_at);
-      const start = new Date(dateRange.startDate);
-      start.setHours(0, 0, 0, 0);
-      const end = new Date(dateRange.endDate);
-      end.setHours(23, 59, 59, 999);
-      matchesDate = created >= start && created <= end;
-    }
-    // 3. Search filter
-    const q = (searchTerm || '').toLowerCase();
-    const matchesSearch = !q ||
-      user.username?.toLowerCase().includes(q) ||
-      user.name?.toLowerCase().includes(q) ||
-      user.email?.toLowerCase().includes(q) ||
-      user.department_name?.toLowerCase().includes(q) ||
-      user.role?.toLowerCase().includes(q) ||
-      formatDate(user.created_at).toLowerCase().includes(q);
-    return matchesRole && matchesDate && matchesSearch;
-  });
 
   const handleExportPDF = async () => {
     try {
@@ -232,13 +242,16 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
     window.URL.revokeObjectURL(url);
   };
 
-  const handleAddUser = () => setShowAddUserPopup(true);
+  const handleAddUser = () => {
+    Swal.fire({
+      title: "Add New User",
+      text: "This feature will be available soon",
+      icon: "info",
+      confirmButtonText: "OK"
+    });
+  };
 
-  let userTitle = '';
-  if (roleFilter === 'all') userTitle = 'All Users';
-  else if (roleFilter === 'SuperAdmin') userTitle = 'SuperAdmin';
-  else if (roleFilter === 'Admin') userTitle = 'Admin';
-  else if (roleFilter === 'User') userTitle = 'User';
+  let userTitle = `Total of ${filteredUsers.length} users`;
 
   console.log('filteredUsers', filteredUsers);
 
@@ -274,7 +287,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       {/* Mobile Controls */}
       <div className={`${styles.mobileControlsWrapper} ${styles.mobileOnly}`}>
         <div className={styles.mobileTitleRow}>
-          <span className={styles.mobileUserTitle}>{userTitle} ({filteredUsers.length})</span>
+          <span className={styles.mobileUserTitle}>{userTitle}</span>
         </div>
         <div className={styles.mobileControls}>
           <select
@@ -306,95 +319,93 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
         {filteredUsers.length === 0 ? (
           <div className={styles.noDataCard}>No users found</div>
         ) : (
-          filteredUsers.map((user: UserType) => (
-            <div className={styles.userCard} key={user.id}>
-              <div className={styles.cardHeader}>
-                {user.picture ? (
-                  <Image
-                    src={user.picture}
-                    alt={user.name}
-                    width={48}
-                    height={48}
-                    className={styles.userPicture}
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = '/file.svg';
-                    }}
-                  />
-                ) : (
-                  <div className={styles.defaultAvatar}>
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+          <>
+            {currentCardData.map((user: UserType) => (
+              <div className={styles.userCard} key={user.id}>
+                <div className={styles.cardHeader}>
+                  {user.picture ? (
+                    <Image
+                      src={user.picture}
+                      alt={user.name}
+                      width={48}
+                      height={48}
+                      className={styles.userPicture}
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = '/file.svg';
+                      }}
+                    />
+                  ) : (
+                    <div className={styles.defaultAvatar}>
+                      {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    </div>
+                  )}
+                  <div className={styles.cardMainInfo}>
+                    <div className={styles.cardName}>{highlightText(user.name, searchTerm || '')}</div>
+                    <div className={styles.cardEmail}>{highlightText(user.email, searchTerm || '')}</div>
                   </div>
-                )}
-                <div className={styles.cardMainInfo}>
-                  <div className={styles.cardName}>{highlightText(user.name, searchTerm || '')}</div>
-                  <div className={styles.cardEmail}>{highlightText(user.email, searchTerm || '')}</div>
+                </div>
+                <div className={styles.cardFields}>
+                  <div className={styles.cardField}><span>Department:</span> {highlightText(user.department_name || 'Not Assigned', searchTerm || '')}</div>
+                  <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.role, searchTerm || '')}</span></div>
+                  <div className={styles.cardField}><span>Created At:</span> {highlightText(formatDate(user.created_at), searchTerm || '')}</div>
+                </div>
+                <div className={styles.cardActions}>
+                  <button
+                    className={`${styles.iconButton} ${styles.editButton}`}
+                    onClick={() => handleEdit(user)}
+                    title="Edit"
+                  >
+                    <FaEdit />
+                  </button>
+                  <button
+                    className={`${styles.iconButton} ${styles.deleteButton}`}
+                    onClick={() => handleDelete(user.id, user.username)}
+                    title="Delete"
+                  >
+                    <FaTrashAlt />
+                  </button>
                 </div>
               </div>
-              <div className={styles.cardFields}>
-                <div className={styles.cardField}><span>Department:</span> {highlightText(user.department_name || 'Not Assigned', searchTerm || '')}</div>
-                <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.role, searchTerm || '')}</span></div>
-                <div className={styles.cardField}><span>Created At:</span> {highlightText(formatDate(user.created_at), searchTerm || '')}</div>
-              </div>
-              <div className={styles.cardActions}>
-                <button
-                  className={`${styles.iconButton} ${styles.editButton}`}
-                  onClick={() => handleEdit(user)}
-                  title="Edit"
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  className={`${styles.iconButton} ${styles.deleteButton}`}
-                  onClick={() => handleDelete(user.id, user.username)}
-                  title="Delete"
-                >
-                  <FaTrashAlt />
-                </button>
-              </div>
-            </div>
-          ))
+            ))}
+            {totalCardPages > 1 && (
+              <Pagination
+                currentPage={cardPage}
+                totalPages={totalCardPages}
+                onPageChange={setCardPage}
+              />
+            )}
+          </>
         )}
       </div>
 
       {/* Table for Desktop/Tablet */}
       <div className={styles.tableContainer}>
         <div className={styles.header}>
-          <h3>{userTitle} ({filteredUsers.length})</h3>
+          <div>
+            <p className={styles.totalAssets}>{userTitle}</p>
+            {user?.role === 'SuperAdmin' ? (
+              <p style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-color-primary)', marginTop: '1rem', marginBottom: 0 }}>User management for administrators</p>
+            ) : (
+              <p style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-color-primary)', marginTop: '1rem', marginBottom: 0 }}>Asset management for user</p>
+            )}
+          </div>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 16px 0', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <div className={styles.filterButtons}>
-              <div className={styles.roleButtonGroup}>
-                <button
-                  className={`${styles.roleButton} ${roleFilter === 'all' ? styles.active : ''}`}
-                  onClick={() => setRoleFilter('all')}
-                  type="button"
-                >
-                  All Roles
-                </button>
-                <button
-                  className={`${styles.roleButton} ${roleFilter === 'SuperAdmin' ? styles.active : ''}`}
-                  onClick={() => setRoleFilter('SuperAdmin')}
-                  type="button"
-                >
-                  SuperAdmin
-                </button>
-                <button
-                  className={`${styles.roleButton} ${roleFilter === 'Admin' ? styles.active : ''}`}
-                  onClick={() => setRoleFilter('Admin')}
-                  type="button"
-                >
-                  Admin
-                </button>
-                <button
-                  className={`${styles.roleButton} ${roleFilter === 'User' ? styles.active : ''}`}
-                  onClick={() => setRoleFilter('User')}
-                  type="button"
-                >
-                  User
-                </button>
-              </div>
+              {/* เปลี่ยนจากปุ่มกลุ่มเป็น dropdown */}
+              <select
+                className={styles.dropdown}
+                value={roleFilter}
+                onChange={e => setRoleFilter(e.target.value)}
+                style={{ minWidth: 140, padding: '0.7rem 1.2rem', borderRadius: 12, border: '1px solid var(--border-color)', fontSize: '1rem', color: 'var(--text-color-primary)', background: 'var(--card-bg)' }}
+              >
+                <option value="all">All Roles</option>
+                <option value="SuperAdmin">SuperAdmin</option>
+                <option value="Admin">Admin</option>
+                <option value="User">User</option>
+              </select>
             </div>
           </div>
           <div className={styles.actionButtons}>
@@ -425,7 +436,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.length === 0 ? (
+            {currentTableData.length === 0 ? (
               <tr>
                 <td colSpan={8} style={{ 
                   textAlign: 'center', 
@@ -437,7 +448,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
                 </td>
               </tr>
             ) : (
-              filteredUsers.map((user: UserType) => (
+              currentTableData.map((user: UserType) => (
                 <tr key={user.id}>
                   <td>
                     {user.picture ? (
@@ -504,6 +515,13 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
             )}
           </tbody>
         </table>
+        {totalTablePages > 1 && (
+          <Pagination
+            currentPage={tablePage}
+            totalPages={totalTablePages}
+            onPageChange={setTablePage}
+          />
+        )}
       </div>
 
       {editingUser && (
@@ -511,13 +529,6 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
           user={editingUser}
           onClose={handleClosePopup}
           onUpdate={handleUpdateUser as any}
-        />
-      )}
-      {showAddUserPopup && (
-        <AddUserPopup
-          onClose={() => setShowAddUserPopup(false)}
-          onUserAdded={user => { setUsers([...users, user]); fetchUsers(); }}
-          onUsersImported={importedUsers => { setUsers([...users, ...importedUsers]); fetchUsers(); }}
         />
       )}
     </>

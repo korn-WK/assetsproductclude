@@ -36,6 +36,8 @@ interface Asset {
 
 interface AdminAssetsTableProps {
   onScanBarcodeClick?: () => void;
+  searchTerm: string;
+  onSearch: (value: string) => void;
 }
 
 // ฟังก์ชันสำหรับ highlight ข้อความที่ตรงกับ searchTerm
@@ -47,7 +49,7 @@ function highlightText(text: string, keyword: string) {
   );
 }
 
-const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick }) => {
+const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick, searchTerm, onSearch }) => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -57,7 +59,6 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
   const itemsPerPage = 5; // Admin can see more items per page
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [isMobile, setIsMobile] = useState(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showDepartmentDropdown, setShowDepartmentDropdown] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('All');
@@ -163,7 +164,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
       end.setHours(23, 59, 59, 999);
       matchesDate = created >= start && created <= end;
     }
-    const q = searchQuery.trim().toLowerCase();
+    const q = searchTerm.trim().toLowerCase();
     const matchesSearch = !q ||
       asset.asset_code.toLowerCase().includes(q) ||
       (asset.inventory_number || '').toLowerCase().includes(q) ||
@@ -298,7 +299,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
 
   const handleSearch = () => {
     // Implement search functionality
-    console.log('Searching for:', searchQuery);
+    console.log('Searching for:', searchTerm);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -530,8 +531,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                 type="text"
                 placeholder="Search assets..."
                 className={styles.mobileSearchInput}
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
+                value={searchTerm}
+                onChange={e => onSearch(e.target.value)}
                 onKeyDown={handleKeyDown}
                 style={{width: '100%'}} />
             </div>
@@ -540,18 +541,18 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                 <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
                   <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
                   <div className={styles.assetCardContent}>
-                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchQuery || '')}</div>
+                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
                     <div className={styles.assetCardMetaRow}>
-                      <span className={styles.assetId}><b>Asset Code:</b> {highlightText(asset.asset_code, searchQuery || '')}</span>
+                      <span className={styles.assetId}><b>Asset Code:</b> {highlightText(asset.asset_code, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Inventory No.:</b> {highlightText(asset.inventory_number || '-', searchQuery || '')}</span>
+                      <span><b>Inventory No.:</b> {highlightText(asset.inventory_number || '-', searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchQuery || '')}</span>
+                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Department:</b> {highlightText(asset.department, searchQuery || '')}</span>
+                      <span><b>Department:</b> {highlightText(asset.department, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
                       <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, asset.has_pending_transfer || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, asset.has_pending_transfer || false)}</span></span>
@@ -578,39 +579,39 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
 
             <div className={styles.assetsControls}>
               <div className={styles.searchAndFilters}>
-                <div className={styles.statusFilters}>
-                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <div className={styles.dropdownWrapper}>
                     <select
-                      className={styles.filterDropdown}
+                      className={styles.departmentDropdown}
                       value={activeFilter}
                       onChange={e => {
                         setActiveFilter(e.target.value);
                         setCurrentPage(1);
                       }}
                     >
-                      <option value="All">All status</option>
+                      <option value="All">ทุกสถานะ</option>
                       {statusOptions.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
                     <span className={styles.caretIcon}><AiOutlineDown /></span>
                   </div>
-                </div>
-                <div className={styles.departmentFilterWrapper} style={{ position: 'relative', display: 'inline-block' }}>
-                  <select
-                    className={styles.filterDropdown}
-                    value={selectedDepartment}
-                    onChange={e => {
-                      setSelectedDepartment(e.target.value);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <option value="All">All Departments</option>
-                    {departments.map(dep => (
-                      <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
-                    ))}
-                  </select>
-                  <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  <div className={styles.dropdownWrapper}>
+                    <select
+                      className={styles.departmentDropdown}
+                      value={selectedDepartment}
+                      onChange={e => {
+                        setSelectedDepartment(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value="All">ทุกแผนก</option>
+                      {departments.map(dep => (
+                        <option key={dep.id} value={dep.name_th}>{dep.name_th}{dep.name_en ? ` (${dep.name_en})` : ''}</option>
+                      ))}
+                    </select>
+                    <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  </div>
                 </div>
               </div>
               <div className={styles.rightControls}>
@@ -698,16 +699,16 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick 
                           />
                         )}
                       </td>
-                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{highlightText(asset.asset_code, searchQuery || '')}</td>
-                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{highlightText(asset.inventory_number || '-', searchQuery || '')}</td>
+                      <td data-label="Asset Code" style={{ textAlign: 'center' }}>{highlightText(asset.asset_code, searchTerm || '')}</td>
+                      <td data-label="Inventory No." style={{ textAlign: 'center' }}>{highlightText(asset.inventory_number || '-', searchTerm || '')}</td>
                       <td data-label="Name">{/* left-aligned for readability */}
-                        <div className={styles.assetName}>{highlightText(asset.name, searchQuery || '')}</div>
+                        <div className={styles.assetName}>{highlightText(asset.name, searchTerm || '')}</div>
                         <div className={styles.assetDescription}>{asset.description}</div>
                       </td>
                       <td data-label="Location" style={{ textAlign: 'center' }}>
-                        {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchQuery || '')}
+                        {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}
                       </td>
-                      <td data-label="Department">{highlightText(asset.department || '-', searchQuery || '')}</td>
+                      <td data-label="Department">{highlightText(asset.department || '-', searchTerm || '')}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
                         {asset.has_pending_transfer ? (
                           <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>

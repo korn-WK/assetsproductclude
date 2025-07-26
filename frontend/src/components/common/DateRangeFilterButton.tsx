@@ -58,6 +58,11 @@ const DateRangeFilterButton: React.FC<DateRangeFilterButtonProps> = ({ value, on
   return (
     <div style={{ position: 'relative', display: 'inline-block' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {(!isMobile && value.startDate && value.endDate) && (          // เมื่อเลือกวันที่แล้วจะแสดงวันที่ที่เลือกออกมา
+          <span style={{ fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
+            {`${format(value.startDate, 'dd MMM yy')} - ${format(value.endDate, 'dd MMM yy')}`}
+          </span>
+        )}
         <button
           ref={buttonRef}
           onClick={() => setShowPicker(v => !v)}
@@ -82,11 +87,6 @@ const DateRangeFilterButton: React.FC<DateRangeFilterButtonProps> = ({ value, on
         >
           <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
         </button>
-        {(!isMobile && value.startDate && value.endDate) && (
-          <span style={{ fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
-            {`${format(value.startDate, 'dd MMM yy')} - ${format(value.endDate, 'dd MMM yy')}`}
-          </span>
-        )}
       </div>
       {showPicker && ReactDOM.createPortal(
         <div style={{

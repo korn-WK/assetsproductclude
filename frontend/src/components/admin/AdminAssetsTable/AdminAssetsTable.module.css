@@ -1014,15 +1014,18 @@
   margin-left: 0.5rem;
 } 
 
+.dropdownWrapper {
+  position: relative;
+  width: 100%;
+}
 .caretIcon {
   position: absolute;
-  right: 16px;
+  right: 1.2em;
   top: 50%;
   transform: translateY(-50%);
-  color: #bdbdbd;
-  font-size: 1rem;
   pointer-events: none;
-  z-index: 2;
+  color: #888;
+  font-size: 1.1em;
 }
 .departmentFilterWrapper {
   position: relative;
@@ -1176,4 +1179,34 @@
   align-items: center;
   justify-content: center;
   margin-left: 0.3rem;
+} 
+
+.departmentDropdown, .filterDropdown {
+  appearance: none;
+  border-radius: 12px;
+  border: 1.5px solid var(--border-color, #a3a3a3);
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.8rem 1.5rem;
+  box-shadow: var(--shadow-xs);
+  background: #fff;
+  color: var(--text-color-primary, #222);
+  height: 51px;
+  min-width: 180px;
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: border 0.2s, box-shadow 0.2s;
+  outline: none;
+  display: flex;
+  align-items: center;
+  padding-right: 2.2em;
+  caret-color: #6366f1;
+  cursor: pointer;
+}
+.departmentDropdown:focus, .departmentDropdown:hover,
+.filterDropdown:focus, .filterDropdown:hover {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.18);
 } 

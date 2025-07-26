@@ -392,3 +392,32 @@
   font-size: 22px;
   vertical-align: middle;
 }
+
+.suggestionDropdown {
+  position: absolute;
+  top: 110%;
+  left: 0;
+  right: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  z-index: 100;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.suggestionItem {
+  padding: 0.7rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid var(--border-color);
+  transition: background 0.15s;
+  outline: none;
+  background: transparent;
+}
+.suggestionItem:last-child {
+  border-bottom: none;
+}
+.suggestionItem:hover, .suggestionItem:focus {
+  background: var(--main-bg);
+}

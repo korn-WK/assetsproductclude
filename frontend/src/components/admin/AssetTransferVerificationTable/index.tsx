@@ -13,6 +13,7 @@ import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
 import Pagination from '../../common/Pagination';
 import DepartmentSelector from '../../common/DepartmentSelector';
 import { useDropdown } from '../../../contexts/DropdownContext';
+import AssetDetailPopup from '../../common/AssetDetailPopup';
 
 const statusColors: Record<string, string> = {
   pending: '#facc15',
@@ -90,6 +91,10 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
   const { departments, loading: dropdownLoading } = useDropdown();
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  // เพิ่ม state สำหรับการเลือกหลายรายการ
+  const [selected, setSelected] = useState<number[]>([]);
+  // --- เพิ่ม state สำหรับ asset detail ---
+  const [assetDetail, setAssetDetail] = useState<any>(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
@@ -192,12 +197,68 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
     }
   };
 
+  // --- MOBILE/desktop: handleAssetClick ---
   const handleAssetClick = async (asset: AssetTransfer) => {
     setSelectedAsset(asset);
     setShowHistoryPopup(true);
-    const res = await fetch(`/api/assets/${asset.asset_id || asset.id}/transfer-logs`, { credentials: 'include' });
-    const logs = await res.json();
-    setTransferLogs(logs);
+    setAssetDetail(null); // reset ก่อน fetch ใหม่
+    try {
+      const res = await fetch(`/api/assets/${asset.asset_id || asset.id}`, { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setAssetDetail(data);
+      } else {
+        setAssetDetail(null);
+      }
+    } catch {
+      setAssetDetail(null);
+    }
+  };
+
+  // เพิ่มฟังก์ชัน toggleSelect/selectAll
+  const toggleSelect = (id: number) => {
+    setSelected(sel => sel.includes(id) ? sel.filter(i => i !== id) : [...sel, id]);
+  };
+  const selectAll = () => {
+    const ids = paginatedTransfers.filter(t => t.status === 'pending').map(t => t.id);
+    if (selected.length === ids.length) setSelected([]);
+    else setSelected(ids);
+  };
+
+  // เพิ่มฟังก์ชัน approve/reject หลายรายการ
+  const handleApproveSelected = async () => {
+    if (selected.length === 0) return;
+    const result = await Swal.fire({
+      title: `Approve ${selected.length} transfers?`,
+      text: 'Are you sure you want to approve the selected asset transfers?',
+      icon: 'question',
+      showCancelButton: true,
+      confirmButtonText: 'Approve',
+      cancelButtonText: 'Cancel',
+      reverseButtons: false, // ปุ่ม Approve ซ้าย Cancel ขวา
+    });
+    if (!result.isConfirmed) return;
+    await Promise.all(selected.map(id => fetch(`/api/asset-transfers/${id}/approve`, { method: 'PATCH', credentials: 'include' })));
+    fetchTransfers();
+    setSelected([]);
+    Swal.fire('Approved!', 'Selected asset transfers have been approved.', 'success');
+  };
+  const handleRejectSelected = async () => {
+    if (selected.length === 0) return;
+    const result = await Swal.fire({
+      title: `Reject ${selected.length} transfers?`,
+      text: 'Are you sure you want to reject the selected asset transfers?',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Reject',
+      cancelButtonText: 'Cancel',
+      reverseButtons: false, // ปุ่ม Reject ซ้าย Cancel ขวา
+    });
+    if (!result.isConfirmed) return;
+    await Promise.all(selected.map(id => fetch(`/api/asset-transfers/${id}/reject`, { method: 'PATCH', credentials: 'include' })));
+    fetchTransfers();
+    setSelected([]);
+    Swal.fire('Rejected!', 'Selected asset transfers have been rejected.', 'success');
   };
 
   // Export XLSX logic (reuse from ReportAssetsTable)
@@ -342,7 +403,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
           {/* Card view */}
           <div className={styles.assetCardList}>
             {paginatedTransfers.map(t => (
-              <div className={styles.assetCard} key={t.id}>
+              <div className={styles.assetCard} key={t.id} onClick={() => handleAssetClick(t)} style={{ cursor: 'pointer' }}>
                 <img
                   src={t.image_url || '/file.svg'}
                   alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
@@ -382,22 +443,54 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                       </button>
                     </div>
                   )}
+                  {/* เพิ่ม checkbox สำหรับแต่ละรายการ (mobile) */}
+                  {t.status === 'pending' && (
+                    <div style={{ marginTop: 8 }}>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(t.id)}
+                        onChange={e => { e.stopPropagation(); toggleSelect(t.id); }}
+                        style={{ marginRight: 8 }}
+                      /> Select
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
             {totalPages > 1 && (
-              <Pagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             )}
+          </div>
+          {/* ปุ่ม Approve/Reject หลายรายการ (mobile) */}
+          <div style={{ margin: '16px 0', display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button
+              className={styles.actionButton}
+              disabled={selected.length === 0}
+              onClick={handleApproveSelected}
+              style={{ background: '#22c55e', color: '#fff' }}
+            >
+              Approve Selected
+            </button>
+            <button
+              className={styles.actionButton}
+              disabled={selected.length === 0}
+              onClick={handleRejectSelected}
+              style={{ background: '#ef4444', color: '#fff' }}
+            >
+              Reject Selected
+            </button>
           </div>
         </>
       ) : (
         <div className={styles.assetsTableContainer}>
           <div className={styles.assetsControls} style={{ marginBottom: 16, justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               {!isSuperAdmin && VIEW_MODES.map(vm => (
                 <button
                   key={vm.key}
@@ -409,59 +502,34 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                 </button>
               ))}
               {/* Status filter: superadmin = ปุ่ม, user = dropdown */}
-              {isSuperAdmin ? (
-                <div className={styles.statusFilters}>
-                  {TABS.map(t => (
-                    <button
-                      key={t.key}
-                      className={`${styles.filterButton} ${tab === t.key ? styles.active : ''}`}
-                      onClick={() => setTab(t.key)}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ position: 'relative', minWidth: 70 }}>
-                  <button
-                    className={styles.filterButton}
-                    onClick={() => setShowStatusDropdown(v => !v)}
-                    style={{ minWidth: 70, height: 44 }}
-                  >
-                    {TABS.find(t => t.key === tab)?.label || 'สถานะ'} <AiOutlineDown style={{ marginLeft: 4 }} />
-                  </button>
-                  {showStatusDropdown && (
-                    <div style={{ position: 'absolute', top: '110%', left: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10, minWidth: 70 }}>
-                      {TABS.map(t => (
-                        <div
-                          key={t.key}
-                          style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: tab === t.key ? '#6366f1' : '#222', background: tab === t.key ? '#f3f4f6' : 'transparent' }}
-                          onClick={() => {
-                            setTab(t.key);
-                            setShowStatusDropdown(false);
-                          }}
-                        >
-                          {t.label}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
               {isSuperAdmin && (
-                <div className={styles.dropdownWrapper}>
-                  <select
-                    className={styles.departmentDropdown}
-                    value={fromDepartment}
-                    onChange={e => setFromDepartment(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  >
-                    <option value="all">All Departments</option>
-                    {departments.map(dep => (
-                      <option key={dep.id} value={dep.id}>{dep.name_th}</option>
-                    ))}
-                  </select>
-                  <span className={styles.caretIcon}><AiOutlineDown /></span>
-                </div>
+                <>
+                  <div className={styles.dropdownWrapper}>
+                    <select
+                      className={styles.departmentDropdown}
+                      value={tab}
+                      onChange={e => setTab(e.target.value)}
+                    >
+                      {TABS.map(t => (
+                        <option key={t.key} value={t.key}>{t.label}</option>
+                      ))}
+                    </select>
+                    <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  </div>
+                  <div className={styles.dropdownWrapper}>
+                    <select
+                      className={styles.departmentDropdown}
+                      value={fromDepartment}
+                      onChange={e => setFromDepartment(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                    >
+                      <option value="all">All Departments</option>
+                      {departments.map(dep => (
+                        <option key={dep.id} value={dep.id}>{dep.name_th}</option>
+                      ))}
+                    </select>
+                    <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  </div>
+                </>
               )}
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
@@ -531,6 +599,14 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
           <table className={styles.assetsTable}>
             <thead>
               <tr>
+                {/* เพิ่ม checkbox select all (desktop) */}
+                <th style={{ width: 30 }}>
+                  <input
+                    type="checkbox"
+                    checked={paginatedTransfers.filter(t => t.status === 'pending').length > 0 && selected.length === paginatedTransfers.filter(t => t.status === 'pending').length}
+                    onChange={selectAll}
+                  />
+                </th>
                 <th style={{ width: 60, minWidth: 60, maxWidth: 60 }}>Image</th>
                 <th style={{ width: 120 }}>Asset</th>
                 <th style={{ width: 120 }}>From Department</th>
@@ -543,11 +619,22 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={8} style={{ textAlign: 'center' }}>Loading...</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center' }}>Loading...</td></tr>
               ) : paginatedTransfers.length === 0 ? (
-                <tr><td colSpan={8} className={styles.noResults}>No data</td></tr>
+                <tr><td colSpan={9} className={styles.noResults}>No data</td></tr>
               ) : paginatedTransfers.map(t => (
                 <tr key={t.id} onClick={() => handleAssetClick(t)} style={{ cursor: 'pointer' }}>
+                  {/* เพิ่ม checkbox สำหรับแต่ละรายการ (desktop) */}
+                  <td>
+                    {t.status === 'pending' && (
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(t.id)}
+                        onChange={e => { e.stopPropagation(); toggleSelect(t.id); }}
+                        onClick={e => e.stopPropagation()}
+                      />
+                    )}
+                  </td>
                   <td style={{ textAlign: 'center' }}>
                     <img
                       src={t.image_url || '/file.svg'}
@@ -598,9 +685,28 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
               ))}
             </tbody>
           </table>
+          {/* ปุ่ม Approve/Reject หลายรายการ (desktop) */}
+          <div style={{ marginTop: 16, textAlign: 'right' }}>
+            <button
+              className={styles.actionButton}
+              disabled={selected.length === 0}
+              onClick={handleApproveSelected}
+              style={{ background: '#22c55e', color: '#fff', marginRight: 8 }}
+            >
+              Approve Selected
+            </button>
+            <button
+              className={styles.actionButton}
+              disabled={selected.length === 0}
+              onClick={handleRejectSelected}
+              style={{ background: '#ef4444', color: '#fff' }}
+            >
+              Reject Selected
+            </button>
+          </div>
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -609,12 +715,50 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
             </div>
           )}
           {showHistoryPopup && selectedAsset && (
-            <AssetAuditHistoryPopup
-              open={showHistoryPopup}
+            <AssetDetailPopup
+              asset={assetDetail ? {
+                ...assetDetail,
+                // fallback: ถ้า field ไหนไม่มีใน assetDetail ให้ใช้ placeholder จาก selectedAsset
+                id: String(assetDetail.id || assetDetail.asset_id || selectedAsset.asset_id || selectedAsset.id),
+                asset_code: assetDetail.asset_code || '',
+                inventory_number: assetDetail.inventory_number || '',
+                serial_number: assetDetail.serial_number || '',
+                name: assetDetail.name || selectedAsset.asset_name || '',
+                description: assetDetail.description || '',
+                location_id: assetDetail.location_id || '',
+                location: assetDetail.location || '',
+                room: assetDetail.room || '',
+                department: assetDetail.department || selectedAsset.from_department_name || '',
+                department_id: assetDetail.department_id || '',
+                owner: assetDetail.owner || selectedAsset.requested_by_name || '',
+                status: assetDetail.status || selectedAsset.status,
+                image_url: assetDetail.image_url || selectedAsset.image_url || '',
+                acquired_date: assetDetail.acquired_date || selectedAsset.requested_at || '',
+                created_at: assetDetail.created_at || '',
+                updated_at: assetDetail.updated_at || '',
+              } : {
+                id: String(selectedAsset.asset_id || selectedAsset.id),
+                asset_code: '',
+                inventory_number: '',
+                serial_number: '',
+                name: selectedAsset.asset_name || '',
+                description: '',
+                location_id: '',
+                location: '',
+                room: '',
+                department: selectedAsset.from_department_name || '',
+                department_id: '',
+                owner: selectedAsset.requested_by_name || '',
+                status: selectedAsset.status,
+                image_url: selectedAsset.image_url || '',
+                acquired_date: selectedAsset.requested_at || '',
+                created_at: '',
+                updated_at: '',
+              }}
+              isOpen={showHistoryPopup}
               onClose={() => setShowHistoryPopup(false)}
-              assetId={selectedAsset.asset_id}
-              logs={transferLogs}
-              type="transfer"
+              isAdmin={false}
+              isCreating={false}
             />
           )}
         </div>

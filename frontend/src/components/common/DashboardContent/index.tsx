@@ -55,10 +55,15 @@ const DashboardContent: React.FC = () => {
     label: s.label,
     count: backendStatusMap.get(s.value) || 0
   }));
+  // Sort statuses ก-ฮ
   const sortedStatuses = mergedStatuses.slice().sort((a, b) => a.label.localeCompare(b.label, 'th'));
   const readyCardTop = sortedStatuses.find(c => c.status === 'พร้อมใช้งาน');
   const otherCards = sortedStatuses.filter(c => c.status !== 'พร้อมใช้งาน');
+  // กรณีต้องการให้ "พร้อมใช้งาน" อยู่บนสุดเสมอ (ถ้าไม่ต้องการ ให้ใช้ sortedStatuses)
   const allCards = readyCardTop ? [readyCardTop, ...otherCards] : sortedStatuses;
+
+  // Sort departments ก-ฮ ทุกครั้งก่อน map
+  const sortedDepartments = departments.slice().sort((a, b) => a.name_th.localeCompare(b.name_th, 'th'));
 
   // เตรียมข้อมูลสำหรับกราฟเส้น: ทุก status ตามลำดับ card
   const statusChartData = allCards.map(c => ({ status: c.label, count: c.count }));
@@ -138,6 +143,15 @@ const DashboardContent: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // Add this helper for Thai date formatting
+  const getThaiDateString = () => {
+    const now = new Date();
+    const day = now.getDate();
+    const month = now.toLocaleString('th-TH', { month: 'long' });
+    const year = now.getFullYear() + 543;
+    return `วันที่: ${day} ${month} ${year}`;
+  };
+
   if (loading) {
     return <div className={styles.dashboardContent}><div style={{ textAlign: 'center', padding: '50px' }}>Loading dashboard data...</div></div>;
   }
@@ -180,13 +194,16 @@ const DashboardContent: React.FC = () => {
                 onChange={e => setSelectedDepartment(e.target.value)}
               >
                 <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
-                {departments.map(dep => (
+                {sortedDepartments.map(dep => (
                   <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
                 ))}
               </select>
             </div>
             <div className={styles.chartContainer}>
-              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>จำนวนครุภัณฑ์แต่ละสถานะ</div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <span style={{ fontWeight: 600, fontSize: 15 }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
+                <span style={{ fontSize: 13, color: '#888', marginLeft: 8 }}>{getThaiDateString()}</span>
+              </div>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={statusChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -296,7 +313,7 @@ const DashboardContent: React.FC = () => {
               onChange={e => setSelectedDepartment(e.target.value)}
             >
               <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
-              {departments.map(dep => (
+              {sortedDepartments.map(dep => (
                 <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
               ))}
             </select>
@@ -304,7 +321,10 @@ const DashboardContent: React.FC = () => {
           </div>
         </div>
             <div className={styles.chartContainer} style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-start', marginBottom: 8 }}>
+            <span style={{ fontWeight: 600, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
+            <span style={{ fontSize: 14, color: '#888', marginLeft: 8 }}>{getThaiDateString()}</span>
+          </div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={statusChartData}>
               <CartesianGrid strokeDasharray="3 3" />
@@ -316,7 +336,11 @@ const DashboardContent: React.FC = () => {
           </ResponsiveContainer>
         </div>
             <div className={styles.chartContainer} style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
-          <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 17 }}>bar chart</div>
+          
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-start', marginBottom: 8 }}>
+            <span style={{ fontWeight: 600, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
+            <span style={{ fontSize: 14, color: '#888', marginLeft: 8 }}>{getThaiDateString()}</span>
+          </div>
           <div style={{ marginBottom: 12, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {allCards.map((c, idx) => (
               <label key={c.status} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>

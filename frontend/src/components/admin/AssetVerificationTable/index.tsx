@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import type { Asset } from '../../common/AssetDetailPopup';
 import styles from '../../user/AssetsTable/AssetsTable.module.css';
 import { formatDate } from '../../../lib/utils';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
@@ -14,6 +15,8 @@ import 'react-date-range/dist/theme/default.css';
 import { useStatusOptions } from '../../../lib/statusOptions';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import Swal from 'sweetalert2';
+import { AiOutlineEye } from 'react-icons/ai';
+import AssetDetailPopup from '../../common/AssetDetailPopup';
 
 interface PendingAudit {
   id: number;
@@ -66,10 +69,66 @@ function highlightText(text: string, keyword: string) {
   );
 }
 
+// เพิ่มฟังก์ชันแปลง PendingAudit -> Asset
+function mapPendingAuditToAsset(audit: PendingAudit) {
+  return {
+    id: String(audit.asset_id ?? audit.id),
+    asset_code: audit.asset_code || '',
+    inventory_number: audit.inventory_number || '',
+    serial_number: '',
+    name: audit.asset_name || '',
+    description: audit.note || '',
+    location_id: '',
+    location: '',
+    department: audit.department_name || '',
+    department_id: '',
+    owner: audit.user_name || '',
+    status: audit.status || '',
+    image_url: audit.image_url || '',
+    acquired_date: audit.checked_at || '',
+    created_at: '',
+    updated_at: '',
+  };
+}
+
 interface AssetVerificationTableSuperAdminProps {
   searchTerm?: string;
   verificationPeriod?: { startDate?: Date; endDate?: Date };
   extraActionButton?: React.ReactElement<any, any>; // ปรับ type ตรงนี้
+}
+
+// เพิ่ม dropdown menu component ภายในไฟล์นี้ (minimal inline)
+function ThreeDotsMenu({ onHistory }: { onHistory: () => void }) {
+  const [open, setOpen] = React.useState(false);
+  const menuRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    if (open) document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [open]);
+  return (
+    <div style={{ position: 'relative', display: 'inline-block', marginLeft: 12 }} ref={menuRef}>
+      <button
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4 }}
+        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
+        aria-label="More actions"
+      >
+        <AiOutlineEye size={20} />
+      </button>
+      {open && (
+        <div style={{ position: 'fixed', right: 32, top: (window.event && (window.event as MouseEvent).clientY) ? (window.event as MouseEvent).clientY : 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 110, padding: 0 }}>
+          <div
+            style={{ padding: '6px 10px', cursor: 'pointer', fontWeight: 500, color: '#222', borderRadius: 8, fontSize: '0.97em' }}
+            onClick={e => { e.stopPropagation(); setOpen(false); onHistory(); }}
+          >
+            ดูประวัติการตรวจนับ
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdminProps> = ({ searchTerm = '', verificationPeriod, extraActionButton }) => {
@@ -308,6 +367,11 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
 
   const popupAsset = pendingAudits.find(a => a.asset_id === popupAssetId);
 
+  // เพิ่ม state และ AssetDetailPopup
+  const [showDetailPopup, setShowDetailPopup] = useState(false);
+  const [selectedAudit, setSelectedAudit] = useState<PendingAudit | null>(null);
+  const [assetDetail, setAssetDetail] = useState<any>(null);
+
   return (
     <>
       <div style={{ padding: isMobile ? '0rem' : '2rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)', marginTop: isMobile ? '55px' : undefined }}>
@@ -445,7 +509,22 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
             {/* Card view */}
             <div className={styles.assetCardList}>
               {paginatedAudits.map(audit => (
-                <div className={styles.assetCard} key={audit.id} onClick={() => openHistoryPopup(audit.asset_id)}>
+                <div className={styles.assetCard} key={audit.id} onClick={async () => {
+                    setSelectedAudit(audit);
+                    setShowDetailPopup(true);
+                    setAssetDetail(null);
+                    try {
+                      const res = await fetch(`/api/assets/${audit.asset_id || audit.id}`, { credentials: 'include' });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setAssetDetail(data);
+                      } else {
+                        setAssetDetail(null);
+                      }
+                    } catch {
+                      setAssetDetail(null);
+                    }
+                  }}>
                   <img
                     src={audit.image_url || '/file.svg'}
                     alt={audit.asset_name}
@@ -461,6 +540,9 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                     <div className={styles.assetCardMetaRow}><b>Department:</b> {highlightText(audit.department_name || '-', searchTerm)}</div>
                     <div className={styles.assetCardMetaRow}><b>Date:</b> {highlightText(formatDate(audit.checked_at) || '-', searchTerm)}</div>
                     <div className={styles.assetCardMetaRow}><b>Verification:</b> <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em' }}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}</span></div>
+                    <div className={styles.assetCardMetaRow} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+                      <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
+                    </div>
                     {(verificationFilter !== 'approved') && !audit.confirmed && (
                       <div style={{ marginTop: 8 }}>
                         <input
@@ -504,22 +586,23 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
           </>
         ) : (
           <>
-            <div className={styles.assetsControls} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
-              {/* Status Tabs (left) */}
-              <div style={{ display: 'flex', gap: 12 }}>
-                {[{ key: 'all', label: 'All' }, { key: 'pending', label: 'Pending' }, { key: 'approved', label: 'Approved' }].map(tab => (
-                  <button
-                    key={tab.key}
-                    className={styles.filterButton + (verificationFilter === tab.key ? ' ' + styles.active : '')}
-                    onClick={() => setVerificationFilter(tab.key as any)}
-                    style={{ minWidth: 110 }}
-                  >
-                    {tab.label}
-                  </button>
-                ))}
+            <div className={styles.assetsControls} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'nowrap' }}>
+              <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                <div className={styles.dropdownWrapper}>
+                  <div style={{ position: 'relative', display: 'inline-block' }}>
+                    <select
+                      className={styles.departmentDropdown}
+                      value={verificationFilter}
+                      onChange={e => setVerificationFilter(e.target.value as any)}
+                    >
+                      <option value="all">ทั้งหมด</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                    </select>
+                    <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  </div>
               </div>
-              {/* Department dropdown (center) */}
-              <div className={styles.dropdownWrapper} style={{ minWidth: 220, marginLeft: 16 }}>
+                <div className={styles.dropdownWrapper}>
                 <div style={{ position: 'relative', display: 'inline-block' }}>
                   <select
                     className={styles.departmentDropdown}
@@ -532,6 +615,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                     ))}
                   </select>
                   <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  </div>
                 </div>
               </div>
               {/* Calendar + Export (right) */}
@@ -645,18 +729,27 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   <th style={{ width: 190 }}>Department</th>
                   <th style={{ width: 140 }}>Date</th>
                   <th style={{ width: 140 }}>Verification Status</th>
+                  <th style={{ width: 80 }}>History</th>
                 </tr>
               </thead>
               <tbody>
                 {paginatedAudits.map(audit => (
-                  <tr
-                    key={audit.id}
-                    style={{ cursor: 'pointer' }}
-                    onClick={e => {
-                      if ((e.target as HTMLElement).tagName.toLowerCase() === 'input') return;
-                      openHistoryPopup(audit.asset_id);
-                    }}
-                  >
+                  <tr key={audit.id} onClick={async () => {
+                    setSelectedAudit(audit);
+                    setShowDetailPopup(true);
+                    setAssetDetail(null);
+                    try {
+                      const res = await fetch(`/api/assets/${audit.asset_id || audit.id}`, { credentials: 'include' });
+                      if (res.ok) {
+                        const data = await res.json();
+                        setAssetDetail(data);
+                      } else {
+                        setAssetDetail(null);
+                      }
+                    } catch {
+                      setAssetDetail(null);
+                    }
+                  }}>
                     <td>
                       {!audit.confirmed && (
                         <input
@@ -691,17 +784,17 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                     <td>{highlightText(audit.user_name || '', searchTerm)}</td>
                     <td>{highlightText(audit.department_name || '', searchTerm)}</td>
                     <td>{highlightText(formatDate(audit.checked_at) || '', searchTerm)}</td>
-                    <td>
-                      <span style={{
-                        background: audit.confirmed ? '#22c55e' : '#facc15',
-                        color: '#fff',
-                        borderRadius: 8,
-                        padding: '0.2em 0.8em',
-                        fontWeight: 500,
-                        fontSize: '0.95em'
-                      }}>
-                        {highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}
-                      </span>
+                    <td
+                      style={{ textAlign: 'center', verticalAlign: 'middle', height: 48 }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                        <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em', display: 'inline-block' }}>
+                          {highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}
+                        </span>
+                      </div>
+                    </td>
+                    <td style={{ textAlign: 'center' }}>
+                      <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
                     </td>
                   </tr>
                 ))}
@@ -730,6 +823,52 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                 assetId={popupAssetId}
                 open={showPopup}
                 onClose={() => setShowPopup(false)}
+              />
+            )}
+            {showDetailPopup && selectedAudit && (
+              <AssetDetailPopup
+                asset={assetDetail ? {
+                  ...assetDetail,
+                  id: String(assetDetail.id || assetDetail.asset_id || selectedAudit.asset_id || selectedAudit.id),
+                  asset_code: assetDetail.asset_code || '',
+                  inventory_number: assetDetail.inventory_number || '',
+                  serial_number: assetDetail.serial_number || '',
+                  name: assetDetail.name || selectedAudit.asset_name || '',
+                  description: assetDetail.description || '',
+                  location_id: assetDetail.location_id || '',
+                  location: assetDetail.location || '',
+                  room: assetDetail.room || '',
+                  department: assetDetail.department || selectedAudit.department_name || '',
+                  department_id: assetDetail.department_id || '',
+                  owner: assetDetail.owner || selectedAudit.user_name || '',
+                  status: assetDetail.status || selectedAudit.status,
+                  image_url: assetDetail.image_url || selectedAudit.image_url || '',
+                  acquired_date: assetDetail.acquired_date || selectedAudit.checked_at || '',
+                  created_at: assetDetail.created_at || '',
+                  updated_at: assetDetail.updated_at || '',
+                } : {
+                  id: String(selectedAudit.asset_id || selectedAudit.id),
+                  asset_code: '',
+                  inventory_number: '',
+                  serial_number: '',
+                  name: selectedAudit.asset_name || '',
+                  description: '',
+                  location_id: '',
+                  location: '',
+                  room: '',
+                  department: selectedAudit.department_name || '',
+                  department_id: '',
+                  owner: selectedAudit.user_name || '',
+                  status: selectedAudit.status,
+                  image_url: selectedAudit.image_url || '',
+                  acquired_date: selectedAudit.checked_at || '',
+                  created_at: '',
+                  updated_at: '',
+                }}
+                isOpen={showDetailPopup}
+                onClose={() => setShowDetailPopup(false)}
+                isAdmin={false}
+                isCreating={false}
               />
             )}
           </>

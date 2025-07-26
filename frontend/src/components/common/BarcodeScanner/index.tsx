@@ -25,6 +25,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const [barcodeBuffer, setBarcodeBuffer] = useState<string[]>([]);
   const BUFFER_SIZE = 5; // ตรวจจับซ้ำ 5 ครั้ง
   const [scannedType, setScannedType] = useState<string | null>(null); // 'barcode' | 'qrcode'
+  const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
   // Start camera scan automatically
   useEffect(() => {
@@ -37,7 +38,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       stopCameraScan();
     };
     // eslint-disable-next-line
-  }, [scanMode]);
+  }, [scanMode, facingMode]);
 
   // Torch (flashlight) toggle
   const toggleTorch = async () => {
@@ -80,7 +81,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           constraints: {
             width: { min: 800 },
             height: { min: 600 },
-            facingMode: "environment"
+            facingMode: facingMode // ใช้ state
           },
           area: {
             top: "20%",
@@ -150,6 +151,11 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   const scanQRCodeFromCamera = async () => {
     const videoElem = videoRef.current?.querySelector('video');
     if (videoElem) {
+      // เช็คว่ากล้องพร้อมหรือยัง
+      if (videoElem.videoWidth === 0 || videoElem.videoHeight === 0) {
+        requestAnimationFrame(scanQRCodeFromCamera);
+        return;
+      }
       const canvas = document.createElement('canvas');
       canvas.width = videoElem.videoWidth;
       canvas.height = videoElem.videoHeight;
@@ -279,6 +285,15 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             <img src="/flashlight-whitel.png" alt="ไฟฉาย" width={28} height={28} />
           </button>
           <button
+            className={styles.iconCircle + ' ' + styles.switchCameraBtn}
+            onClick={() => setFacingMode(facingMode === 'environment' ? 'user' : 'environment')}
+            type="button"
+            aria-label="สลับกล้องหน้า/หลัง"
+            title="สลับกล้องหน้า/หลัง"
+          >
+            <img src="/flip.png" alt="Switch Camera" width={28} height={28} />
+          </button>
+          <button
             className={styles.iconCircle + ' ' + styles.uploadBtn}
             onClick={() => fileInputRef.current?.click()}
             type="button"
@@ -286,6 +301,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           >
             <img src="/upload-white.png" alt="อัปโหลด" width={28} height={28} />
           </button>
+          
           <div ref={videoRef} className={styles.video} style={{ filter: 'contrast(1.2) brightness(1.1)' }} />
           <div className={styles.scanArea}>
             <div className={`${styles.scanCorner} ${styles.tl}`}></div>

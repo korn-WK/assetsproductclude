@@ -145,6 +145,7 @@
 .statusFilters {
     display: flex;
     gap: 0.5rem;
+    background: var(--main-bg);
     border-radius: 12px;
     padding: 0.4rem 0.5rem;
     box-shadow: var(--shadow-xs);
@@ -193,7 +194,6 @@
     align-items: center;
     justify-content: center;
     transition: all 0.2s ease-in-out;
-    height: 44px;
 }
 
 .iconButton:hover {
@@ -203,26 +203,34 @@
 }
 
 .filterDropdown {
-    background-color: var(--main-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 0.8rem 1.2rem;
-    font-size: 0.95rem;
+    background: #fff;
+    border: 1.5px solid var(--border-color);
+    border-radius: 12px;
+    padding: 0.8rem 1.5rem;
+    font-size: 1rem;
     font-weight: 500;
-    color: var(--text-color-secondary);
-    cursor: pointer;
+    color: var(--text-color-primary);
+    box-shadow: var(--shadow-xs);
+    height: 51px;
+    min-width: 180px;
+    max-width: 220px;
+    transition: border 0.2s, box-shadow 0.2s;
+    outline: none;
+    margin-left: 12px;
+    appearance: none;
     display: flex;
     align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s ease-in-out;
-    height: 44px;
-    appearance: none;
-    -webkit-appearance: none;
-    -moz-appearance: none;
     padding-right: 2.2em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-
+.filterDropdown:hover {
+    background-color: var(--button-primary-bg);
+    color: var(--button-primary-text);
+    border-color: var(--button-primary-bg);
+}
 
 .dropdownIcon {
     font-size: 0.8rem;
@@ -440,6 +448,7 @@
 @media (max-width: 768px) {
     .assetsSection {
         padding: 0rem;
+        margin-top: 30px !important;
     }
     .assetsHeader {
         flex-direction: column;
@@ -491,15 +500,12 @@
 }
 
 @media (max-width: 600px) {
-    .assetsTable {
-        display: none !important;
-    }
     .assetCardList {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
         margin-bottom: 1.2rem;
-        padding: 0.2rem;
+        gap: 1.1rem;
+    }
+    .assetCard {
+        margin-bottom: 0.7rem;
     }
     .assetCard {
         display: flex;
@@ -517,12 +523,13 @@
         box-shadow: 0 8px 28px rgba(60,60,130,0.13), 0 2px 10px rgba(0,0,0,0.10);
     }
     .assetCardImage {
-        width: 50px;
-        height: 50px;
+        width: 70px;
+        height: 70px;
         border-radius: 9px;
         object-fit: cover;
         flex-shrink: 0;
-        margin-top: 3rem;
+        margin-right: 1rem;
+        margin-top: 1.25rem;
         box-shadow: 0 2px 8px rgba(60,60,130,0.08);
     }
     .assetCardContent {
@@ -532,8 +539,6 @@
         flex-direction: column;
         gap: 0.18rem;
         align-items: flex-start;
-        min-width: 0;
-        flex: 1;
     }
     .assetCardTitle {
         font-size: 1.08rem;
@@ -541,16 +546,6 @@
         color: var(--text-color-primary);
         margin-bottom: 0.08rem;
         line-height: 1.2;
-        word-break: break-word;
-    }
-    .assetCardDesc {
-        color: var(--text-color-secondary);
-        font-size: 0.87rem;
-        margin-bottom: 0.1rem;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: 180px;
     }
     .assetCardMetaRow {
         display: flex;
@@ -559,6 +554,12 @@
         font-size: 0.93rem;
         color: #444;
         margin-bottom: 0.03rem;
+    }
+    .assetId {
+        color: #6b7280;
+        font-size: 0.91rem;
+        font-weight: 500;
+        letter-spacing: 0.01em;
     }
     .statusBadge {
         font-size: 0.82rem !important;
@@ -592,9 +593,8 @@
         margin-bottom: 0;
     }
     .statusDropdown {
-        height: 44px !important;
-        min-width: 120px;
-        width: 120px;
+        height: 36px !important;
+        min-width: 36px;
         font-size: 0.97rem;
         border-radius: 8px !important;
         box-shadow: 0 1px 4px rgba(60,60,130,0.08);
@@ -631,12 +631,9 @@
         font-size: 0.98rem;
     }
 }
-@media (min-width: 601px) {
-  .assetCardList, .assetCard { display: none !important; }
-}
 
 .viewOnlyNotice {
-    margin-top: 40px; 
+    margin-top: 40px;
     position: fixed;
     top: 20px;
     right: 20px;
@@ -652,7 +649,6 @@
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.2);
     animation: slideInRight 0.5s ease-out;
     position: relative;
-    margin-top: 40px; 
 }
 
 .viewOnlyNoticeContent p {
@@ -764,7 +760,7 @@
 }
 
 .exportXlsxButton {
-    background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
+  background: linear-gradient(135deg, var(--button-primary-bg) 0%, var(--button-primary-hover) 100%);
   color: var(--button-primary-text);
   border: none;
   border-radius: 12px;
@@ -780,7 +776,6 @@
   letter-spacing: 0.5px;
   position: relative;
   overflow: hidden;
-  height: 44px;
 }
 .exportXlsxButton::after {
   content: '';
@@ -810,7 +805,7 @@
 }
 
 .exportPdfButton {
-  background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
+  background: linear-gradient(90deg, #16c08a 0%, #11998e 100%);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -839,7 +834,7 @@
   z-index: 0;
 }
 .exportPdfButton:hover {
-  background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
+  background: linear-gradient(90deg, #11998e 0%, #16c08a 100%);
   transform: translateY(-2px) scale(1.04);
   box-shadow: var(--shadow-lg);
 }
@@ -855,8 +850,7 @@
 }
 
 .exportXlsxButtonSmall {
-  height: 44px;
-  background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
+  background: linear-gradient(90deg, #16c08a 0%, #11998e 100%);
   color: #fff;
   border: none;
   border-radius: 10px;
@@ -885,7 +879,7 @@
   z-index: 0;
 }
 .exportXlsxButtonSmall:hover {
-  background: linear-gradient(135deg, #5768D2 0%, #EB9CED 100%);
+  background: linear-gradient(90deg, #11998e 0%, #16c08a 100%);
   transform: translateY(-1px) scale(1.03);
   box-shadow: var(--shadow-lg);
 }
@@ -911,6 +905,7 @@
 .dropdownWrapper {
   position: relative;
   display: inline-block;
+  width: 100%;
 }
 .departmentDropdown {
   background: #fff;
@@ -922,7 +917,8 @@
   color: var(--text-color-primary);
   box-shadow: var(--shadow-xs);
   height: 51px;
-  max-width: 200px;
+  min-width: 180px;
+  max-width: 220px;
   transition: border 0.2s, box-shadow 0.2s;
   outline: none;
   margin-left: 12px;
@@ -930,31 +926,20 @@
   display: flex;
   align-items: center;
   padding-right: 2.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .departmentDropdown:focus, .departmentDropdown:hover {
   border-color: var(--button-primary-bg);
   box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.12);
 }
-.dropdownIcon {
+.caretIcon, .dropdownIcon {
   position: absolute;
-  right: 1em;
+  right: 1.2em;
   top: 50%;
   transform: translateY(-50%);
   pointer-events: none;
   color: #888;
   font-size: 1.1em;
-}
-
-.caretIcon {
-  position: absolute;
-  right: 18px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #bdbdbd;
-  font-size: 1.1rem;
-  pointer-events: none;
-  z-index: 2;
-}
-.departmentDropdown, .filterDropdown {
-  padding-right: 2.2em;
 }

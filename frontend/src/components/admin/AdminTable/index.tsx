@@ -167,13 +167,15 @@ const AdminTable: React.FC<AdminTableProps> = ({
     <div className={styles.container}>
       <div className={styles.header}>
         <div>
-          {/* Hide <h2> if title is Department or Location */}
-          {title !== 'Department' && title !== 'Location' && <h2>{title}</h2>}
+          {/* Hide <h2> if title is Department, Location, or Status */}
+          {title !== 'Department' && title !== 'Location' && title !== 'Status' && <h2>{title}</h2>}
           {/* Total items for Department/Location */}
           {title && title.toLowerCase().includes('department') ? (
             <p className={styles.totalItems}>Total {data.length} department{data.length !== 1 ? 's' : ''}</p>
           ) : title && title.toLowerCase().includes('location') ? (
             <p className={styles.totalItems}>Total {data.length} location{data.length !== 1 ? 's' : ''}</p>
+          ) : title && title.toLowerCase().includes('status') ? (
+            <p className={styles.totalItems}>Total {data.length} status{data.length !== 1 ? 'es' : ''}</p>
           ) : (
             <p className={styles.totalItems}>Total {data.length} items</p>
           )}
@@ -183,6 +185,9 @@ const AdminTable: React.FC<AdminTableProps> = ({
           )}
           {title === 'Location' && (
             <p className={styles.description} style={{ fontWeight: 600 }}>Location management for administrators</p>
+          )}
+          {title === 'Status' && (
+            <p className={styles.description} style={{ fontWeight: 600 }}>Status management for administrators</p>
           )}
         </div>
         <button className={styles.addButton} onClick={onAdd}>

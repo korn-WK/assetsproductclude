@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom';
 import Image from 'next/image';
-import { AiOutlineCalendar, AiOutlineDown, AiOutlineClose, AiOutlineCamera, AiOutlineDownload } from 'react-icons/ai';
+import { AiOutlineCalendar, AiOutlineDown, AiOutlineClose, AiOutlineCamera } from 'react-icons/ai';
 import styles from './AssetsTable.module.css';
 import Pagination from '../../common/Pagination';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
@@ -13,8 +13,6 @@ import dayjs from 'dayjs';
 import { useAuth } from '../../../contexts/AuthContext';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import { useEffect as useEffectOrig, useState as useStateOrig } from 'react';
-import { useStatusOptions } from '../../../lib/statusOptions';
-import ExcelJS from 'exceljs';
 
 interface Asset {
   id: string;
@@ -68,10 +66,36 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
   const [isMobile, setIsMobile] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const { options: statusOptions, loading: statusLoading } = useStatusOptions();
+  const statusColors = {
+    active: '#22c55e',
+    missing: '#f97316',
+    broken: '#ef4444',
+    no_longer_required: '#6b7280',
+  };
+  const statusOptions = [
+    { value: 'active', label: 'พร้อมใช้งาน' },
+    { value: 'pending', label: 'รอใช้งาน' },
+    { value: 'waiting_for_disposal', label: 'รอตัดจำหน่าย' },
+    { value: 'broken', label: 'ชำรุด' },
+    { value: 'waiting_for_repair', label: 'รอซ่อม' },
+    { value: 'under_maintenance', label: 'ระหว่างการปรับปรุง' },
+    { value: 'no_longer_required', label: 'ไม่มีความจำเป็นต้องใช้' },
+    { value: 'missing', label: 'สูญหาย' },
+    { value: 'waiting_for_exchange', label: 'รอแลกเปลี่ยน' },
+    { value: 'exchanged', label: 'แลกเปลี่ยน' },
+    { value: 'leased', label: 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า' },
+    { value: 'waiting_for_transfer', label: 'รอโอนย้าย' },
+    { value: 'waiting_for_ownership_transfer', label: 'รอโอนกรรมสิทธิ์' },
+    { value: 'temporary', label: 'ชั่วคราว' },
+    { value: 'sold', label: 'ขาย' },
+    { value: 'converted', label: 'แปรสภาพ' },
+    { value: 'destroyed', label: 'ทำลาย' },
+    { value: 'under_investigation', label: 'สอบข้อเท็จจริง' },
+    { value: 'compensation', label: 'เงินชดเชยที่ดินและอาสิน' },
+    { value: 'in_transit', label: 'ระหว่างทาง' },
+    { value: 'waiting', label: 'รอใช้งาน' },
+  ];
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
-  // Remove any hardcoded statusColors object
-
   const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
   const [pendingAudits, setPendingAudits] = useState<{ [assetId: string]: { status: string; note: string } | null }>({});
   // เพิ่ม hook สำหรับดึง asset_transfers pending ที่เกี่ยวข้องกับ asset ทั้งหมด
@@ -251,26 +275,10 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     if (hasPendingTransfer) return styles.statusTransferring;
     if (hasPending) return styles.statusPending;
     switch (status) {
-      case 'พร้อมใช้งาน': return styles.statusActive;
-      case 'รอใช้งาน': return styles.statusPending;
-      case 'รอตัดจำหน่าย': return styles.statusPending;
-      case 'ชำรุด': return styles.statusBroken;
-      case 'รอซ่อม': return styles.statusPending;
-      case 'ระหว่างการปรับปรุง': return styles.statusPending;
-      case 'ไม่มีความจำเป็นต้องใช้': return styles.statusDisposed;
-      case 'สูญหาย': return styles.statusMissing;
-      case 'รอแลกเปลี่ยน': return styles.statusPending;
-      case 'แลกเปลี่ยน': return styles.statusPending;
-      case 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า': return styles.statusPending;
-      case 'รอโอนย้าย': return styles.statusPending;
-      case 'รอโอนกรรมสิทธิ์': return styles.statusPending;
-      case 'ชั่วคราว': return styles.statusPending;
-      case 'ขาย': return styles.statusDisposed;
-      case 'แปรสภาพ': return styles.statusPending;
-      case 'ทำลาย': return styles.statusDisposed;
-      case 'สอบข้อเท็จจริง': return styles.statusPending;
-      case 'เงินชดเชยที่ดินและอาสิน': return styles.statusDisposed;
-      case 'ระหว่างทาง': return styles.statusPending;
+      case 'active': return styles.statusActive;
+      case 'missing': return styles.statusMissing;
+      case 'broken': return styles.statusBroken;
+      case 'no_longer_required': return styles.statusDisposed; // ใช้สีเทา
       default: return '';
     }
   };
@@ -278,26 +286,10 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     if (hasPendingTransfer) return 'Transferring';
     if (hasPending && pendingStatus) return 'Pending';
     switch (status) {
-      case 'พร้อมใช้งาน': return 'พร้อมใช้งาน';
-      case 'รอใช้งาน': return 'รอใช้งาน';
-      case 'รอตัดจำหน่าย': return 'รอตัดจำหน่าย';
-      case 'ชำรุด': return 'ชำรุด';
-      case 'รอซ่อม': return 'รอซ่อม';
-      case 'ระหว่างการปรับปรุง': return 'ระหว่างการปรับปรุง';
-      case 'ไม่มีความจำเป็นต้องใช้': return 'ไม่มีความจำเป็นต้องใช้';
-      case 'สูญหาย': return 'สูญหาย';
-      case 'รอแลกเปลี่ยน': return 'รอแลกเปลี่ยน';
-      case 'แลกเปลี่ยน': return 'แลกเปลี่ยน';
-      case 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า': return 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า';
-      case 'รอโอนย้าย': return 'รอโอนย้าย';
-      case 'รอโอนกรรมสิทธิ์': return 'รอโอนกรรมสิทธิ์';
-      case 'ชั่วคราว': return 'ชั่วคราว';
-      case 'ขาย': return 'ขาย';
-      case 'แปรสภาพ': return 'แปรสภาพ';
-      case 'ทำลาย': return 'ทำลาย';
-      case 'สอบข้อเท็จจริง': return 'สอบข้อเท็จจริง';
-      case 'เงินชดเชยที่ดินและอาสิน': return 'เงินชดเชยที่ดินและอาสิน';
-      case 'ระหว่างทาง': return 'ระหว่างทาง';
+      case 'active': return 'Active';
+      case 'missing': return 'Missing';
+      case 'broken': return 'Broken';
+      case 'no_longer_required': return 'No Longer Required';
       default: return status;
     }
   };
@@ -351,75 +343,6 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     }
   };
 
-  // เพิ่มฟังก์ชัน export XLSX
-  const handleExportXLSX = async () => {
-    if (!filteredAssets || filteredAssets.length === 0) return;
-    const workbook = new ExcelJS.Workbook();
-    const worksheet = workbook.addWorksheet('Assets');
-    worksheet.addRow([
-      'Asset Code',
-      'Inventory No.',
-      'Name',
-      'Description',
-      'Location',
-      'Department',
-      'Status',
-      'Acquired Date',
-      'Created At',
-    ]);
-    filteredAssets.forEach(asset => {
-      const a = asset as Asset;
-      worksheet.addRow([
-        a.asset_code || '-',
-        a.inventory_number || '-',
-        a.name || '-',
-        a.description || '-',
-        a.location && a.room ? `${a.location} ${a.room}`.trim() : (a.location || a.room || '-'),
-        a.department || '-',
-        statusLabels[a.status] || a.status || '-',
-        a.acquired_date || '-',
-        a.created_at || '-',
-      ]);
-    });
-    worksheet.eachRow((row, rowNumber) => {
-      row.eachCell((cell) => {
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-        cell.border = {
-          top: { style: 'thin', color: { argb: 'FF000000' } },
-          left: { style: 'thin', color: { argb: 'FF000000' } },
-          bottom: { style: 'thin', color: { argb: 'FF000000' } },
-          right: { style: 'thin', color: { argb: 'FF000000' } },
-        };
-        if (rowNumber === 1) {
-          cell.font = { bold: true };
-          cell.fill = {
-            type: 'pattern',
-            pattern: 'solid',
-            fgColor: { argb: 'FFD9D9D9' },
-          };
-        }
-      });
-    });
-    worksheet.columns.forEach((column) => {
-      let maxLength = 10;
-      if (typeof column.eachCell === 'function') {
-        column.eachCell({ includeEmpty: true }, (cell: any) => {
-          const cellValue = cell.value ? cell.value.toString() : '';
-          maxLength = Math.max(maxLength, cellValue.length + 2);
-        });
-      }
-      column.width = maxLength;
-    });
-    const buffer = await workbook.xlsx.writeBuffer();
-    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'assets_browser.xlsx';
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
-
   if (loading) {
     return (
       <section className={styles.assetsSection}>
@@ -448,68 +371,75 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
 
   return (
     <>
-      <section
-        className={styles.assetsSection}
-        style={isMobile ? { padding: '1rem', marginTop: 40 } : { padding: '2rem' }}
-      >
+      <section className={styles.assetsSection}>
         {isMobile ? (
           <>
-            <div className="filterRow" style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem' }}>
+            <div style={{padding: '0.5rem 0.5rem 0 0.5rem'}}>
+              <p className={styles.totalAssets}>Total {assets.length} assets</p>
+              {user?.role?.toLowerCase() === 'admin' ? (
+                <p className={styles.listOfEquipment}>Asset management for admin</p>
+              ) : (
+                <p className={styles.listOfEquipment}>Asset management for user</p>
+              )}
+            </div>
+            <div className="filterRow" style={{display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem 0.5rem 0.5rem'}}>
               <DateRangeFilterButton
                 value={dateRange}
                 onChange={setDateRange}
                 label="เลือกช่วงวันที่"
               />
-              <div style={{ position: 'relative' }}>
-                <button
-                  className={styles.filterDropdown + ' ' + styles.statusDropdown}
-                  onClick={() => setShowStatusDropdown(v => !v)}
-                  style={{ minWidth: 120, width: 120 }}
-                >
-                  {statusOptions.find(opt => opt.value === activeFilter)?.label || 'Status'}
-                  <AiOutlineDown className={styles.dropdownIcon} />
-                </button>
-                {showStatusDropdown && (
-                  <div className={styles.customDropdown} style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
-                    {statusOptions.map(opt => (
-                      <div
-                        key={opt.value}
-                        style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: activeFilter === opt.value ? '#6366f1' : '#222', background: activeFilter === opt.value ? '#f3f4f6' : 'transparent' }}
-                        onClick={() => {
-                          setActiveFilter(opt.value);
-                          setShowStatusDropdown(false);
-                          setCurrentPage(1);
-                        }}
-                      >
-                        {opt.label}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-              {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') && (
-                <button
-                  className={styles.exportXlsxButtonSmall}
-                  style={{ minWidth: 44, width: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}
-                  onClick={handleExportXLSX}
-                  title="Export XLSX"
-                >
-                  <AiOutlineDownload style={{ fontSize: '1.2em' }} />
-                  Export
-                </button>
+              {isMobile && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    className={styles.filterDropdown}
+                    onClick={() => setShowStatusDropdown(v => !v)}
+                    style={{ minWidth: 0 }}
+                  >
+                    {statusOptions.find(opt => opt.value === activeFilter)?.label || 'Status'}
+                    <AiOutlineDown className={styles.dropdownIcon} />
+                  </button>
+                  {showStatusDropdown && (
+                    <div className={styles.customDropdown} style={{ position: 'absolute', top: '110%', left: 0, right: 0, background: '#fff', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.08)', zIndex: 10 }}>
+                      {statusOptions.map(opt => (
+                        <div
+                          key={opt.value}
+                          style={{ padding: '0.6rem 1rem', cursor: 'pointer', color: activeFilter === opt.value ? '#6366f1' : '#222', background: activeFilter === opt.value ? '#f3f4f6' : 'transparent' }}
+                          onClick={() => {
+                            setActiveFilter(opt.value);
+                            setShowStatusDropdown(false);
+                            setCurrentPage(1);
+                          }}
+                        >
+                          {opt.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+              {canOnlyView && (
+              <button
+                className={styles.filterDropdown}
+                onClick={handleShowDropdown}
+                ref={filterButtonRef}
+                style={{minWidth: 0}}
+              >
+                {selectedDepartment === 'All' ? 'Filter' : departments.find(d => d.name_th === selectedDepartment)?.name_th || selectedDepartment}
+                <AiOutlineDown className={styles.dropdownIcon} />
+              </button>
               )}
               {onScanBarcodeClick && (
                 <button
                   className={styles.iconButton}
                   onClick={onScanBarcodeClick}
                   title="สแกนบาร์โค้ด"
-                  style={{ minWidth: 44, width: 44 }}
+                  style={{minWidth: 0}}
                 >
                   <AiOutlineCamera />
                 </button>
               )}
             </div>
-            <div style={{ padding: '0 0.5rem 0.5rem 0.5rem' }}>
+            <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
               <input
                 type="text"
                 placeholder="Search assets..."
@@ -523,18 +453,18 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                 <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
                   <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
                   <div className={styles.assetCardContent}>
-                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchQuery || '')}</div>
+                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
                     <div className={styles.assetCardMetaRow}>
-                      <span className={styles.assetId}><b>ID:</b> {highlightText(asset.asset_code, searchQuery || '')}</span>
+                      <span className={styles.assetId}><b>ID:</b> {highlightText(asset.asset_code, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchQuery || '')}</span>
+                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Department:</b> {highlightText(asset.department, searchQuery || '')}</span>
+                      <span><b>Department:</b> {highlightText(asset.department, searchTerm || '')}</span>
                     </div>
                     <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>{highlightText(getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status, !!asset.has_pending_transfer), searchQuery || '')}</span></span>
+                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>{highlightText(getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status, !!asset.has_pending_transfer), searchTerm || '')}</span></span>
                     </div>
                   </div>
                 </div>
@@ -545,37 +475,110 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
               totalPages={totalPages}
               onPageChange={setCurrentPage}
             />
+            {showDepartmentDropdown && (
+              <div
+                ref={dropdownRef}
+                style={{
+                  position: 'absolute',
+                  top: filterButtonRef.current ? filterButtonRef.current.getBoundingClientRect().bottom + window.scrollY + 4 : 0,
+                  left: filterButtonRef.current ? filterButtonRef.current.getBoundingClientRect().left + window.scrollX : 0,
+                  background: 'white',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: 8,
+                  boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+                  padding: 8,
+                  zIndex: 9999,
+                  minWidth: filterButtonRef.current ? filterButtonRef.current.offsetWidth : 120,
+                  maxHeight: 300,
+                  overflowY: 'auto',
+                }}
+              >
+                <div
+                  style={{
+                    padding: '0.5rem 1rem',
+                    cursor: 'pointer',
+                    fontWeight: selectedDepartment === 'All' ? 600 : 400,
+                    background: selectedDepartment === 'All' ? '#f3f4f6' : 'transparent',
+                    borderRadius: 6,
+                  }}
+                  onClick={() => {
+                    setSelectedDepartment('All');
+                    setShowDepartmentDropdown(false);
+                  }}
+                >
+                  ทุกแผนก (All Departments)
+                </div>
+                {departments.map(dep => (
+                  <div
+                    key={dep.id}
+                    style={{
+                      padding: '0.5rem 1rem',
+                      cursor: 'pointer',
+                      fontWeight: selectedDepartment === dep.name_th ? 600 : 400,
+                      background: selectedDepartment === dep.name_th ? '#f3f4f6' : 'transparent',
+                      borderRadius: 6,
+                    }}
+                    onClick={() => {
+                      setSelectedDepartment(dep.name_th);
+                      setShowDepartmentDropdown(false);
+                    }}
+                  >
+                    {dep.name_th} {dep.name_en ? `(${dep.name_en})` : ''}
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         ) : (
           <>
             <div className={styles.assetsHeader}>
               <div>
                 <p className={styles.totalAssets}>Total {assets.length} assets</p>
+                {user?.role?.toLowerCase() === 'admin' ? (
+                  <p className={styles.listOfEquipment}>Asset management for admin</p>
+                ) : (
+                  <p className={styles.listOfEquipment}>Asset management for user</p>
+                )}
               </div>
             </div>
 
             <div className={styles.assetsControls}>
               <div className={styles.searchAndFilters}>
-                {!isMobile && (
-                  <div className={styles.statusFilters}>
-                    <div style={{ position: 'relative', display: 'inline-block' }}>
-                      <select
-                        className={styles.filterDropdown}
-                        value={activeFilter}
-                        onChange={e => {
-                          setActiveFilter(e.target.value);
-                          setCurrentPage(1);
-                        }}
-                      >
-                        <option value="All">All Status</option>
-                        {statusOptions.map(opt => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <span className={styles.caretIcon}><AiOutlineDown /></span>
-                    </div>
+                
+                <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+                  <div className={styles.dropdownWrapper}>
+                    <select
+                      className={styles.departmentDropdown}
+                      value={activeFilter}
+                      onChange={e => {
+                        setActiveFilter(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value="All">ทุกสถานะ</option>
+                      {statusOptions.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                    <span className={styles.caretIcon}><AiOutlineDown /></span>
                   </div>
-                )}
+                  <div className={styles.dropdownWrapper}>
+                    <select
+                      className={styles.departmentDropdown}
+                      value={selectedDepartment}
+                      onChange={e => {
+                        setSelectedDepartment(e.target.value);
+                        setCurrentPage(1);
+                      }}
+                    >
+                      <option value="All">ทุกแผนก</option>
+                      {departments.map(dep => (
+                        <option key={dep.id} value={dep.name_th}>{dep.name_th}{dep.name_en ? ` (${dep.name_en})` : ''}</option>
+                      ))}
+                    </select>
+                    <span className={styles.caretIcon}><AiOutlineDown /></span>
+                  </div>
+                </div>
               </div>
               <div className={styles.rightControls} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                 <DateRangeFilterButton
@@ -583,17 +586,6 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                   onChange={setDateRange}
                   label="เลือกช่วงวันที่"
                 />
-                {(user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') && (
-                  <button
-                    className={styles.exportXlsxButton}
-                    style={{ marginLeft: 8, display: 'flex', alignItems: 'center', gap: 8 }}
-                    onClick={handleExportXLSX}
-                    title="Export XLSX"
-                  >
-                    <AiOutlineDownload style={{ fontSize: '1.3em' }} />
-                    Export XLSX
-                  </button>
-                )}
                 {onScanBarcodeClick && (
                   <button
                     className={styles.iconButton}
@@ -660,7 +652,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                       <td data-label="Department">{highlightText(asset.department || '', searchTerm || '')}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
                         {asset.has_pending_transfer ? (
-                          <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                          <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, false, true)}`}>
                             {highlightText(getStatusDisplay(asset.status, false, undefined, true), searchTerm || '')}
                           </span>
                         ) : pendingAudits[asset.id] ? (
@@ -668,7 +660,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                             {highlightText('Pending', searchTerm || '')}
                           </span>
                         ) : (
-                          <span className={`${styles.statusBadge} compact`} style={{ background: (statusOptions.find(opt => opt.value === asset.status)?.color) || '#adb5bd' }}>
+                          <span className={`${styles.statusBadge} compact ${getStatusClass(asset.status, asset.has_pending_audit || false, !!asset.has_pending_transfer)}`}>
                             {highlightText(getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer), searchTerm || '')}
                           </span>
                         )}
@@ -705,6 +697,16 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
           isAdmin={false}
           isCreating={false}
         />
+      )}
+      {showViewOnlyNotice && canOnlyView && (
+        <div className={styles.viewOnlyNotice}>
+          <div className={styles.viewOnlyNoticeContent}>
+            <button className={styles.noticeCloseBtn} onClick={() => setShowViewOnlyNotice(false)} title="Close notice">
+              <AiOutlineClose />
+            </button>
+            <p><strong>View Only Mode:</strong> You can only view assets. Contact your administrator to assign a department for editing permissions.</p>
+          </div>
+        </div>
       )}
     </>
   );
