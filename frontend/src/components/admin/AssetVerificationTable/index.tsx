@@ -775,7 +775,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                       />
                     )}
                   </th>
-                  <th style={{ width: 70 }}>Image</th>
+                  <th style={{ width: 80 }}>Image</th>
                   <th style={{ width: 120 }}>Inventory Number</th>
                   <th style={{ width: 180 }}>Name</th>
                   <th style={{ width: 200 }}>Status</th>

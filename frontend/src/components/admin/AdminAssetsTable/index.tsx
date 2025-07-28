@@ -145,7 +145,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
   });
 
   const filteredAssets = patchedAssets.filter(asset => {
-    // Since Dashboard now passes Thai status values directly, we can simplify the matching
+    // Fix: Use statusLabels to map from label to value for filtering
     const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
     
     console.log('AdminAssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
@@ -192,19 +192,11 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
       default: return '';
     }
   };
+  // ใช้ statusLabels ในการแสดงผล status
   const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string, hasPendingTransfer?: boolean) => {
     if (hasPendingTransfer) return 'Transferring';
     if (hasPending && pendingStatus) return 'Pending';
-    switch (status) {
-      case 'active': return 'Active';
-      case 'transferring': return 'Transferring';
-      case 'audited': return 'Audited';
-      case 'missing': return 'Missing';
-      case 'broken': return 'Broken';
-      case 'disposed': return 'Disposed';
-      case 'no_longer_required': return 'No Longer Required';
-      default: return status;
-    }
+    return statusLabels[status] || status;
   };
 
   const handleAssetClick = (asset: Asset) => {

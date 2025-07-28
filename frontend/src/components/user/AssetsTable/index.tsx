@@ -212,17 +212,12 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
         return '';
     }
   };
+  // ใช้ statusLabels ในการแสดงผล status
   const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string, hasPendingTransfer?: boolean) => {
     if (hasPendingTransfer) return 'Transferring';
     if (hasPending && pendingStatus) return 'Pending';
     if (!status) return 'Unknown';
-    switch (status) {
-      case 'active': return 'Active';
-      case 'missing': return 'Missing';
-      case 'broken': return 'Broken';
-      case 'no_longer_required': return 'No Longer Required';
-      default: return status;
-    }
+    return statusLabels[status] || status;
   };
 
   const handleAssetClick = (asset: Asset) => {

@@ -59,7 +59,7 @@ const DashboardContent: React.FC = () => {
   const mergedStatuses = statuses.map(s => ({
     status: s.value,
     label: s.label,
-    count: backendStatusMap.get(s.value) || 0
+    count: backendStatusMap.get(s.label) || 0
   }));
   console.log('DashboardContent: mergedStatuses:', mergedStatuses);
   
@@ -96,10 +96,10 @@ const DashboardContent: React.FC = () => {
     return initial;
   });
 
-  // สำหรับ bar chart: state สำหรับ checkbox
+  // สำหรับ bar chart: state สำหรับ checkbox - ใช้ label แทน status
   const [visibleBarStatuses, setVisibleBarStatuses] = useState<{ [key: string]: boolean }>(() => {
     const initial: { [key: string]: boolean } = {};
-    allCards.forEach(c => { initial[c.status] = true; });
+    allCards.forEach(c => { initial[c.label] = true; });
     return initial;
   });
   const filteredBarChartData = statusChartData.filter(d => visibleBarStatuses[d.status]);
@@ -165,17 +165,20 @@ const DashboardContent: React.FC = () => {
   const handleStatusCardClick = (label: string) => {
     console.log('DashboardContent: Status card clicked with label:', label);
     console.log('DashboardContent: User isAdmin:', isAdmin);
-    // label here is the Thai value from the statuses table (e.g., 'พร้อมใช้งาน', 'สูญหาย', etc.)
-    // So we can use it directly without mapping
-    console.log('DashboardContent: Using label directly:', label);
+    
+    // Find the corresponding value for this label
+    const statusItem = statuses.find(s => s.label === label);
+    const statusValue = statusItem ? statusItem.value : label;
+    
+    console.log('DashboardContent: Using value for navigation:', statusValue);
     
     // Navigate to appropriate page based on user role
     if (isAdmin) {
-      console.log('DashboardContent: Navigating to admin asset management:', `/admin/asset-management?status=${encodeURIComponent(label)}`);
-      router.push(`/admin/asset-management?status=${encodeURIComponent(label)}`);
+      console.log('DashboardContent: Navigating to admin asset management:', `/admin/asset-management?status=${encodeURIComponent(statusValue)}`);
+      router.push(`/admin/asset-management?status=${encodeURIComponent(statusValue)}`);
     } else {
-      console.log('DashboardContent: Navigating to user asset browser:', `/user/asset-browser?status=${encodeURIComponent(label)}`);
-      router.push(`/user/asset-browser?status=${encodeURIComponent(label)}`);
+      console.log('DashboardContent: Navigating to user asset browser:', `/user/asset-browser?status=${encodeURIComponent(statusValue)}`);
+      router.push(`/user/asset-browser?status=${encodeURIComponent(statusValue)}`);
     }
   };
 
@@ -307,11 +310,11 @@ const DashboardContent: React.FC = () => {
               <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>bar chart</div>
               <div style={{ marginBottom: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {allCards.map((c, idx) => (
-                  <label key={c.status} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13 }}>
+                  <label key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13 }}>
                     <input
                       type="checkbox"
-                      checked={visibleBarStatuses[c.status]}
-                      onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.status]: !visibleBarStatuses[c.status] })}
+                      checked={visibleBarStatuses[c.label]}
+                      onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.label]: !visibleBarStatuses[c.label] })}
                     />
                     <span style={{ color: CARD_COLORS[idx % CARD_COLORS.length], fontWeight: 500 }}>{c.label}</span>
                   </label>
@@ -442,11 +445,11 @@ const DashboardContent: React.FC = () => {
           </div>
           <div style={{ marginBottom: 12, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {allCards.map((c, idx) => (
-              <label key={c.status} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>
+              <label key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}>
                 <input
                   type="checkbox"
-                  checked={visibleBarStatuses[c.status]}
-                  onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.status]: !visibleBarStatuses[c.status] })}
+                  checked={visibleBarStatuses[c.label]}
+                  onChange={() => setVisibleBarStatuses({ ...visibleBarStatuses, [c.label]: !visibleBarStatuses[c.label] })}
                 />
                 <span style={{ color: CARD_COLORS[idx % CARD_COLORS.length], fontWeight: 500 }}>{c.label}</span>
               </label>

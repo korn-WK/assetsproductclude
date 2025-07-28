@@ -748,7 +748,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                     />
                   )}
                 </th>
-                <th style={{ width: 70 }}>Image</th>
+                <th style={{ width: 80 }}>Image</th>
                 <th style={{ width: 140 }}>Inventory Number</th>
                 <th style={{ width: 200 }}>Name</th>
                 <th style={{ width: 160 }}>Status</th>

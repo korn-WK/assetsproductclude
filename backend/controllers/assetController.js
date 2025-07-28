@@ -248,8 +248,8 @@ async function getStats(req, res) {
     console.log('getStats: allStatuses:', allStatuses);
     console.log('getStats: statusCounts:', statusCounts);
     const statuses = allStatuses.map(status => ({
-      status: status.label, // Use the label from statuses table to match assets.status
-      count: statusCounts[status.label] || 0 // Count from assets using label, default to 0
+      status: status.label, // Use the label for display
+      count: statusCounts[status.value] || 0 // Count from assets using value, default to 0
     })).sort((a, b) => a.status.localeCompare(b.status, 'th'));
     console.log('getStats: final statuses array:', statuses);
 
