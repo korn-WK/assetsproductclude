@@ -6,6 +6,8 @@ import axios from 'axios';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
 import { FaRegCalendarAlt } from 'react-icons/fa';
 import { AiOutlineDown } from 'react-icons/ai';
+import { useRouter } from 'next/router';
+import { useAuth } from '../../../contexts/AuthContext'; // Added import
 
 const CARD_COLORS = [
   '#28a745', // ฟ้า
@@ -40,6 +42,8 @@ const DashboardContent: React.FC = () => {
   const [selectedDepartment, setSelectedDepartment] = useState<string>('ทุกหน่วยงาน');
   const [statuses, setStatuses] = useState<{ value: string; label: string }[]>([]);
   const [isMobile, setIsMobile] = useState(false);
+  const router = useRouter();
+  const { isAdmin } = useAuth(); // Added useAuth hook
 
   useEffect(() => {
     fetch('/api/statuses')
@@ -50,15 +54,20 @@ const DashboardContent: React.FC = () => {
 
   // ใช้ข้อมูลจริงจาก backend
   const backendStatusMap = new Map((stats?.statuses || []).map(s => [s.status, s.count]));
+  console.log('DashboardContent: backendStatusMap:', Array.from(backendStatusMap.entries()));
+  console.log('DashboardContent: statuses from API:', statuses);
   const mergedStatuses = statuses.map(s => ({
     status: s.value,
     label: s.label,
     count: backendStatusMap.get(s.value) || 0
   }));
+  console.log('DashboardContent: mergedStatuses:', mergedStatuses);
+  
   // Sort statuses ก-ฮ
   const sortedStatuses = mergedStatuses.slice().sort((a, b) => a.label.localeCompare(b.label, 'th'));
-  const readyCardTop = sortedStatuses.find(c => c.status === 'พร้อมใช้งาน');
-  const otherCards = sortedStatuses.filter(c => c.status !== 'พร้อมใช้งาน');
+  // Find the "พร้อมใช้งาน" status by label, not by value
+  const readyCardTop = sortedStatuses.find(c => c.label === 'พร้อมใช้งาน');
+  const otherCards = sortedStatuses.filter(c => c.label !== 'พร้อมใช้งาน');
   // กรณีต้องการให้ "พร้อมใช้งาน" อยู่บนสุดเสมอ (ถ้าไม่ต้องการ ให้ใช้ sortedStatuses)
   const allCards = readyCardTop ? [readyCardTop, ...otherCards] : sortedStatuses;
 
@@ -103,7 +112,7 @@ const DashboardContent: React.FC = () => {
 
   // หาจำนวนทั้งหมดและจำนวนพร้อมใช้งาน
   const totalCount = allCards.reduce((sum, c) => sum + c.count, 0);
-  const readyCount = allCards.find(c => c.status === 'พร้อมใช้งาน')?.count || 0;
+  const readyCount = allCards.find(c => c.label === 'พร้อมใช้งาน')?.count || 0;
 
   // ดึงรายชื่อหน่วยงาน
   useEffect(() => {
@@ -152,6 +161,24 @@ const DashboardContent: React.FC = () => {
     return `วันที่: ${day} ${month} ${year}`;
   };
 
+  // Add click handler for status cards
+  const handleStatusCardClick = (label: string) => {
+    console.log('DashboardContent: Status card clicked with label:', label);
+    console.log('DashboardContent: User isAdmin:', isAdmin);
+    // label here is the Thai value from the statuses table (e.g., 'พร้อมใช้งาน', 'สูญหาย', etc.)
+    // So we can use it directly without mapping
+    console.log('DashboardContent: Using label directly:', label);
+    
+    // Navigate to appropriate page based on user role
+    if (isAdmin) {
+      console.log('DashboardContent: Navigating to admin asset management:', `/admin/asset-management?status=${encodeURIComponent(label)}`);
+      router.push(`/admin/asset-management?status=${encodeURIComponent(label)}`);
+    } else {
+      console.log('DashboardContent: Navigating to user asset browser:', `/user/asset-browser?status=${encodeURIComponent(label)}`);
+      router.push(`/user/asset-browser?status=${encodeURIComponent(label)}`);
+    }
+  };
+
   if (loading) {
     return <div className={styles.dashboardContent}><div style={{ textAlign: 'center', padding: '50px' }}>Loading dashboard data...</div></div>;
   }
@@ -179,9 +206,71 @@ const DashboardContent: React.FC = () => {
           {/* Mobile Card List for Sidebar Cards (scrollable) */}
           <div className={styles.cardList}>
             {allCards.map((card, idx) => (
-              <div className={styles.card} key={card.status}>
-                <div className={styles.cardLabel}>{card.label}</div>
-                <div className={styles.cardValue}>{card.count}</div>
+              <div
+                className={styles.card}
+                key={card.status}
+                onClick={() => handleStatusCardClick(card.label)}
+                style={{
+                  position: 'relative',
+                  overflow: 'hidden',
+                  border: 'none',
+                  borderRadius: 12,
+                  padding: '16px 20px',
+                  background: '#fff',
+                  marginBottom: 0.8,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-start',
+                  minHeight: 70,
+                  fontSize: 14,
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  transition: 'box-shadow 0.2s, transform 0.1s',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.12)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.boxShadow = '0 1px 4px rgba(0,0,0,0.08)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                }}
+              >
+                <div style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  height: '100%',
+                  width: 6,
+                  borderRadius: 10,
+                  background: getCardColor(idx),
+                }} />
+                <div style={{ 
+                  fontSize: 14, 
+                  color: '#444', 
+                  fontWeight: 500, 
+                  marginLeft: 12,
+                  lineHeight: '1.2',
+                  textAlign: 'left',
+                  width: '100%'
+                }}>
+                  {card.label}
+                </div>
+                <div style={{ 
+                  fontSize: 18, 
+                  fontWeight: 700, 
+                  color: '#222', 
+                  marginTop: 4, 
+                  marginLeft: 12,
+                  lineHeight: '1.1',
+                  textAlign: 'left',
+                  width: '100%'
+                }}>
+                  {card.count}
+                </div>
               </div>
             ))}
           </div>
@@ -284,10 +373,20 @@ const DashboardContent: React.FC = () => {
               fontSize: 15,
               width: '100%',
               boxSizing: 'border-box',
-              transition: 'box-shadow 0.2s',
+              transition: 'box-shadow 0.2s, transform 0.1s',
               position: 'relative',
                   overflow: 'hidden',
+              cursor: 'pointer',
             }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.boxShadow = '0 4px 12px #0002';
+              e.currentTarget.style.transform = 'translateY(-1px)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.boxShadow = '0 1px 4px #0001';
+              e.currentTarget.style.transform = 'translateY(0)';
+            }}
+            onClick={() => handleStatusCardClick(card.label)}
           >
             <div style={{
               position: 'absolute',

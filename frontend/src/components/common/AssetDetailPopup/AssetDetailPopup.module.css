@@ -271,53 +271,6 @@
   align-self: stretch;
 }
 
-.statusBadge {
-  display: inline-block;
-  padding: 0.3rem 0.8rem;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: capitalize;
-  letter-spacing: 0.5px;
-  border: 1px solid transparent;
-}
-
-.statusActive {
-  background-color: #dcfce7;
-  color: #16a34a;
-  border-color: #86efac;
-}
-
-.statusTransferring {
-  background-color: #fef9c3;
-  color: #ca8a04;
-  border-color: #fde047;
-}
-
-.statusAudited {
-  background-color: #dbeafe;
-  color: #2563eb;
-  border-color: #93c5fd;
-}
-
-.statusMissing {
-  background-color: #fee2e2;
-  color: #dc2626;
-  border-color: #fca5a5;
-}
-
-.statusBroken {
-  background-color: #ffedd5;
-  color: #f97316;
-  border-color: #fdba74;
-}
-
-.statusDisposed {
-  background-color: #f3f4f6;
-  color: #6b7280;
-  border-color: #d1d5db;
-}
-
 .footer {
   padding: 16px 24px;
   border-top: 1px solid #e5e7eb;
@@ -545,6 +498,19 @@
   margin-right: 0.5rem;
 }
 
+.auditEditBadge {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: white;
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+  margin-right: 0.5rem;
+}
+
 .viewOnlyMessage {
   background: #fef3c7;
   border: 1px solid #f59e0b;
@@ -564,35 +530,45 @@
 /* Mobile Responsive Design */
 @media (max-width: 768px) {
   .popup {
-    width: 90%;
-    max-width: 400px;
-    max-height: 85vh;
-    margin: 20px auto;
-    border-radius: 12px;
+    width: 95%;
+    max-width: 450px;
+    max-height: 90vh;
+    margin: 10px auto;
+    border-radius: 16px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
   }
 
   .header {
-    padding: 12px 16px;
-    border-radius: 12px 12px 0 0;
+    padding: 16px 20px;
+    border-radius: 16px 16px 0 0;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   }
 
   .header h2 {
-    font-size: 16px;
+    font-size: 18px;
+    font-weight: 600;
   }
 
   .headerActions {
-    gap: 4px;
+    gap: 6px;
   }
 
   .editButton {
-    font-size: 14px;
-    padding: 4px;
+    font-size: 16px;
+    padding: 6px;
+    border-radius: 8px;
   }
 
   .closeButton {
-    font-size: 16px;
+    font-size: 18px;
+    padding: 6px;
   }
 
+  .content {
+    padding: 20px;
+    grid-template-columns: 1fr;
+    gap: 20px;
+  }
 
   .detailsSection {
     order: 1;
@@ -600,41 +576,54 @@
 
   .infoGrid {
     grid-template-columns: 1fr;
-    gap: 0.6rem;
+    gap: 1rem;
   }
 
   .infoItem {
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.8rem;
+    padding: 12px;
+    background: #f8fafc;
+    border-radius: 12px;
+    border: 1px solid #e2e8f0;
   }
 
   .infoItem label {
-    font-size: 0.8rem;
-    margin-bottom: 0.2rem;
+    font-size: 0.9rem;
+    margin-bottom: 0.4rem;
+    font-weight: 600;
+    color: #374151;
   }
 
   .infoItem span,
   .infoItem .editInput {
-    font-size: 0.8rem;
-    padding: 0.4rem;
+    font-size: 0.95rem;
+    padding: 0.6rem;
+    line-height: 1.4;
   }
 
   .editInput {
     font-size: 16px; /* Prevent zoom on iOS */
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
   }
 
   .editSelect {
     font-size: 16px; /* Prevent zoom on iOS */
-    padding: 0.4rem 0.8rem;
+    padding: 0.6rem 1rem;
+    border-radius: 8px;
+    border: 1px solid #d1d5db;
   }
 
   .footer {
-    padding: 8px 16px;
-    border-radius: 0 0 12px 12px;
+    padding: 16px 20px;
+    border-radius: 0 0 16px 16px;
+    background: #f8fafc;
+    border-top: 1px solid #e5e7eb;
   }
 
   .editFooter {
     flex-direction: column;
-    gap: 6px;
+    gap: 8px;
     width: 100%;
   }
 
@@ -643,75 +632,179 @@
   .deleteBtn {
     width: 100%;
     min-width: auto;
-    padding: 8px 16px;
-    font-size: 14px;
+    padding: 12px 20px;
+    font-size: 15px;
+    border-radius: 10px;
+    font-weight: 600;
   }
 
   .viewOnlyBadge {
-    font-size: 0.6rem;
-    padding: 0.2rem 0.4rem;
+    font-size: 0.7rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
   }
 
   /* Barcode buttons mobile */
+  .barcodeButton {
+    padding: 8px;
+    border-radius: 10px;
+  }
 
+  .barcodeIcon {
+    width: 22px;
+    height: 22px;
+  }
 
+  .barcodeActions {
+    gap: 8px;
+    margin-top: 12px;
+  }
+
+  /* Asset image mobile */
+  .assetImage {
+    width: 100%;
+    max-width: 200px;
+    height: auto;
+    margin: 0 auto;
+    display: block;
+    border-radius: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .popup {
+    width: 92%;
+    max-width: 380px;
+    margin: 8px auto;
+    max-height: 85vh;
+    border-radius: 14px;
+  }
+
+  .header {
+    padding: 14px 16px;
+    border-radius: 14px 14px 0 0;
+  }
+
+  .header h2 {
+    font-size: 16px;
+  }
+
+  .content {
+    padding: 16px;
+    gap: 16px;
+  }
+
+  .infoItem {
+    padding: 10px;
+    border-radius: 10px;
+    margin-bottom: 0.6rem;
+  }
+
+  .infoItem label {
+    font-size: 0.85rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .infoItem span,
+  .infoItem .editInput {
+    font-size: 0.9rem;
+    padding: 0.5rem;
+  }
+
+  .footer {
+    padding: 12px 16px;
+    border-radius: 0 0 14px 14px;
+  }
+
+  .saveBtn,
+  .cancelBtn,
+  .deleteBtn {
+    padding: 10px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+  }
+
+  /* Barcode buttons small mobile */
   .barcodeButton {
     padding: 6px;
+    border-radius: 8px;
   }
 
   .barcodeIcon {
     width: 20px;
     height: 20px;
   }
+
+  .barcodeActions {
+    gap: 6px;
+    margin-top: 10px;
+  }
+
+  /* Asset image small mobile */
+  .assetImage {
+    max-width: 180px;
+    border-radius: 10px;
+  }
 }
 
-@media (max-width: 480px) {
+@media (max-width: 360px) {
   .popup {
-    width: 85%;
-    max-width: 350px;
-    margin: 15px auto;
+    width: 95%;
+    max-width: 320px;
+    margin: 5px auto;
     max-height: 80vh;
   }
 
   .header {
-    padding: 10px 12px;
+    padding: 12px 14px;
   }
 
   .header h2 {
-    font-size: 14px;
+    font-size: 15px;
+  }
+
+  .content {
+    padding: 14px;
+    gap: 14px;
+  }
+
+  .infoItem {
+    padding: 8px;
+    margin-bottom: 0.5rem;
   }
 
   .infoItem label {
-    font-size: 0.75rem;
+    font-size: 0.8rem;
   }
 
   .infoItem span,
   .infoItem .editInput {
-    font-size: 0.75rem;
-    padding: 0.3rem;
+    font-size: 0.85rem;
+    padding: 0.4rem;
   }
 
   .footer {
-    padding: 8px 12px;
+    padding: 10px 14px;
   }
 
   .saveBtn,
   .cancelBtn,
   .deleteBtn {
-    padding: 8px 12px;
+    padding: 8px 14px;
     font-size: 13px;
   }
 
-  /* Barcode buttons small mobile */
-
-
   .barcodeButton {
-    padding: 4px;
+    padding: 5px;
   }
 
   .barcodeIcon {
     width: 18px;
     height: 18px;
+  }
+
+  .assetImage {
+    max-width: 160px;
   }
 }
 
@@ -838,6 +931,60 @@
   background: rgba(198, 157, 208, 0.3);
 }
 
+/* Print Labels Button */
+.printLabelsButton {
+  composes: barcodeButton;
+}
+
+.printLabelsButton::before {
+  background: rgba(34, 197, 94, 0.1);
+}
+
+.printLabelsButton:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+}
+
+.printLabelsButton:hover::before {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.printLabelsButton:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.3);
+}
+
+.printLabelsButton:active::before {
+  background: rgba(34, 197, 94, 0.3);
+}
+
+/* Print QR Code Labels Button */
+.printQRCodeLabelsButton {
+  composes: barcodeButton;
+}
+
+.printQRCodeLabelsButton::before {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.printQRCodeLabelsButton:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.printQRCodeLabelsButton:hover::before {
+  background: rgba(59, 130, 246, 0.2);
+}
+
+.printQRCodeLabelsButton:active {
+  transform: scale(1.05);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.printQRCodeLabelsButton:active::before {
+  background: rgba(59, 130, 246, 0.3);
+}
+
 /* Barcode Container */
 
 
@@ -950,4 +1097,182 @@
 .cameraButton img {
   filter: brightness(0) invert(1);
   /* make icon white */
+} 
+
+/* Mobile-specific improvements */
+@media (max-width: 768px) {
+  .overlay {
+    backdrop-filter: blur(8px);
+  }
+
+  .section {
+    background: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+
+  .section h3 {
+    font-size: 16px;
+    margin-bottom: 12px;
+    color: #1f2937;
+    font-weight: 600;
+  }
+
+  /* Status badge mobile */
+  .statusBadge {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+
+  /* Toggle switch mobile */
+  .toggleSwitch {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .toggleSwitch button {
+    padding: 8px 12px;
+    font-size: 0.85rem;
+    border-radius: 8px;
+    min-height: 36px;
+  }
+
+  /* Camera button mobile */
+  .cameraButton {
+    padding: 8px;
+    border-radius: 10px;
+    margin-top: 8px;
+  }
+
+  .cameraButton img {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* File input mobile */
+  .fileInput {
+    font-size: 14px;
+    padding: 8px;
+    border-radius: 8px;
+  }
+
+  .uploadButton {
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: 8px;
+    margin-top: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .section {
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+  }
+
+  .section h3 {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .statusBadge {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.6rem;
+    border-radius: 6px;
+  }
+
+  .toggleSwitch {
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .toggleSwitch button {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    min-height: 32px;
+  }
+
+  .cameraButton {
+    padding: 6px;
+    border-radius: 8px;
+    margin-top: 6px;
+  }
+
+  .cameraButton img {
+    width: 18px;
+    height: 18px;
+  }
+
+  .fileInput {
+    font-size: 13px;
+    padding: 6px;
+    border-radius: 6px;
+  }
+
+  .uploadButton {
+    padding: 6px 12px;
+    font-size: 13px;
+    border-radius: 6px;
+    margin-top: 6px;
+  }
+}
+
+@media (max-width: 360px) {
+  .section {
+    padding: 10px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+  }
+
+  .section h3 {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+
+  .statusBadge {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.5rem;
+    border-radius: 5px;
+  }
+
+  .toggleSwitch {
+    gap: 4px;
+    margin-top: 4px;
+  }
+
+  .toggleSwitch button {
+    padding: 5px 8px;
+    font-size: 0.75rem;
+    min-height: 28px;
+  }
+
+  .cameraButton {
+    padding: 5px;
+    border-radius: 6px;
+    margin-top: 4px;
+  }
+
+  .cameraButton img {
+    width: 16px;
+    height: 16px;
+  }
+
+  .fileInput {
+    font-size: 12px;
+    padding: 5px;
+    border-radius: 5px;
+  }
+
+  .uploadButton {
+    padding: 5px 10px;
+    font-size: 12px;
+    border-radius: 5px;
+    margin-top: 4px;
+  }
 } 

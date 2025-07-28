@@ -53,17 +53,16 @@ const AdminTable: React.FC<AdminTableProps> = ({
   }, []);
 
   // Filter data based on search term
-  const filteredData = data.filter(item =>
-    columns.some(col => {
-      // เฉพาะคอลัมน์ที่ต้องการค้นหา (เช่น name_th, name_en, description, created_at)
-      const value = item[col.key];
-      // created_at อาจต้องแปลงเป็น string ที่แสดงจริง
-      if (col.key === 'created_at' && value) {
-        return new Date(value).toLocaleDateString('en-US').toLowerCase().includes(propSearchTerm?.toLowerCase() || '');
-      }
-      return value && value.toString().toLowerCase().includes(propSearchTerm?.toLowerCase() || '');
-    })
-  );
+  const filteredData = data.filter(item => {
+    if (!propSearchTerm) return true;
+    
+    // สำหรับ status management: ค้นหาเฉพาะใน label (ชื่อสถานะ) และ value (รหัส)
+    const searchLower = propSearchTerm.toLowerCase();
+    return (
+      (item.label && item.label.toLowerCase().includes(searchLower)) ||
+      (item.value && item.value.toLowerCase().includes(searchLower))
+    );
+  });
 
   // Pagination
   const totalPages = Math.ceil(filteredData.length / itemsPerPage);
@@ -212,17 +211,21 @@ const AdminTable: React.FC<AdminTableProps> = ({
                         <span className={styles.cardLabel}>{column.label}:</span>
                         <span className={styles.cardValue}>
                           {(() => {
-                            // ถ้า column นี้มี render function ให้ wrap ด้วย highlightText ถ้าเป็นคอลัมน์ที่ค้นหาได้
+                            // สำหรับ status management: highlight เฉพาะใน label และ value
                             const value = item[column.key];
                             if (column.render) {
                               const rendered = column.render(value, item);
-                              // ถ้าเป็น string ให้ highlight ได้
-                              if (typeof rendered === 'string') {
+                              // ถ้าเป็น string และเป็นคอลัมน์ที่ค้นหาได้ ให้ highlight
+                              if (typeof rendered === 'string' && (column.key === 'label' || column.key === 'value')) {
                                 return highlightText(rendered, propSearchTerm || '');
                               }
                               return rendered;
                             }
-                            return highlightText(value || '-', propSearchTerm || '');
+                            // highlight เฉพาะใน label และ value
+                            if (column.key === 'label' || column.key === 'value') {
+                              return highlightText(value || '-', propSearchTerm || '');
+                            }
+                            return value || '-';
                           })()}
                         </span>
                       </div>
@@ -283,17 +286,21 @@ const AdminTable: React.FC<AdminTableProps> = ({
                       {columns.map((column) => (
                         <td key={column.key}>
                           {(() => {
-                            // ถ้า column นี้มี render function ให้ wrap ด้วย highlightText ถ้าเป็นคอลัมน์ที่ค้นหาได้
+                            // สำหรับ status management: highlight เฉพาะใน label และ value
                             const value = item[column.key];
                             if (column.render) {
                               const rendered = column.render(value, item);
-                              // ถ้าเป็น string ให้ highlight ได้
-                              if (typeof rendered === 'string') {
+                              // ถ้าเป็น string และเป็นคอลัมน์ที่ค้นหาได้ ให้ highlight
+                              if (typeof rendered === 'string' && (column.key === 'label' || column.key === 'value')) {
                                 return highlightText(rendered, propSearchTerm || '');
                               }
                               return rendered;
                             }
-                            return highlightText(value || '-', propSearchTerm || '');
+                            // highlight เฉพาะใน label และ value
+                            if (column.key === 'label' || column.key === 'value') {
+                              return highlightText(value || '-', propSearchTerm || '');
+                            }
+                            return value || '-';
                           })()}
                         </td>
                       ))}

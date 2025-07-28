@@ -1,0 +1,100 @@
+.statusBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4em 0.8em;
+  border-radius: 20px;
+  font-size: 0.85em;
+  font-weight: 600;
+  background: #f3f4f6;
+  color: #374151;
+  line-height: 1.2;
+  vertical-align: middle;
+  margin: 0 0.2em;
+  white-space: nowrap;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  text-transform: capitalize;
+  letter-spacing: 0.025em;
+}
+
+.statusBadge.compact {
+  padding: 0.25em 0.6em;
+  font-size: 0.8em;
+  border-radius: 16px;
+}
+
+/* Status-specific colors */
+.statusBadge.approved {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.statusBadge.pending {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.statusBadge.rejected {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.statusBadge.active {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.statusBadge.transferring {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.statusBadge.audited {
+  background: #dbeafe;
+  color: #1e40af;
+  border-color: #93c5fd;
+}
+
+.statusBadge.missing {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+}
+
+.statusBadge.broken {
+  background: #ffedd5;
+  color: #ea580c;
+  border-color: #fdba74;
+}
+
+.statusBadge.disposed {
+  background: #f3f4f6;
+  color: #6b7280;
+  border-color: #d1d5db;
+}
+
+/* Thai status colors */
+.statusBadge.สอบข้อเท็จจริง {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.statusBadge.ระหว่างทาง {
+  background: #fef3c7;
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+.statusBadge.เงินชดเชยที่ดินและอาสิน {
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fca5a5;
+} 

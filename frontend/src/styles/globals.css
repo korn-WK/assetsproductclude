@@ -1,0 +1,44 @@
+/* Print Modal Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Apply animations to print modal */
+.printModalOverlay {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.printModal {
+  animation: slideIn 0.3s ease-out;
+}
+
+.printModalAssetCard {
+  animation: fadeInUp 0.3s ease-out;
+} 

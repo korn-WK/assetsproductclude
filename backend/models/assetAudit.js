@@ -20,11 +20,12 @@ async function createAssetAudit({ asset_id, user_id, department_id, status, note
 // ดึง log การตรวจนับ (optionally filter by department_id, asset_id, confirmed)
 async function getAssetAudits({ department_id = null, asset_id = null, confirmed = null, limit = 100, offset = 0 } = {}) {
   let query = `
-    SELECT aa.*, a.asset_code, a.inventory_number, a.name as asset_name, a.department_id as asset_department_id, d.name_th as department_name, u.name as user_name
+    SELECT aa.*, a.asset_code, a.inventory_number, a.name as asset_name, a.image_url as image_url, a.department_id as asset_department_id, d.name_th as department_name, u.name as user_name, s.color as status_color
     FROM asset_audits aa
     JOIN assets a ON aa.asset_id = a.id
     JOIN users u ON aa.user_id = u.id
     JOIN departments d ON aa.department_id = d.id
+    LEFT JOIN statuses s ON aa.status COLLATE utf8mb4_unicode_ci = s.value COLLATE utf8mb4_unicode_ci
     WHERE 1=1
   `;
   const params = [];

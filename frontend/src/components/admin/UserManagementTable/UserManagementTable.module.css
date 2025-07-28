@@ -429,7 +429,9 @@
     background: #f8fafc;
     margin-bottom: 0;
     box-shadow: var(--shadow-xs);
-    appearance: none;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
     position: relative;
   }
   .exportButton, .addButton {
@@ -654,7 +656,9 @@
     background: #f8fafc;
     margin-bottom: 0;
     box-shadow: var(--shadow-xs);
-    appearance: none;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
     position: relative;
   }
   .mobileFilterDropdown:focus {
@@ -674,8 +678,9 @@
     width: 0.8em;
     height: 0.8em;
     pointer-events: none;
-    background: url('data:image/svg+xml;utf8,<svg fill="gray" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat center center;
+    background: url('data:image/svg+xml;utf8,<svg fill="%23666" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6"/></svg>') no-repeat center center;
     background-size: contain;
+    z-index: 1;
   }
   .mobileControls > div {
     display: flex;
@@ -719,6 +724,7 @@
   margin-top: 0 !important;
   border: 0.5px var(--border-color); /* บางมาก */
   padding: 0.7rem 1.2rem;
+  padding-right: 2.5rem;
   border-radius: 12px;
   font-size: 1rem;
   color: var(--text-color-primary);
@@ -728,11 +734,59 @@
   min-width: 140px;
   cursor: pointer;
   box-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  position: relative;
+}
+
+.dropdownWrapper {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+
+.caretIcon {
+  position: absolute;
+  right: 1.2em;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: #888;
+  font-size: 1.1em;
 }
 .dropdown:focus, .dropdown:hover {
   border: 1px solid var(--button-primary-bg) !important;
   background: #f8fafc;
   box-shadow: none !important;
+}
+
+/* Force arrow to show */
+.dropdown::-ms-expand {
+  display: none;
+}
+
+/* Additional arrow styling for better visibility */
+.dropdown::after {
+  content: '';
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 0.8em;
+  height: 0.8em;
+  pointer-events: none;
+  background: url('data:image/svg+xml;utf8,<svg fill="%23666" height="16" viewBox="0 0 24 24" width="16" xmlns="http://www.w3.org/2000/svg"><path d="M6 9l6 6 6-6"/></svg>') no-repeat center center;
+  background-size: contain;
+  z-index: 1;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: block !important;
+}
+
+/* Override any conflicting styles */
+select.dropdown {
+  background-image: none !important;
 } 
 
 .filterButtons {

@@ -23,25 +23,8 @@ import timezone from 'dayjs/plugin/timezone';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
-export interface Asset {
-  id: string;
-  asset_code: string;
-  inventory_number?: string;
-  serial_number?: string;
-  name: string;
-  description: string;
-  location_id?: string;
-  location?: string;
-  room?: string;
-  department: string;
-  department_id?: string;
-  owner: string;
-  status: string;
-  image_url: string | null;
-  acquired_date: string;
-  created_at?: string;
-  updated_at?: string;
-}
+import { Asset } from '../../../common/types/asset';
+import statusBadgeStyles from '../statusBadge.module.css';
 
 interface AssetDetailPopupProps {
   asset: Asset | null;
@@ -66,24 +49,51 @@ interface AuditLog {
 function useUserEditWindow() {
   const [canEditWindow, setCanEditWindow] = useState(true); // default: ให้แก้ไขได้
   const [checked, setChecked] = useState(false);
+  const [isInAuditPeriod, setIsInAuditPeriod] = useState(false);
 
   useEffect(() => {
+    console.log('🔍 Fetching user edit window settings...');
     fetch('/api/settings/user-edit-window')
       .then(res => res.json())
       .then(data => {
+        console.log('📅 Received settings data:', data);
         if (data.start_date && data.end_date) {
           const now = new Date();
           const start = new Date(data.start_date);
           const end = new Date(data.end_date);
-          setCanEditWindow(now >= start && now <= end);
+          const inAuditPeriod = now >= start && now <= end;
+          
+          console.log('⏰ Date comparison:', {
+            now: now.toISOString(),
+            start: start.toISOString(),
+            end: end.toISOString(),
+            inAuditPeriod
+          });
+          
+          setCanEditWindow(true); // ให้แก้ไขได้เสมอ (จะควบคุมการแสดงปุ่มใน canShowEditButton)
+          setIsInAuditPeriod(inAuditPeriod);
+          
+          // ถ้าไม่อยู่ในช่วงตรวจนับแล้ว ให้ล้างข้อมูล localStorage
+          if (!inAuditPeriod) {
+            localStorage.removeItem('editedAssetsInAuditPeriod');
+          }
         } else {
+          console.log('⚠️ No audit period dates found, allowing normal editing');
           setCanEditWindow(true); // ถ้าไม่มีข้อมูล ให้แก้ไขได้
+          setIsInAuditPeriod(false);
+          localStorage.removeItem('editedAssetsInAuditPeriod');
         }
+        setChecked(true);
+      })
+      .catch(error => {
+        console.error('❌ Error fetching user edit window:', error);
+        setCanEditWindow(true);
+        setIsInAuditPeriod(false);
         setChecked(true);
       });
   }, []);
 
-  return { canEditWindow, checked };
+  return { canEditWindow, checked, isInAuditPeriod };
 }
 
 const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false, showAuditHistory = false, showUserEdit = true }) => {
@@ -100,8 +110,32 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loadingAudit, setLoadingAudit] = useState(false);
   const { options: statusOptions } = useStatusOptions();
-  const { canEditWindow, checked } = useUserEditWindow();
+  const { canEditWindow, checked, isInAuditPeriod } = useUserEditWindow();
   const [showEditWindowNotice, setShowEditWindowNotice] = useState(false);
+  const [hideAuditNotice, setHideAuditNotice] = useState(false);
+  
+  // เพิ่ม state สำหรับเก็บข้อมูลว่า asset นี้เคย edit ในช่วงตรวจนับแล้วหรือยัง
+  const [hasEditedInAuditPeriod, setHasEditedInAuditPeriod] = useState(false);
+
+  // ตรวจสอบว่า asset นี้เคย edit ในช่วงตรวจนับแล้วหรือยัง
+  useEffect(() => {
+    console.log('🔍 Checking if asset has been edited during audit period:', {
+      assetId: asset?.id,
+      isInAuditPeriod,
+      hasEditedInAuditPeriod
+    });
+    
+    if (asset?.id && isInAuditPeriod) {
+      const editedAssets = JSON.parse(localStorage.getItem('editedAssetsInAuditPeriod') || '[]');
+      const hasEdited = editedAssets.includes(asset.id);
+      console.log('📝 Edited assets from localStorage:', editedAssets);
+      console.log('✅ Asset has been edited:', hasEdited);
+      setHasEditedInAuditPeriod(hasEdited);
+    } else {
+      console.log('🔄 Resetting hasEditedInAuditPeriod to false');
+      setHasEditedInAuditPeriod(false);
+    }
+  }, [asset?.id, isInAuditPeriod]);
 
   // Camera modal state
   const [showCamera, setShowCamera] = useState(false);
@@ -114,8 +148,22 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const [acquiredDate, setAcquiredDate] = useState<Date | null>(null);
   const now = new Date();
 
-  // ปรับ logic canEdit ให้ admin และ superadmin แก้ไขได้ตลอด
-  const isAdminOrSuperadmin = user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin';
+  // แยก role ให้ชัดเจน
+  const isSuperadmin = user?.role?.toLowerCase() === 'superadmin';
+  const isPureAdmin = user?.role?.toLowerCase() === 'admin' && !isSuperadmin;
+  const isRegularUser = !isSuperadmin && !isPureAdmin;
+  const isAdminOrSuperadmin = isSuperadmin || isPureAdmin;
+
+  // Auto-hide audit notice
+  useEffect(() => {
+    if (isInAuditPeriod && (isPureAdmin || isRegularUser) && !hideAuditNotice) {
+      const timer = setTimeout(() => {
+        setHideAuditNotice(true);
+      }, 2000); // 
+
+      return () => clearTimeout(timer);
+    }
+  }, [isInAuditPeriod, isPureAdmin, isRegularUser, hideAuditNotice]);
 
   // แจ้งเตือนถ้าอยู่นอกช่วงเวลา (และไม่ใช่ admin/superadmin)
   useEffect(() => {
@@ -126,11 +174,48 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     }
   }, [canEditWindow, checked, isAdminOrSuperadmin]);
 
-  // ปรับ logic canEdit
+  // ปรับ logic canEdit - ตรวจสอบว่าสามารถ edit ได้หรือไม่
   const canEdit = isAdminOrSuperadmin || (user && user.department_id !== null && canEditWindow);
+  
+  // Debug log สำหรับตรวจสอบ canEdit
+  console.log('🔍 canEdit calculation:', {
+    isSuperadmin,
+    isPureAdmin,
+    isRegularUser,
+    userDepartmentId: user?.department_id,
+    canEditWindow,
+    canEdit
+  });
+
+  // ตรวจสอบว่าสามารถแสดงปุ่ม edit ได้หรือไม่
+  const canShowEditButton = () => {
+    // superadmin edit ได้ตลอด
+    if (isSuperadmin) return true;
+    // admin (not superadmin)
+    if (isPureAdmin) {
+      if (!isInAuditPeriod) return true;
+      if (isInAuditPeriod && !hasEditedInAuditPeriod) return true;
+      return false;
+    }
+    // user
+    if (!isInAuditPeriod) return canEdit;
+    if (isInAuditPeriod && !hasEditedInAuditPeriod) return canEdit;
+    return false;
+  };
+
+  // Debug log สำหรับตรวจสอบ canShowEditButton
+  console.log('🔍 canShowEditButton calculation:', {
+    isSuperadmin,
+    isPureAdmin,
+    isRegularUser,
+    isInAuditPeriod,
+    hasEditedInAuditPeriod,
+    canEdit,
+    result: canShowEditButton()
+  });
 
   // Check if user can only view (user without department)
-  const canOnlyView = !isAdmin && user && user.department_id === null;
+  const canOnlyView = !isAdminOrSuperadmin && user && user.department_id === null;
 
   useEffect(() => {
     if (asset) {
@@ -224,7 +309,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         }
       }
       setAcquiredDate(dateObj);
-      setEditedAsset(prev => prev ? { ...prev, acquired_date: dateObj ? dateObj.toISOString().slice(0, 16).replace('T', ' ') : '' } : null);
+      setEditedAsset((prev: Asset | null) => prev ? { ...prev, acquired_date: dateObj ? dateObj.toISOString().slice(0, 16).replace('T', ' ') : '' } : null);
       return;
     }
     // For asset_code, only allow ASCII characters to prevent barcode generation issues
@@ -256,13 +341,13 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         });
       }
 
-      setEditedAsset(prev => prev ? { ...prev, [field]: limitedValue } : null);
+      setEditedAsset((prev: Asset | null) => prev ? { ...prev, [field]: limitedValue } : null);
     } else if (field === 'inventory_number') {
       // Limit inventory_number to 20 characters
       const limitedValue = value.toString().slice(0, 20);
-      setEditedAsset(prev => prev ? { ...prev, [field]: limitedValue } : null);
+      setEditedAsset((prev: Asset | null) => prev ? { ...prev, [field]: limitedValue } : null);
     } else {
-      setEditedAsset(prev => prev ? { ...prev, [field]: value } : null);
+      setEditedAsset((prev: Asset | null) => prev ? { ...prev, [field]: value } : null);
     }
   };
 
@@ -317,6 +402,503 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     printWindow.print();
   };
 
+    const handlePrintBarcodeLabels = () => {
+    if (!editedAsset.inventory_number) {
+      Swal.fire({
+        title: 'No Inventory Number',
+        text: 'Please enter an inventory number to generate barcode labels for printing.',
+        icon: 'warning'
+      });
+      return;
+    }
+
+    // Show options dialog for number of labels
+    Swal.fire({
+      title: 'Print Barcode Labels',
+      text: 'How many labels do you want to print? (1-30)',
+      input: 'number',
+      inputAttributes: {
+        min: '1',
+        max: '30',
+        step: '1'
+      },
+      inputValue: '27',
+      showCancelButton: true,
+      confirmButtonText: 'Print',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Please enter number of labels';
+        }
+        const num = parseInt(value);
+        if (isNaN(num) || num < 1 || num > 30) {
+          return 'Please enter a number between 1 and 30';
+        }
+      }
+    }).then((result) => {
+      if (result.isConfirmed && result.value) {
+        const numLabels = parseInt(result.value);
+        if (numLabels >= 1 && numLabels <= 30) {
+          printBarcodeLabels(numLabels);
+        }
+      }
+    });
+  };
+
+  const handlePrintQRCodeLabels = () => {
+    if (!editedAsset.inventory_number) {
+      Swal.fire({
+        title: 'No Inventory Number',
+        text: 'Please enter an inventory number to generate QR code labels for printing.',
+        icon: 'warning'
+      });
+      return;
+    }
+
+    // Show options dialog for number of labels
+    Swal.fire({
+      title: 'Print QR Code Labels',
+      text: 'How many labels do you want to print? (1-30)',
+      input: 'number',
+      inputAttributes: {
+        min: '1',
+        max: '30',
+        step: '1'
+      },
+      inputValue: '27',
+      showCancelButton: true,
+      confirmButtonText: 'Print',
+      cancelButtonText: 'Cancel',
+      inputValidator: (value) => {
+        if (!value) {
+          return 'Please enter number of labels';
+        }
+        const num = parseInt(value);
+        if (isNaN(num) || num < 1 || num > 30) {
+          return 'Please enter a number between 1 and 30';
+        }
+      }
+    }).then(async (result) => {
+      if (result.isConfirmed && result.value) {
+        const numLabels = parseInt(result.value);
+        if (numLabels >= 1 && numLabels <= 30) {
+          await printQRCodeLabels(numLabels);
+        }
+      }
+    });
+  };
+
+  const printBarcodeLabels = (numLabels: number) => {
+    if (!editedAsset?.inventory_number) {
+      console.error('No inventory number available');
+      return;
+    }
+
+    const barcodeText = editedAsset.inventory_number;
+    console.log('Generating barcode for:', barcodeText);
+
+    // Create a temporary SVG element to generate barcode
+    const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    tempSvg.setAttribute('width', '200');
+    tempSvg.setAttribute('height', '50');
+    tempSvg.style.display = 'none';
+    document.body.appendChild(tempSvg);
+    
+    // Generate barcode
+    const success = generateBarcode(tempSvg, barcodeText);
+    if (!success) {
+      console.error('Failed to generate barcode');
+      document.body.removeChild(tempSvg);
+      return;
+    }
+    
+    // Get the barcode SVG content
+    const barcodeSvg = tempSvg.innerHTML;
+    console.log('Generated barcode SVG:', barcodeSvg);
+    document.body.removeChild(tempSvg);
+
+    // Create print window with grid layout
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const assetName = editedAsset.name || 'Asset';
+    const barcodeNumber = editedAsset.inventory_number;
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Barcode Labels - ${assetName}</title>
+        <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.12.1/dist/JsBarcode.all.min.js"></script>
+        <style>
+          @media print {
+            body { margin: 0; padding: 5px; }
+            .label-grid { page-break-inside: avoid; }
+            .label { page-break-inside: avoid; }
+          }
+          
+          body {
+            font-family: 'THSarabun', Arial, sans-serif;
+            margin: 0;
+            padding: 5px;
+            background: white;
+          }
+          
+          .label-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            max-width: 210mm;
+            margin: 0 auto;
+            justify-items: center;
+          }
+          
+          /* For labels that don't fill the last row completely */
+          .label-grid:has(.label:nth-child(3n+1):last-child) {
+            justify-items: start;
+          }
+          
+          .label-grid:has(.label:nth-child(3n+2):last-child) {
+            justify-items: start;
+          }
+          
+          .label {
+            border: 1px solid #000;
+            padding: 5px;
+            text-align: center;
+            background: white;
+            min-height: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+          }
+          
+          .asset-name {
+            font-size: 10px;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 3px;
+            line-height: 1.1;
+            max-width: 100%;
+            word-wrap: break-word;
+          }
+          
+          .barcode-container {
+            margin: 2px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+          }
+          
+          .barcode-number {
+            font-size: 8px;
+            color: #000;
+            margin-top: 2px;
+            font-family: monospace;
+          }
+          
+          svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+          }
+          
+          @media print {
+            .label {
+              border: 1px solid #000;
+              page-break-inside: avoid;
+            }
+          }
+        </style>
+      </head>
+      <body>
+
+        <div class="label-grid">
+    `;
+
+    // Generate labels based on selected number
+    let labelsHtml = '';
+    for (let i = 0; i < numLabels; i++) {
+      labelsHtml += `
+        <div class="label">
+          <div class="asset-name">${assetName}</div>
+          <div class="barcode-container">
+            <svg width="120" height="30" xmlns="http://www.w3.org/2000/svg" id="barcode-${i}"></svg>
+          </div>
+          <div class="barcode-number">${barcodeNumber}</div>
+        </div>
+      `;
+    }
+
+    const fullContent = printContent + labelsHtml + `
+        </div>
+        <script>
+          window.onload = function() {
+            console.log('Print window loaded');
+            
+            // Generate barcodes for all elements
+            setTimeout(function() {
+              console.log('Generating barcodes...');
+              
+              const barcodeElements = document.querySelectorAll('[id^="barcode-"]');
+              console.log('Found barcode elements:', barcodeElements.length);
+              
+              barcodeElements.forEach((element, index) => {
+                console.log('Generating barcode for element', index);
+                try {
+                  JsBarcode(element, '${barcodeNumber}', {
+                    width: 1.2,
+                    height: 30,
+                    fontSize: 8,
+                    marginTop: 0,
+                    displayValue: false,
+                    background: '#fff',
+                    lineColor: '#000',
+                    format: 'CODE128'
+                  });
+                  console.log('Successfully generated barcode for element', index);
+                } catch (error) {
+                  console.error('Failed to generate barcode for element', index, ':', error);
+                }
+              });
+              
+              setTimeout(function() {
+                console.log('Printing...');
+                window.print();
+                setTimeout(function() {
+                  window.close();
+                }, 500);
+              }, 1000);
+            }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(fullContent);
+    printWindow.document.close();
+  };
+
+  const printQRCodeLabels = async (numLabels: number) => {
+    if (!editedAsset?.inventory_number) {
+      console.error('No inventory number available');
+      return;
+    }
+
+    const qrText = editedAsset.inventory_number;
+    console.log('Generating QR code for:', qrText);
+
+    // Create print window with grid layout
+    const printWindow = window.open('', '', 'width=800,height=600');
+    if (!printWindow) return;
+
+    const assetName = editedAsset.name || 'Asset';
+    const qrNumber = editedAsset.inventory_number;
+
+    // Create a temporary div to generate QR code using qrcode.react
+    const tempDiv = document.createElement('div');
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.left = '-9999px';
+    tempDiv.style.top = '-9999px';
+    document.body.appendChild(tempDiv);
+    
+    console.log('Starting QR code generation for:', qrNumber);
+
+    // Import and use qrcode.react
+    const { QRCodeSVG } = await import('qrcode.react');
+    const React = await import('react');
+    const ReactDOM = await import('react-dom/client');
+
+    // Create root and render QR code
+    const root = ReactDOM.createRoot(tempDiv);
+    root.render(
+      React.createElement(QRCodeSVG, {
+        value: qrNumber,
+        size: 80,
+        level: 'M',
+        includeMargin: false,
+        bgColor: '#FFFFFF',
+        fgColor: '#000000'
+      })
+    );
+
+    // Wait a bit for rendering
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // Get the SVG content
+    console.log('Temp div content:', tempDiv.innerHTML);
+    const svgElement = tempDiv.querySelector('svg');
+    let qrSvg = '';
+    if (svgElement) {
+      qrSvg = svgElement.outerHTML;
+      console.log('QR Code SVG generated successfully');
+    } else {
+      console.log('SVG element not found, using fallback pattern');
+      // Fallback to simple pattern if SVG not found
+      const size = 80;
+      const cellSize = 4;
+      const cells = size / cellSize;
+      
+      qrSvg = `<svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">`;
+      qrSvg += `<rect width="${size}" height="${size}" fill="white"/>`;
+      
+      // Draw border squares (like real QR code)
+      qrSvg += `<rect x="0" y="0" width="20" height="20" fill="black"/>`;
+      qrSvg += `<rect x="${size-20}" y="0" width="20" height="20" fill="black"/>`;
+      qrSvg += `<rect x="0" y="${size-20}" width="20" height="20" fill="black"/>`;
+      
+      // Draw inner pattern based on text
+      for (let i = 5; i < cells - 5; i++) {
+        for (let j = 5; j < cells - 5; j++) {
+          const charCode = qrNumber.charCodeAt((i * cells + j) % qrNumber.length);
+          if (charCode % 3 === 0) {
+            qrSvg += `<rect x="${i * cellSize}" y="${j * cellSize}" width="${cellSize}" height="${cellSize}" fill="black"/>`;
+          }
+        }
+      }
+      
+      qrSvg += `</svg>`;
+    }
+    
+    // Clean up
+    document.body.removeChild(tempDiv);
+
+    const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>QR Code Labels - ${assetName}</title>
+        <style>
+          @media print {
+            body { margin: 0; padding: 5px; }
+            .label-grid { page-break-inside: avoid; }
+            .label { page-break-inside: avoid; }
+          }
+          
+          body {
+            font-family: 'THSarabun', Arial, sans-serif;
+            margin: 0;
+            padding: 5px;
+            background: white;
+          }
+          
+          .label-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: auto;
+            gap: 5px;
+            max-width: 210mm;
+            margin: 0 auto;
+            justify-items: center;
+            align-items: start;
+            width: 100%;
+          }
+          
+          /* For labels that don't fill the last row completely */
+          .label-grid:has(.label:nth-child(3n+1):last-child) {
+            justify-items: start;
+          }
+          
+          .label-grid:has(.label:nth-child(3n+2):last-child) {
+            justify-items: start;
+          }
+          
+          .label {
+            border: 1px solid #000;
+            padding: 8px;
+            text-align: center;
+            background: white;
+            min-height: 120px;
+            height: 120px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            gap: 5px;
+            width: 100%;
+            max-width: 100%;
+          }
+          
+          .asset-name {
+            font-size: 10px;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 3px;
+            line-height: 1.1;
+            max-width: 100%;
+            word-wrap: break-word;
+          }
+          
+          .qr-container {
+            margin: 2px 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            width: 100%;
+            height: 100%;
+            min-height: 60px;
+          }
+          
+          svg {
+            max-width: 100%;
+            height: auto;
+            display: block;
+            width: 80px;
+            height: 80px;
+          }
+          
+          @media print {
+            .label {
+              border: 1px solid #000;
+              page-break-inside: avoid;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="label-grid">
+    `;
+
+    // Generate labels based on selected number with embedded SVG
+    let labelsHtml = '';
+    for (let i = 0; i < numLabels; i++) {
+      labelsHtml += `
+        <div class="label">
+          <div class="asset-name">${assetName}</div>
+          <div class="qr-container">
+            ${qrSvg}
+          </div>
+        </div>
+      `;
+    }
+
+    const fullContent = printContent + labelsHtml + `
+        </div>
+        <script>
+          // Print immediately when loaded
+          window.onload = function() {
+            setTimeout(function() {
+              window.print();
+              setTimeout(function() {
+                window.close();
+              }, 500);
+            }, 500);
+          };
+        </script>
+      </body>
+      </html>
+    `;
+
+    printWindow.document.write(fullContent);
+    printWindow.document.close();
+    printWindow.document.close();
+  };
+
   const handleBarcodeImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -335,7 +917,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const qr = jsQR(imageData.data, imageData.width, imageData.height);
         if (qr && qr.data) {
-          setEditedAsset(prev => prev ? { ...prev, inventory_number: qr.data } : null);
+          setEditedAsset((prev: Asset | null) => prev ? { ...prev, inventory_number: qr.data } : null);
           URL.revokeObjectURL(fileUrl);
           return;
         }
@@ -346,7 +928,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       const res = await fetch('/api/barcode/decode', { method: 'POST', body: formData });
       const data = await res.json();
       if (data.code) {
-        setEditedAsset(prev => prev ? { ...prev, inventory_number: data.code } : null);
+        setEditedAsset((prev: Asset | null) => prev ? { ...prev, inventory_number: data.code } : null);
       } else {
         alert('Barcode or QR code not detected');
       }
@@ -473,6 +1055,18 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       if (response.ok) {
         const resultAsset = await response.json();
         onUpdate?.(resultAsset);
+        
+        // ถ้าเคย edit แล้วในช่วงตรวจนับ ให้เปลี่ยนสถานะ
+        if (isInAuditPeriod && !hasEditedInAuditPeriod) {
+          setHasEditedInAuditPeriod(true);
+          // บันทึกลง localStorage
+          const editedAssets = JSON.parse(localStorage.getItem('editedAssetsInAuditPeriod') || '[]');
+          if (!editedAssets.includes(editedAsset.id)) {
+            editedAssets.push(editedAsset.id);
+            localStorage.setItem('editedAssetsInAuditPeriod', JSON.stringify(editedAssets));
+          }
+        }
+        
         onClose(); // ปิด popup ทันที
         Swal.fire({
           title: isCreating ? 'Created!' : 'Saved!',
@@ -570,7 +1164,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
     // Fields that should be read-only for non-admin users
     const readOnlyFields = ['owner', 'created_at', 'updated_at'];
-    const isReadOnlyForUser = !isAdmin && readOnlyFields.includes(field);
+    const isReadOnlyForUser = !isAdminOrSuperadmin && readOnlyFields.includes(field as string);
 
     // Helper to render label with asterisk if required
     const renderLabel = () => {
@@ -679,8 +1273,25 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           </div>
         );
       } else if (field === 'department') {
-        // เฉพาะ admin หรือ superadmin หรือ isCreating เท่านั้นที่แก้ไขได้
-        const canEditDepartment = (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin' || isCreating);
+        // ปรับ logic: superadmin เปิดเสมอ, admin เปิดเฉพาะนอก audit, user ปิดเสมอ
+        let canEditDepartment = false;
+        if (isSuperadmin || isCreating) {
+          canEditDepartment = true;
+        } else if (isPureAdmin) {
+          canEditDepartment = !isInAuditPeriod;
+        }
+        
+        // Debug log สำหรับตรวจสอบ department field editability
+        console.log('🔍 Department field editability:', {
+          field,
+          isSuperadmin,
+          isPureAdmin,
+          isRegularUser,
+          isCreating,
+          isInAuditPeriod,
+          canEditDepartment
+        });
+        
         if (canEditDepartment) {
           return (
             <div className={styles.infoItem}>
@@ -701,7 +1312,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             </div>
           );
         } else {
-          // user: read-only
+          // read-only
           return (
             <div className={styles.infoItem}>
               <label>{renderLabel()}</label>
@@ -885,38 +1496,112 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         <button
           onClick={() => {
             if (isBarcode) {
-              // Download barcode image (SVG as PNG)
-              if (barcodeRef.current) {
-                const svg = barcodeRef.current;
-                const serializer = new XMLSerializer();
-                const svgString = serializer.serializeToString(svg);
+              // Download barcode with label layout
+              if (barcodeRef.current && codeValue) {
+                // Create canvas with label layout (high resolution)
                 const canvas = document.createElement('canvas');
-                canvas.width = svg.width.baseVal.value;
-                canvas.height = svg.height.baseVal.value;
+                const scale = 2; // Increase resolution
+                canvas.width = 220 * scale;
+                canvas.height = 120 * scale;
                 const ctx = canvas.getContext('2d');
-                const img = new window.Image();
-                const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
-                const url = URL.createObjectURL(svgBlob);
-                img.onload = function() {
-                  ctx && ctx.drawImage(img, 0, 0);
-                  URL.revokeObjectURL(url);
+                
+                if (ctx) {
+                  // Scale context for high resolution
+                  ctx.scale(scale, scale);
+                  // Set background
+                  ctx.fillStyle = 'white';
+                  ctx.fillRect(0, 0, canvas.width, canvas.height);
+                  
+                  // Draw border
+                  ctx.strokeStyle = 'black';
+                  ctx.lineWidth = 1;
+                  ctx.strokeRect(0, 0, canvas.width, canvas.height);
+                  
+                  // Draw asset name
+                  ctx.fillStyle = 'black';
+                  ctx.font = 'bold 12px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.fillText(editedAsset.name || 'Asset', 110, 20);
+                  
+                  // Create temporary SVG for barcode
+                  const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                  tempSvg.setAttribute('width', '200');
+                  tempSvg.setAttribute('height', '60');
+                  
+                  // Generate barcode in temporary SVG
+                  const success = generateBarcode(tempSvg, codeValue, {
+                    width: 3.0,
+                    height: 60,
+                    fontSize: 14,
+                    marginTop: 0,
+                    displayValue: false,
+                    background: '#fff',
+                    lineColor: '#000'
+                  });
+                  
+                  if (success) {
+                    // Convert SVG to image
+                    const svgString = tempSvg.outerHTML;
+                    const svgBlob = new Blob([svgString], {type: 'image/svg+xml;charset=utf-8'});
+                    const url = URL.createObjectURL(svgBlob);
+                    const img = new window.Image();
+                    img.onload = function() {
+                      ctx.drawImage(img, (canvas.width / scale - 200) / 2, 30, 200, 60);
+                      URL.revokeObjectURL(url);
+                      
+                      // Draw inventory number
+                      ctx.font = '12px Arial';
+                      ctx.textAlign = 'center';
+                      ctx.fillText(codeValue || '', 110, 100);
+                      
+                      // Download
+                      const pngUrl = canvas.toDataURL('image/png');
+                      const a = document.createElement('a');
+                      a.href = pngUrl;
+                      a.download = `barcode-${codeValue}.png`;
+                      a.click();
+                    };
+                    img.src = url;
+                  } else {
+                    console.error('Failed to generate barcode for download');
+                  }
+                }
+              }
+            } else {
+              // Download QR code with label layout
+              const canvas = document.createElement('canvas');
+              canvas.width = 200;
+              canvas.height = 120;
+              const ctx = canvas.getContext('2d');
+              
+              if (ctx) {
+                // Set background
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw border
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw asset name
+                ctx.fillStyle = 'black';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(editedAsset.name || 'Asset', canvas.width / 2, 20);
+                
+                // Get QR code canvas and draw it
+                const qrCanvas = document.querySelector('canvas');
+                if (qrCanvas) {
+                  ctx.drawImage(qrCanvas, (canvas.width - 80) / 2, 30, 80, 80);
+                  
+                  // Download
                   const pngUrl = canvas.toDataURL('image/png');
                   const a = document.createElement('a');
                   a.href = pngUrl;
-                  a.download = `barcode-${codeValue}.png`;
+                  a.download = `qrcode-${codeValue}.png`;
                   a.click();
-                };
-                img.src = url;
-              }
-            } else {
-              // Download QR code (canvas)
-              const canvas = document.querySelector('canvas');
-              if (canvas) {
-                const url = canvas.toDataURL('image/png');
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `qrcode-${codeValue}.png`;
-                a.click();
+                }
               }
             }
           }}
@@ -926,30 +1611,31 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         >
           <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
         </button>
-        {/* Print */}
-        <button
-          onClick={() => {
-            if (isBarcode) {
-              handlePrintBarcode();
-            } else {
-              const canvas = document.querySelector('canvas');
-              if (canvas) {
-                const dataUrl = canvas.toDataURL('image/png');
-                const printWindow = window.open('', '', 'width=400,height=400');
-                if (printWindow) {
-                  printWindow.document.write(`<img src='${dataUrl}' style='width:200px;height:200px;' />`);
-                  printWindow.document.close();
-                  printWindow.print();
-                }
-              }
-            }
-          }}
-          title={isBarcode ? "Print Barcode" : "Print QR Code"}
-          className={styles.printButton}
-          disabled={!codeValue}
-        >
-          <img src="/print.png" alt="Print" width={24} height={24} className={styles.barcodeIcon} />
-        </button>
+
+        {/* Print Labels - แสดงเฉพาะเมื่อเป็น Barcode */}
+        {isBarcode && (
+          <button
+            onClick={handlePrintBarcodeLabels}
+            title="Print Barcode Labels"
+            className={styles.printLabelsButton}
+            disabled={!codeValue}
+          >
+            <img src="/print.png" alt="Print Labels" width={24} height={24} className={styles.barcodeIcon} />
+          </button>
+        )}
+
+        {/* Print QR Code Labels - แสดงเฉพาะเมื่อเป็น QR Code */}
+        {!isBarcode && (
+          <button
+            onClick={handlePrintQRCodeLabels}
+            title="Print QR Code Labels"
+            className={styles.printQRCodeLabelsButton}
+            disabled={!codeValue}
+          >
+            <img src="/print.png" alt="Print QR Labels" width={24} height={24} className={styles.barcodeIcon} />
+          </button>
+        )}
+
         {/* Upload (แสดงทั้งสองโหมด) */}
         {isEditing && (
           <label
@@ -984,11 +1670,31 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           </div>
         </div>
       )}
+      {isInAuditPeriod && (isPureAdmin || isRegularUser) && !hideAuditNotice && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 1000, maxWidth: 350 }} onClick={(e) => e.stopPropagation()}>
+          <div className={bannerStyles.viewOnlyNotice} style={{ position: 'static', marginTop: 0, maxWidth: 350 }}>
+            <div className={bannerStyles.viewOnlyNoticeContent}>
+              <button className={bannerStyles.noticeCloseBtn} onClick={() => setHideAuditNotice(true)} title="Audit period notice">
+                <AiOutlineClose />
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <AiOutlineCalendar style={{ color: '#10b981', fontSize: 32 }} />
+                <div>
+                  <div style={{ fontWeight: 700, color: '#065f46', fontSize: 16 }}>ช่วงเวลาตรวจนับ</div>
+                  <div style={{ color: '#065f46', fontSize: 15 }}>
+                    {hasEditedInAuditPeriod ? 'คุณได้แก้ไขข้อมูลแล้ว' : 'คุณสามารถแก้ไขได้ครั้งเดียวเท่านั้น'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className={styles.popup} onClick={(e) => e.stopPropagation()}>
         <div className={styles.header}>
           <h2>{headerText}</h2>
           <div className={styles.headerActions}>
-            {!isEditing && canEdit && showUserEdit !== false && (
+            {!isEditing && canShowEditButton() && showUserEdit !== false && (
               <button className={styles.editButton} onClick={() => setIsEditing(true)} title="Edit">
                 <AiOutlineEdit />
               </button>
@@ -996,6 +1702,11 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             {canOnlyView && (
               <div className={styles.viewOnlyBadge} title="View Only - No Department Assigned">
                 View Only
+              </div>
+            )}
+            {isInAuditPeriod && hasEditedInAuditPeriod && (isPureAdmin || isRegularUser) && (
+              <div className={styles.auditEditBadge} title="Already edited during audit period">
+                ✓ Edited
               </div>
             )}
             <button className={styles.closeButton} onClick={handleClose} title="Close">
@@ -1009,7 +1720,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             {isEditing ? (
               <div className={styles.imageUpload}>
                 <Image
-                  src={imagePreview || editedAsset.image_url || "/file.svg"}
+                  src={imagePreview || editedAsset.image_url || "/522733693_1501063091226628_5759500172344140771_n.jpg"}
                   alt={editedAsset.name}
                   width={200}
                   height={200}
@@ -1033,14 +1744,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
               </div>
             ) : (
               <Image
-                src={editedAsset.image_url || "/file.svg"}
+                src={editedAsset.image_url || "/522733693_1501063091226628_5759500172344140771_n.jpg"}
                 alt={editedAsset.name}
                 width={200}
                 height={200}
                 className={styles.assetImage} style={{}}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = '/file.svg';
+                  target.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
                 }}
               />
             )}
@@ -1070,7 +1781,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
                 <div style={{
                   position: 'relative',
                   width: '100%',
-                  height: 36,
+                  height: 70,
                   marginTop: '3rem', //ปรับบาร์โค้ดพร้อมชื่อassets
                   display: 'flex',
                   alignItems: 'center',
@@ -1100,7 +1811,20 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',paddingTop: '1.2rem', marginBottom: '-2.2rem' }}>
                   {editedAsset.inventory_number ? (
-                    <QRCodeCanvas value={editedAsset.inventory_number} size={100} level="M" includeMargin={true} />
+                    <>
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#333',
+                        marginBottom: '8px',
+                        textAlign: 'center',
+                        fontWeight: 'bold',
+                        wordWrap: 'break-word',
+                        lineHeight: '1.2'
+                      }}>
+                        {editedAsset.name}
+                      </div>
+                      <QRCodeCanvas value={editedAsset.inventory_number} size={100} level="M" includeMargin={true} />
+                    </>
                   ) : (
                     <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px', textAlign: 'center' }}>
                       No Inventory Number
@@ -1216,7 +1940,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             </div>
           ) : (
             <>
-              {isAdmin && onDelete && !isCreating ? (
+              {isAdminOrSuperadmin && onDelete && !isCreating ? (
                 <button
                   className={styles.deleteBtn}
                   onClick={handleDelete}

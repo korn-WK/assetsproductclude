@@ -29,6 +29,7 @@ exports.getAssetTransfers = async (req, res) => {
   const [rows] = await pool.query(`
     SELECT t.*, 
       a.name as asset_name, 
+      a.image_url as image_url,
       fd.name_th as from_department_name, 
       td.name_th as to_department_name, 
       u1.name as requested_by_name, 
@@ -77,4 +78,31 @@ exports.rejectAssetTransfer = async (req, res) => {
     return res.status(500).json({ error: 'Failed to update transfer status' });
   }
   res.json({ success: true });
+};
+
+// GET /api/asset-transfers/history/:assetId
+exports.getAssetTransferHistory = async (req, res) => {
+  const { assetId } = req.params;
+  
+  try {
+    const [rows] = await pool.query(`
+      SELECT t.*, 
+        fd.name_th as from_department_name, 
+        td.name_th as to_department_name, 
+        u1.name as requested_by_name, 
+        u2.name as approved_by_name
+      FROM asset_transfers t
+      LEFT JOIN departments fd ON t.from_department_id = fd.id
+      LEFT JOIN departments td ON t.to_department_id = td.id
+      LEFT JOIN users u1 ON t.requested_by = u1.id
+      LEFT JOIN users u2 ON t.approved_by = u2.id
+      WHERE t.asset_id = ?
+      ORDER BY t.requested_at DESC
+    `, [assetId]);
+    
+    res.json(rows);
+  } catch (error) {
+    console.error('Error fetching asset transfer history:', error);
+    res.status(500).json({ error: 'Failed to fetch transfer history' });
+  }
 }; 

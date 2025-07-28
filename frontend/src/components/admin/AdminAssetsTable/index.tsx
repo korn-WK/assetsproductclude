@@ -12,44 +12,19 @@ import { useDropdown } from '../../../contexts/DropdownContext';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import { useStatusOptions } from '../../../lib/statusOptions';
 import ExcelJS from 'exceljs';
-
-interface Asset {
-  id: string;
-  asset_code: string;
-  inventory_number: string;
-  name: string;
-  description: string;
-  location: string;
-  room: string;
-  department: string;
-  owner_id?: string;
-  owner: string;
-  status: string;
-  image_url: string | null;
-  acquired_date: string;
-  created_at: string;
-  updated_at?: string;
-  has_pending_audit?: boolean;
-  pending_status?: string | null;
-  has_pending_transfer?: boolean;
-}
+import { highlightText } from '../../common/highlightText';
+import { Asset } from '../../../common/types/asset';
+import { printBulkLabels } from '../../../common/printUtils';
+import statusBadgeStyles from '../../common/statusBadge.module.css';
 
 interface AdminAssetsTableProps {
   onScanBarcodeClick?: () => void;
   searchTerm: string;
   onSearch: (value: string) => void;
+  initialStatusFilter?: string; // Added prop
 }
 
-// ฟังก์ชันสำหรับ highlight ข้อความที่ตรงกับ searchTerm
-function highlightText(text: string, keyword: string) {
-  if (!keyword) return text;
-  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  return text.split(regex).map((part, i) =>
-    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
-  );
-}
-
-const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick, searchTerm, onSearch }) => {
+const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick, searchTerm, onSearch, initialStatusFilter }) => {
   const { assets, loading, error, fetchAssets } = useAssets();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -70,6 +45,24 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
   const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: any }>({});
+  
+  // Multi-select states
+  const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
+  const [showPrintModal, setShowPrintModal] = useState(false);
+  const [printType, setPrintType] = useState<'barcode' | 'qrcode'>('barcode');
+
+  // Handle initialStatusFilter prop
+  useEffect(() => {
+    console.log('AdminAssetsTable: initialStatusFilter received:', initialStatusFilter);
+    if (initialStatusFilter) {
+      console.log('AdminAssetsTable: Setting activeFilter to:', initialStatusFilter);
+      setActiveFilter(initialStatusFilter);
+    }
+  }, [initialStatusFilter]);
+
+  useEffect(() => {
+    console.log('AdminAssetsTable: activeFilter changed to:', activeFilter);
+  }, [activeFilter]);
 
   // Fetch assets from context when the component mounts
   useEffect(() => {
@@ -152,7 +145,11 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
   });
 
   const filteredAssets = patchedAssets.filter(asset => {
+    // Since Dashboard now passes Thai status values directly, we can simplify the matching
     const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
+    
+    console.log('AdminAssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
+    
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
     // Filter by createdAt (ช่วงวันที่)
     let matchesDate = true;
@@ -169,8 +166,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
       asset.asset_code.toLowerCase().includes(q) ||
       (asset.inventory_number || '').toLowerCase().includes(q) ||
       asset.name.toLowerCase().includes(q) ||
-      asset.department.toLowerCase().includes(q) ||
-      asset.location.toLowerCase().includes(q);
+      (asset.department?.toLowerCase() || '').includes(q) ||
+              (asset.location?.toLowerCase() || '').includes(q);
     return matchesStatus && matchesDepartment && matchesDate && matchesSearch;
   });
 
@@ -344,7 +341,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
         asset.description || '-',
         asset.location && asset.room ? `${asset.location} ${asset.room}`.trim() : (asset.location || asset.room || '-'),
         asset.department || '-',
-        statusLabels[asset.status] || asset.status || '-',
+        statusLabels[asset.status || ''] || asset.status || '-',
         asset.acquired_date || '-',
         asset.created_at || '-',
       ]);
@@ -386,6 +383,54 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     a.download = 'assets_management.xlsx';
     a.click();
     window.URL.revokeObjectURL(url);
+  };
+
+  // Multi-select functions
+  const handleSelectAsset = (assetId: string) => {
+    const newSelected = new Set(selectedAssets);
+    if (newSelected.has(assetId)) {
+      newSelected.delete(assetId);
+    } else {
+      newSelected.add(assetId);
+    }
+    setSelectedAssets(newSelected);
+  };
+
+  const handleSelectAll = () => {
+    // Check if all filtered assets are selected
+    const allFilteredAssetIds = new Set(filteredAssets.map(asset => asset.id));
+    const allSelected = filteredAssets.every(asset => selectedAssets.has(asset.id));
+    
+    if (allSelected) {
+      // Deselect all filtered assets
+      const newSelectedAssets = new Set(selectedAssets);
+      filteredAssets.forEach(asset => newSelectedAssets.delete(asset.id));
+      setSelectedAssets(newSelectedAssets);
+    } else {
+      // Select all filtered assets
+      setSelectedAssets(new Set([...selectedAssets, ...filteredAssets.map(asset => asset.id)]));
+    }
+  };
+
+  const handlePrintSelected = () => {
+    if (selectedAssets.size === 0) {
+      Swal.fire({
+        title: 'No Assets Selected',
+        text: 'Please select at least one asset to print.',
+        icon: 'warning'
+      });
+      return;
+    }
+    setShowPrintModal(true);
+  };
+
+  const handlePrintBulk = async () => {
+    const selectedAssetList = filteredAssets.filter(asset => selectedAssets.has(asset.id));
+    await printBulkLabels({
+      printType,
+      selectedAssets: selectedAssetList
+    });
+    setShowPrintModal(false);
   };
 
   if (loading) {
@@ -503,10 +548,29 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
               </div>
             </div>
             {/* Row 2: export, add new, camera */}
+            {selectedAssets.size > 0 && (
+              <div style={{ 
+                marginBottom: '8px', 
+                fontSize: '11px', 
+                color: '#6b7280',
+                textAlign: 'center',
+                fontStyle: 'italic',
+                padding: '0 0.5rem'
+              }}>
+                {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected across all pages
+              </div>
+            )}
             <div className={styles.mobileActionRow}>
               <button className={styles.exportXlsxButtonSmall + ' ' + styles.mobileFull} onClick={handleExportXLSX}>
                 <AiOutlineDownload style={{ fontSize: '1.3em' }} />
                 Export
+              </button>
+                            <button
+                className={styles.printButtonSmall + ' ' + styles.mobileFull}
+                onClick={handlePrintSelected}
+                disabled={selectedAssets.size === 0}
+              >
+                Print ({selectedAssets.size})
               </button>
               <button
                 className={styles.createButton + ' ' + styles.mobileFull}
@@ -538,24 +602,72 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
             </div>
             <div className={styles.assetCardList}>
               {currentAssets.map(asset => (
-                <div className={styles.assetCard} key={asset.id} onClick={() => handleAssetClick(asset)}>
-                  <img src={asset.image_url || '/file.svg'} alt={asset.name} className={styles.assetCardImage} />
-                  <div className={styles.assetCardContent}>
-                    <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
-                    <div className={styles.assetCardMetaRow}>
-                      <span className={styles.assetId}><b>Asset Code:</b> {highlightText(asset.asset_code, searchTerm || '')}</span>
+                <div 
+                  className={styles.assetCard} 
+                  key={asset.id}
+                  onClick={() => handleAssetClick(asset)}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <div style={{ 
+                    position: 'absolute', 
+                    top: '10px', 
+                    right: '10px', 
+                    zIndex: 10 
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={selectedAssets.has(asset.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleSelectAsset(asset.id);
+                      }}
+                      onClick={e => e.stopPropagation()}
+                      style={{ width: '16px', height: '16px' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '1rem', width: '100%', alignItems: 'center' }}>
+                    <div style={{ flexShrink: 0 }}>
+                      <img 
+                        src={asset.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'} 
+                        alt={asset.name} 
+                        className={styles.assetCardImage}
+                        style={{ marginTop: 0, marginRight: 0 }}
+                      />
                     </div>
-                    <div className={styles.assetCardMetaRow}>
-                      <span><b>Inventory No.:</b> {highlightText(asset.inventory_number || '-', searchTerm || '')}</span>
-                    </div>
-                    <div className={styles.assetCardMetaRow}>
-                      <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</span>
-                    </div>
-                    <div className={styles.assetCardMetaRow}>
-                      <span><b>Department:</b> {highlightText(asset.department, searchTerm || '')}</span>
-                    </div>
-                    <div className={styles.assetCardMetaRow}>
-                      <span><b>Status:</b> <span className={`${styles.statusBadge} ${getStatusClass(asset.status, asset.has_pending_audit || false, asset.has_pending_transfer || false)}`}>{getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, asset.has_pending_transfer || false)}</span></span>
+                    <div className={styles.assetCardContent} style={{ flex: 1, paddingRight: '2rem' }}>
+                      <div className={styles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
+                      <div className={styles.assetCardMetaRow}>
+                        <span className={styles.assetId}><b>Asset Code:</b> {highlightText(asset.asset_code, searchTerm || '')}</span>
+                      </div>
+                      <div className={styles.assetCardMetaRow}>
+                        <span><b>Inventory No.:</b> {highlightText(asset.inventory_number || '-', searchTerm || '')}</span>
+                      </div>
+                      <div className={styles.assetCardMetaRow}>
+                        <span><b>Location:</b> {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}</span>
+                      </div>
+                      <div className={styles.assetCardMetaRow}>
+                        <span><b>Department:</b> {highlightText(asset.department || '', searchTerm || '')}</span>
+                      </div>
+                      <div className={styles.assetCardMetaRow}>
+                        <span><b>Status:</b> 
+                          {asset.has_pending_transfer ? (
+                            <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                              {getStatusDisplay(asset.status || '', false, undefined, true)}
+                            </span>
+                          ) : asset.has_pending_audit ? (
+                            <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                              Pending
+                            </span>
+                          ) : (
+                            <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ 
+                              background: asset.status_color ? `${asset.status_color}20` : '#f3f4f6', 
+                              color: asset.status_color || '#6b7280' 
+                            }}>
+                              {getStatusDisplay(asset.status || '', asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer)}
+                            </span>
+                          )}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -646,6 +758,13 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                     <AiOutlineCamera />
                   </button>
                 )}
+                <button 
+                  className={styles.printButton} 
+                  onClick={handlePrintSelected}
+                  disabled={selectedAssets.size === 0}
+                >
+                  Print ({selectedAssets.size})
+                </button>
                 <button className={styles.exportXlsxButton} onClick={handleExportXLSX}>
                   <AiOutlineDownload style={{ fontSize: '1.3em', marginRight: 8 }} />
                   Export XLSX
@@ -657,9 +776,32 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
             </div>
             
             <div className={styles.assetsTableContainer}>
+              {selectedAssets.size > 0 && (
+                <div style={{ 
+                  marginBottom: '8px', 
+                  fontSize: '12px', 
+                  color: '#6b7280',
+                  textAlign: 'center',
+                  fontStyle: 'italic'
+                }}>
+                  {selectedAssets.size} asset{selectedAssets.size !== 1 ? 's' : ''} selected across all pages
+                </div>
+              )}
               <table className={`${styles.assetsTable} compact`}>
                 <thead>
                   <tr>
+                    <th style={{ textAlign: 'center', width: '50px' }}>
+                      <input
+                        type="checkbox"
+                        checked={filteredAssets.every(asset => selectedAssets.has(asset.id)) && filteredAssets.length > 0}
+                        onChange={e => { 
+                          e.stopPropagation(); 
+                          handleSelectAll(); 
+                        }}
+                        onClick={e => e.stopPropagation()}
+                        style={{ width: '16px', height: '16px' }}
+                      />
+                    </th>
                     <th style={{ textAlign: 'center' }}>Image</th>
                     <th style={{ textAlign: 'center' }}>Asset Code</th>
                     <th style={{ textAlign: 'center' }}>Inventory No.</th>
@@ -676,7 +818,22 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                       className={styles.clickableRow}
                       onClick={() => handleAssetClick(asset)}
                     >
-                      <td data-label="Image" style={{ textAlign: 'center' }}>
+                      <td style={{ textAlign: 'center' }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedAssets.has(asset.id)}
+                          onChange={(e) => {
+                            e.stopPropagation();
+                            handleSelectAsset(asset.id);
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          style={{ width: '16px', height: '16px' }}
+                        />
+                      </td>
+                      <td 
+                        data-label="Image" 
+                        style={{ textAlign: 'center' }}
+                      >
                         {asset.image_url ? (
                           <Image
                             src={asset.image_url}
@@ -686,12 +843,12 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                             className={styles.assetImage}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
-                              target.src = '/file.svg';
+                              target.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
                             }}
                           />
                         ) : (
                           <Image
-                            src="/file.svg"
+                            src="/522733693_1501063091226628_5759500172344140771_n.jpg"
                             alt="No image"
                             width={60}
                             height={60}
@@ -706,21 +863,24 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                         <div className={styles.assetDescription}>{asset.description}</div>
                       </td>
                       <td data-label="Location" style={{ textAlign: 'center' }}>
-                        {highlightText(asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-', searchTerm || '')}
+                        {highlightText((asset.location && (asset.room || '') ? `${asset.location} ${asset.room || ''}`.trim() : asset.location || asset.room || '-'), searchTerm || '')}
                       </td>
                       <td data-label="Department">{highlightText(asset.department || '-', searchTerm || '')}</td>
                       <td data-label="Status" style={{ textAlign: 'center' }}>
                         {asset.has_pending_transfer ? (
-                          <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
-                            {getStatusDisplay(asset.status, false, undefined, true)}
+                          <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                            {getStatusDisplay(asset.status || '', false, undefined, true)}
                           </span>
                         ) : asset.has_pending_audit ? (
-                          <span className={`${styles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                          <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
                             Pending
                           </span>
                         ) : (
-                          <span className={`${styles.statusBadge} compact`} style={{ background: (statusOptions.find(opt => opt.value === asset.status)?.color) || '#adb5bd', color: '#fff' }}>
-                            {getStatusDisplay(asset.status, asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer)}
+                          <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ 
+                            background: asset.status_color ? `${asset.status_color}20` : '#f3f4f6', 
+                            color: asset.status_color || '#6b7280' 
+                          }}>
+                            {getStatusDisplay(asset.status || '', asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer)}
                           </span>
                         )}
                       </td>
@@ -748,6 +908,110 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
         isAdmin={true}
         isCreating={isCreating}
       />
+
+      {/* Print Modal */}
+      {showPrintModal && (
+        <div className={styles.printModalOverlay}>
+          <div className={styles.printModal}>
+            {/* Header */}
+            <div className={styles.printModalHeader}>
+              <h3 className={styles.printModalTitle}>
+                Print Labels
+                <span className={styles.printModalBadge}>
+                  {selectedAssets.size}
+                </span>
+              </h3>
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className={styles.printModalClose}
+              >
+                ×
+              </button>
+            </div>
+            
+            {/* Selected Assets Section */}
+            <div className={styles.printModalSection}>
+              <h4 className={styles.printModalSectionTitle}>
+                <span className={`${styles.printModalSectionBadge} ${styles.selected}`}>
+                  Selected
+                </span>
+                Assets:
+              </h4>
+              <div className={styles.printModalAssets}>
+                <div className={styles.printModalAssetsGrid}>
+                  {filteredAssets.filter(asset => selectedAssets.has(asset.id)).map(asset => (
+                    <div key={asset.id} className={styles.printModalAssetCard}>
+                      <div className={styles.printModalAssetName}>
+                        {asset.name}
+                      </div>
+                      <div className={styles.printModalAssetNumber}>
+                        {asset.inventory_number || 'No inventory number'}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Print Type Section */}
+            <div className={styles.printModalSection}>
+              <h4 className={styles.printModalSectionTitle}>
+                <span className={`${styles.printModalSectionBadge} ${styles.type}`}>
+                  Type
+                </span>
+                Print Type:
+              </h4>
+              <div className={styles.printModalType}>
+                <label className={`${styles.printModalTypeLabel} ${printType === 'barcode' ? styles.selected : ''}`}>
+                  <input
+                    type="radio"
+                    name="printType"
+                    value="barcode"
+                    checked={printType === 'barcode'}
+                    onChange={(e) => setPrintType(e.target.value as 'barcode' | 'qrcode')}
+                    className={styles.printModalTypeRadio}
+                  />
+                  <div className={styles.printModalTypeContent}>
+                    <div className={styles.printModalTypeTitle}>Barcode Labels</div>
+                    <div className={styles.printModalTypeDescription}>Traditional barcode format</div>
+                  </div>
+                </label>
+                <label className={`${styles.printModalTypeLabel} ${printType === 'qrcode' ? styles.selected : ''}`}>
+                  <input
+                    type="radio"
+                    name="printType"
+                    value="qrcode"
+                    checked={printType === 'qrcode'}
+                    onChange={(e) => setPrintType(e.target.value as 'barcode' | 'qrcode')}
+                    className={styles.printModalTypeRadio}
+                  />
+                  <div className={styles.printModalTypeContent}>
+                    <div className={styles.printModalTypeTitle}>QR Code Labels</div>
+                    <div className={styles.printModalTypeDescription}>Modern QR code format</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className={styles.printModalActions}>
+              <button
+                onClick={() => handlePrintBulk()}
+                className={`${styles.printModalButton} ${styles.primary}`}
+              >
+                <span className={styles.printModalIcon}></span>
+                Print Labels
+              </button>
+              <button
+                onClick={() => setShowPrintModal(false)}
+                className={`${styles.printModalButton} ${styles.secondary}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

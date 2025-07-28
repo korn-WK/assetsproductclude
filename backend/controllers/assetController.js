@@ -58,6 +58,7 @@ const transformAsset = (asset) => {
     owner: asset.owner_name || null,
     owner_id: asset.owner_id || null,
     status: asset.status,
+    status_color: asset.status_color || null,
     image_url: imageUrl,
     acquired_date: asset.acquired_date,
     created_at: asset.created_at,
@@ -153,8 +154,9 @@ async function patchAssetStatus(req, res) {
 
 async function getAssets(req, res) {
   try {
-    // Get user's department_id from the JWT token
+    // Get user's department_id and role from the JWT token
     const userDepartmentId = req.user.department_id;
+    const userRole = req.user.role;
     const { acquired_date, department } = req.query;
 
     let assets;
@@ -166,6 +168,9 @@ async function getAssets(req, res) {
         return res.status(400).json({ error: "Invalid department name" });
       }
       assets = await getAssetsByUserDepartment(departmentId);
+    } else if (userRole === "SuperAdmin") {
+      // SuperAdmin เห็น asset ทั้งหมด
+      assets = await getAllAssets();
     } else {
       assets = await getAssetsByUserDepartment(userDepartmentId);
     }
@@ -223,20 +228,30 @@ async function getStats(req, res) {
         return res.status(400).json({ error: "Invalid department name" });
       }
       assets = await getAssetsByUserDepartment(departmentId);
-    } else if (userRole === "admin") {
+    } else if (userRole === "SuperAdmin" || userRole === "admin") {
       assets = await getAllAssets();
     } else {
       assets = await getAssetsByUserDepartment(userDepartmentId);
     }
+
+    // Get all statuses from statuses table
+    const { getAllStatuses } = require("../models/status.js");
+    const allStatuses = await getAllStatuses();
 
     // Dynamic status count (ภาษาไทยหรืออะไรก็ได้)
     const statusCounts = {};
     assets.forEach(asset => {
       statusCounts[asset.status] = (statusCounts[asset.status] || 0) + 1;
     });
-    const statuses = Object.entries(statusCounts)
-      .map(([status, count]) => ({ status, count }))
-      .sort((a, b) => a.status.localeCompare(b.status, 'th'));
+
+    // Create statuses array with all statuses from statuses table, including those with 0 count
+    console.log('getStats: allStatuses:', allStatuses);
+    console.log('getStats: statusCounts:', statusCounts);
+    const statuses = allStatuses.map(status => ({
+      status: status.label, // Use the label from statuses table to match assets.status
+      count: statusCounts[status.label] || 0 // Count from assets using label, default to 0
+    })).sort((a, b) => a.status.localeCompare(b.status, 'th'));
+    console.log('getStats: final statuses array:', statuses);
 
     // Calculate monthly data for chart (12 months of selected year)
     let targetYear = parseInt(year);
@@ -289,22 +304,36 @@ async function searchAssetsController(req, res) {
   try {
     const query = req.query.q || "";
     const userDepartmentId = req.user.department_id;
+    const userRole = req.user.role;
 
     console.log("Search request received:");
     console.log("- Query:", query);
     console.log("- User department ID:", userDepartmentId);
+    console.log("- User role:", userRole);
     console.log("- User object:", req.user);
 
     if (!query) {
       console.log("Empty query, returning all assets for user department");
       // Return all assets filtered by user's department if search is empty
-      const allAssets = await getAssetsByUserDepartment(userDepartmentId);
+      let allAssets;
+      if (userRole === "SuperAdmin") {
+        // SuperAdmin เห็น asset ทั้งหมด
+        allAssets = await getAllAssets();
+      } else {
+        allAssets = await getAssetsByUserDepartment(userDepartmentId);
+      }
       console.log("Found", allAssets.length, "assets for user department");
       return res.json(allAssets.map(transformAsset));
     }
 
     console.log("Searching assets with query:", query);
-    const assets = await searchAssetsByUserDepartment(query, userDepartmentId);
+    let assets;
+    if (userRole === "SuperAdmin") {
+      // SuperAdmin ค้นหาใน asset ทั้งหมด
+      assets = await searchAssets(query);
+    } else {
+      assets = await searchAssetsByUserDepartment(query, userDepartmentId);
+    }
     console.log("Search found", assets.length, "assets");
     res.json(assets.map(transformAsset));
   } catch (error) {

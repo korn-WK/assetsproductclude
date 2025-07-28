@@ -9,10 +9,10 @@ import AssetDetailPopup from '../../components/common/AssetDetailPopup';
 import Layout from '../../components/common/Layout';
 import { axiosInstance } from '../../lib/axios';
 import UserRoute from '../../components/auth/UserRoute';
-import { toast } from 'react-toastify';
 import { AiOutlineInfoCircle, AiOutlineClose } from 'react-icons/ai';
 import styles from '../../components/user/AssetsTable/AssetsTable.module.css';
 import { useAuth } from '../../contexts/AuthContext';
+import { useRouter } from 'next/router';
 
 const AssetBrowserPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -25,6 +25,11 @@ const AssetBrowserPage: React.FC = () => {
   const [showAuditWindowNotice, setShowAuditWindowNotice] = useState(true);
   const { user } = useAuth();
   const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
+  const router = useRouter();
+  const { status: statusFilter } = router.query;
+  
+  console.log('AssetBrowserPage: statusFilter from URL:', statusFilter);
+  console.log('AssetBrowserPage: Passing initialStatusFilter to AssetsTable:', statusFilter as string);
 
   useEffect(() => {
     fetch('/api/settings/user-edit-window')
@@ -122,7 +127,12 @@ const AssetBrowserPage: React.FC = () => {
             )}
           </div>
           {/* ลบ banner แจ้งเตือนออก */}
-          <AssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} />
+          <AssetsTable 
+            onScanBarcodeClick={handleOpenScanner} 
+            searchTerm={searchTerm} 
+            onSearch={setSearchTerm}
+            initialStatusFilter={statusFilter as string}
+          />
         </AssetProvider>
       </Layout>
 

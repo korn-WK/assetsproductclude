@@ -94,12 +94,7 @@ const StatusManagementPage: React.FC = () => {
     {
       key: 'label',
       label: 'ชื่อสถานะ (Status Name)',
-      render: (value: string, row: Status) => (
-        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-          <span style={{ display: 'inline-block', width: 18, height: 18, borderRadius: 4, background: row.color || '#adb5bd', border: '1px solid #ccc', marginRight: 6 }} />
-          {value}
-        </span>
-      )
+      render: (value: string, row: Status) => value
     },
     {
       key: 'value',

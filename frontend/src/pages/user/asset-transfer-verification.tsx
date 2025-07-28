@@ -48,7 +48,7 @@ const AssetTransferVerificationPage: React.FC = () => {
         borderRadius: '15px',
         boxShadow: 'var(--shadow-sm)'
       }}>
-        <AssetTransferTable searchTerm={searchTerm} />
+        <AssetTransferTable searchTerm={searchTerm} onSearch={setSearchTerm} />
       </div>
     </Layout>
   );

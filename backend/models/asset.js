@@ -58,10 +58,12 @@ async function getAllAssets() {
       a.owner_id,
       a.acquired_date,
       a.created_at,
-      a.updated_at
+      a.updated_at,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN asset_locations l ON a.location_id = l.id
+    LEFT JOIN statuses s ON a.status = s.value
     ORDER BY a.id ASC
   `;
   const [rows] = await pool.query(query);
@@ -75,25 +77,42 @@ async function getAssetsByUserDepartment(userDepartmentId) {
       a.*,
       d.name_th as department_name,
       u.name as owner_name,
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
   `;
 
   const params = [];
 
-  // If user has department_id, filter by it. If NULL, show all assets
+  // User must have a department_id to see assets
   if (userDepartmentId !== null && userDepartmentId !== undefined) {
     query += ` WHERE a.department_id = ?`;
     params.push(userDepartmentId);
+  } else {
+    // If user has no department, return empty result
+    return [];
   }
 
   query += ` ORDER BY a.id ASC`;
 
-  const [rows] = await pool.query(query, params);
-  return rows;
+  try {
+    const [rows] = await pool.query(query, params);
+    return rows;
+  } catch (error) {
+    console.error('Error in getAssetsByUserDepartment:', error);
+    // If the statuses table doesn't exist, try without it
+    if (error.code === 'ER_NO_SUCH_TABLE' || error.message.includes('statuses')) {
+      console.log('Statuses table not found, falling back to query without status_color');
+      const fallbackQuery = query.replace(', s.color as status_color', '').replace('LEFT JOIN statuses s ON a.status = s.value', '');
+      const [rows] = await pool.query(fallbackQuery, params);
+      return rows;
+    }
+    throw error;
+  }
 }
 
 // Get asset by ID with full details
@@ -103,11 +122,13 @@ async function getAssetById(id) {
       a.*, 
       d.name_th as department_name, 
       u.name as owner_name, 
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
     WHERE a.id = ?
   `;
   const [rows] = await pool.query(query, [id]);
@@ -121,11 +142,13 @@ async function getAssetByCode(assetCode) {
       a.*,
       d.name_th as department_name,
       u.name as owner_name,
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
     WHERE a.asset_code = ?
   `;
   const [rows] = await pool.query(query, [assetCode]);
@@ -139,11 +162,13 @@ async function findAssetByBarcode(barcode) {
       a.*,
       d.name_th as department_name,
       u.name as owner_name,
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
     WHERE a.inventory_number = ? OR a.asset_code = ?
   `;
   const [rows] = await pool.query(query, [barcode, barcode]);
@@ -158,11 +183,13 @@ async function searchAssets(query) {
       a.*,
       d.name_th as department_name,
       u.name as owner_name,
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
     WHERE a.asset_code LIKE ? 
        OR a.inventory_number LIKE ?
        OR a.name LIKE ? 
@@ -200,17 +227,24 @@ async function searchAssets(query) {
 
 // Search assets filtered by user's department_id
 async function searchAssetsByUserDepartment(query, userDepartmentId) {
+  // User must have a department_id to search assets
+  if (userDepartmentId === null || userDepartmentId === undefined) {
+    return [];
+  }
+
   const searchQuery = `%${query}%`;
   let sql = `
     SELECT 
       a.*,
       d.name_th as department_name,
       u.name as owner_name,
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
     WHERE (a.asset_code LIKE ? 
        OR a.inventory_number LIKE ?
        OR a.name LIKE ? 
@@ -219,6 +253,7 @@ async function searchAssetsByUserDepartment(query, userDepartmentId) {
        OR al.name LIKE ?
        OR u.name LIKE ?
        OR a.room LIKE ?)
+       AND a.department_id = ?
   `;
 
   const params = [
@@ -230,13 +265,8 @@ async function searchAssetsByUserDepartment(query, userDepartmentId) {
     searchQuery,
     searchQuery,
     searchQuery,
+    userDepartmentId,
   ];
-
-  // If user has department_id, filter by it. If NULL, show all assets
-  if (userDepartmentId !== null && userDepartmentId !== undefined) {
-    sql += ` AND a.department_id = ?`;
-    params.push(userDepartmentId);
-  }
 
   sql += ` ORDER BY 
     CASE 
@@ -260,11 +290,13 @@ async function getAssetsByDepartment(departmentId) {
       a.*,
       d.name_th as department_name,
       u.name as owner_name,
-      al.name as location_name
+      al.name as location_name,
+      s.color as status_color
     FROM assets a
     LEFT JOIN departments d ON a.department_id = d.id
     LEFT JOIN users u ON a.owner_id = u.id
     LEFT JOIN asset_locations al ON a.location_id = al.id
+    LEFT JOIN statuses s ON a.status = s.value
     WHERE a.department_id = ?
     ORDER BY a.id ASC
   `;

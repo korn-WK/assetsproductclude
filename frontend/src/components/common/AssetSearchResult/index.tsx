@@ -1,20 +1,6 @@
 import React from 'react';
 import styles from './AssetSearchResult.module.css';
-
-interface Asset {
-  id: string;
-  asset_code: string;
-  name: string;
-  description: string;
-  location: string;
-  department: string;
-  owner: string;
-  status: string;
-  image_url: string | null;
-  acquired_date: string;
-  created_at: string;
-  updated_at: string;
-}
+import { Asset } from '../../common/types/asset';
 
 interface AssetSearchResultProps {
   asset: Asset | null;
@@ -134,7 +120,7 @@ const AssetSearchResult: React.FC<AssetSearchResultProps> = ({
               src={asset.image_url} 
               alt={asset.name}
               onError={(e) => {
-                e.currentTarget.src = '/mfu-logo.png';
+                e.currentTarget.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
               }}
             />
           ) : (

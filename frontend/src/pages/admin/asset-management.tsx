@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router'; // Added import
 import AdminSidebar from '../../components/admin/AdminSidebar';
 import Navbar from '../../components/common/Navbar';
 import { AssetProvider } from '../../contexts/AssetContext';
@@ -11,6 +12,12 @@ import Layout from '../../components/common/Layout';
 import { axiosInstance } from '../../lib/axios';
 
 const AssetManagementPage: React.FC = () => {
+  const router = useRouter(); // Added router
+  const { status: statusFilter } = router.query; // Extract statusFilter from URL
+  
+  console.log('AssetManagementPage: statusFilter from URL:', statusFilter);
+  console.log('AssetManagementPage: Passing initialStatusFilter to AdminAssetsTable:', statusFilter as string);
+  
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannedAsset, setScannedAsset] = useState(null);
@@ -68,7 +75,12 @@ const AssetManagementPage: React.FC = () => {
               onSearch={setSearchTerm} // ส่งฟังก์ชันนี้ให้ Navbar
             />
             <div> 
-              <AdminAssetsTable onScanBarcodeClick={handleOpenScanner} searchTerm={searchTerm} onSearch={setSearchTerm} />
+              <AdminAssetsTable 
+                onScanBarcodeClick={handleOpenScanner} 
+                searchTerm={searchTerm} 
+                onSearch={setSearchTerm}
+                initialStatusFilter={statusFilter as string} // Pass prop
+              />
             </div>
           </AssetProvider>
         </Layout>

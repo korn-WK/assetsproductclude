@@ -1,16 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import axios from '../../../lib/axios';
-import { FaEdit, FaTrashAlt, FaSearch, FaFilePdf, FaUserShield, FaUserPlus, FaCrown, FaUser } from 'react-icons/fa';
+import { FaEdit, FaTrashAlt, FaUserPlus, FaCrown, FaUserShield, FaUser } from 'react-icons/fa';
+import { AiOutlineDown } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './UserManagementTable.module.css';
 import UserEditPopup from '../UserEditPopup';
+import AddUserPopup from '../AddUserPopup';
 import { formatDate } from '../../../lib/utils';
 import ExcelJS from 'exceljs';
 import { AiOutlineDownload } from 'react-icons/ai';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import { useAuth } from '../../../contexts/AuthContext';
 import Pagination from '../../common/Pagination';
+import { highlightText } from '../../common/highlightText';
 
 interface UserType {
   id: number;
@@ -28,20 +31,12 @@ interface UserManagementTableProps {
   searchTerm?: string;
 }
 
-// ฟังก์ชัน highlightText
-function highlightText(text: string, keyword: string) {
-  if (!keyword) return text;
-  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  return text.split(regex).map((part, i) =>
-    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
-  );
-}
-
 const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm }) => {
   const { user } = useAuth();
   const [users, setUsers] = useState<UserType[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState<UserType | null>(null);
+  const [showAddUserPopup, setShowAddUserPopup] = useState(false);
   const [roleFilter, setRoleFilter] = useState('all');
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
   // Pagination for card list (mobile)
@@ -51,7 +46,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
   const [tablePage, setTablePage] = useState(1);
   const rowsPerPage = 5;
 
-  // ฟิลเตอร์ user ตาม search และ role
+  // ฟิลเตอร์ user ตาม search, role และ date range
   const filteredUsers = users.filter(user => {
     const q = (searchTerm || '').toLowerCase();
     const matchSearch = (
@@ -63,7 +58,19 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       formatDate(user.created_at).toLowerCase().includes(q)
     );
     const matchRole = roleFilter === 'all' || user.role.toLowerCase() === roleFilter.toLowerCase();
-    return matchSearch && matchRole;
+    
+    // Date range filter
+    let matchDate = true;
+    if (dateRange.startDate && dateRange.endDate) {
+      const userCreatedAt = new Date(user.created_at);
+      const startDate = new Date(dateRange.startDate);
+      startDate.setHours(0, 0, 0, 0);
+      const endDate = new Date(dateRange.endDate);
+      endDate.setHours(23, 59, 59, 999);
+      matchDate = userCreatedAt >= startDate && userCreatedAt <= endDate;
+    }
+    
+    return matchSearch && matchRole && matchDate;
   });
 
   const totalCardPages = Math.ceil(filteredUsers.length / cardsPerPage);
@@ -80,6 +87,12 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
   useEffect(() => {
     setTablePage(1);
   }, [filteredUsers.length]);
+
+  // Reset pagination when dateRange changes
+  useEffect(() => {
+    setCardPage(1);
+    setTablePage(1);
+  }, [dateRange]);
 
   useEffect(() => {
     // Pre-warm the PDF generator on component mount to ensure the font is ready.
@@ -243,12 +256,63 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
   };
 
   const handleAddUser = () => {
-    Swal.fire({
-      title: "Add New User",
-      text: "This feature will be available soon",
-      icon: "info",
-      confirmButtonText: "OK"
-    });
+    setShowAddUserPopup(true);
+  };
+
+  const handleCloseAddUserPopup = () => {
+    setShowAddUserPopup(false);
+  };
+
+  const handleUserAdded = async (newUser: UserType) => {
+    // Refresh data from server instead of just adding to state
+    try {
+      const response = await axios.get('/api/users');
+      setUsers(response.data);
+      setShowAddUserPopup(false);
+      Swal.fire({
+        title: "Success!",
+        text: "User added successfully",
+        icon: "success",
+        confirmButtonText: "OK"
+      });
+    } catch (error) {
+      console.error('Error refreshing users after adding:', error);
+      // Fallback to adding to state if refresh fails
+      setUsers(prev => [...prev, newUser]);
+      setShowAddUserPopup(false);
+      Swal.fire({
+        title: "Success!",
+        text: "User added successfully",
+        icon: "success",
+        confirmButtonText: "OK"
+      });
+    }
+  };
+
+  const handleUsersImported = async (importedUsers: UserType[]) => {
+    // Refresh data from server instead of just adding to state
+    try {
+      const response = await axios.get('/api/users');
+      setUsers(response.data);
+      setShowAddUserPopup(false);
+      Swal.fire({
+        title: "Success!",
+        text: `${importedUsers.length} users imported successfully`,
+        icon: "success",
+        confirmButtonText: "OK"
+      });
+    } catch (error) {
+      console.error('Error refreshing users after import:', error);
+      // Fallback to adding to state if refresh fails
+      setUsers(prev => [...prev, ...importedUsers]);
+      setShowAddUserPopup(false);
+      Swal.fire({
+        title: "Success!",
+        text: `${importedUsers.length} users imported successfully`,
+        icon: "success",
+        confirmButtonText: "OK"
+      });
+    }
   };
 
   let userTitle = `Total of ${filteredUsers.length} users`;
@@ -289,17 +353,20 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
         <div className={styles.mobileTitleRow}>
           <span className={styles.mobileUserTitle}>{userTitle}</span>
         </div>
-        <div className={styles.mobileControls}>
-          <select
-            className={styles.mobileFilterDropdown}
-            value={roleFilter}
-            onChange={e => setRoleFilter(e.target.value)}
-          >
-            <option value="all">All Roles</option>
-            <option value="SuperAdmin">SuperAdmin</option>
-            <option value="Admin">Admin</option>
-            <option value="User">User</option>
-          </select>
+                 <div className={styles.mobileControls}>
+           <div className={styles.dropdownWrapper}>
+             <select
+               className={styles.mobileFilterDropdown}
+               value={roleFilter}
+               onChange={e => setRoleFilter(e.target.value)}
+             >
+               <option value="all">All Roles</option>
+               <option value="SuperAdmin">SuperAdmin</option>
+               <option value="Admin">Admin</option>
+               <option value="User">User</option>
+             </select>
+             <span className={styles.caretIcon}><AiOutlineDown /></span>
+           </div>
           <DateRangeFilterButton
             value={dateRange}
             onChange={setDateRange}
@@ -393,20 +460,23 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '24px 0 16px 0', flexWrap: 'wrap', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div className={styles.filterButtons}>
-              {/* เปลี่ยนจากปุ่มกลุ่มเป็น dropdown */}
-              <select
-                className={styles.dropdown}
-                value={roleFilter}
-                onChange={e => setRoleFilter(e.target.value)}
-                style={{ minWidth: 140, padding: '0.7rem 1.2rem', borderRadius: 12, border: '1px solid var(--border-color)', fontSize: '1rem', color: 'var(--text-color-primary)', background: 'var(--card-bg)' }}
-              >
-                <option value="all">All Roles</option>
-                <option value="SuperAdmin">SuperAdmin</option>
-                <option value="Admin">Admin</option>
-                <option value="User">User</option>
-              </select>
-            </div>
+                         <div className={styles.filterButtons}>
+               {/* เปลี่ยนจากปุ่มกลุ่มเป็น dropdown */}
+               <div className={styles.dropdownWrapper}>
+                 <select
+                   className={styles.dropdown}
+                   value={roleFilter}
+                   onChange={e => setRoleFilter(e.target.value)}
+                   style={{ minWidth: 140, padding: '0.7rem 1.2rem', borderRadius: 12, border: '1px solid var(--border-color)', fontSize: '1rem', color: 'var(--text-color-primary)', background: 'var(--card-bg)' }}
+                 >
+                   <option value="all">All Roles</option>
+                   <option value="SuperAdmin">SuperAdmin</option>
+                   <option value="Admin">Admin</option>
+                   <option value="User">User</option>
+                 </select>
+                 <span className={styles.caretIcon}><AiOutlineDown /></span>
+               </div>
+             </div>
           </div>
           <div className={styles.actionButtons}>
             <DateRangeFilterButton
@@ -523,6 +593,14 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
           />
         )}
       </div>
+
+      {showAddUserPopup && (
+        <AddUserPopup
+          onClose={handleCloseAddUserPopup}
+          onUserAdded={handleUserAdded}
+          onUsersImported={handleUsersImported}
+        />
+      )}
 
       {editingUser && (
         <UserEditPopup

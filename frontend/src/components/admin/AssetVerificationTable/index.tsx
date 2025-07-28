@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import type { Asset } from '../../common/AssetDetailPopup';
 import styles from '../../user/AssetsTable/AssetsTable.module.css';
+import statusBadgeStyles from '../../common/statusBadge.module.css';
 import { formatDate } from '../../../lib/utils';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -17,6 +17,7 @@ import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import Swal from 'sweetalert2';
 import { AiOutlineEye } from 'react-icons/ai';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
+import { highlightText } from '../../common/highlightText';
 
 interface PendingAudit {
   id: number;
@@ -24,6 +25,7 @@ interface PendingAudit {
   asset_code: string;
   asset_name: string;
   status: string;
+  status_color?: string;
   note: string;
   user_name: string;
   checked_at: string;
@@ -60,15 +62,6 @@ const statusLabels: Record<string, string> = Object.fromEntries(statusTabs.map(s
 const statusColors: Record<string, string> = Object.fromEntries(statusTabs.map(s => [s.key, '#22c55e']));
 const statusOptions = statusTabs.filter(s => s.key !== 'all').map(s => ({ value: s.key, label: s.label }));
 
-// ฟังก์ชัน highlightText
-function highlightText(text: string, keyword: string) {
-  if (!keyword) return text;
-  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  return text.split(regex).map((part, i) =>
-    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
-  );
-}
-
 // เพิ่มฟังก์ชันแปลง PendingAudit -> Asset
 function mapPendingAuditToAsset(audit: PendingAudit) {
   return {
@@ -95,43 +88,26 @@ interface AssetVerificationTableSuperAdminProps {
   searchTerm?: string;
   verificationPeriod?: { startDate?: Date; endDate?: Date };
   extraActionButton?: React.ReactElement<any, any>; // ปรับ type ตรงนี้
+  onSearch?: (term: string) => void;
 }
 
 // เพิ่ม dropdown menu component ภายในไฟล์นี้ (minimal inline)
 function ThreeDotsMenu({ onHistory }: { onHistory: () => void }) {
-  const [open, setOpen] = React.useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
   return (
-    <div style={{ position: 'relative', display: 'inline-block', marginLeft: 12 }} ref={menuRef}>
+    <div style={{ position: 'relative', display: 'inline-block' }}>
       <button
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4 }}
-        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
-        aria-label="More actions"
+        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 2, borderRadius: 4, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        onClick={e => { e.stopPropagation(); onHistory(); }}
+        aria-label="View audit history"
+        title="ดูประวัติการตรวจนับ"
       >
         <AiOutlineEye size={20} />
       </button>
-      {open && (
-        <div style={{ position: 'fixed', right: 32, top: (window.event && (window.event as MouseEvent).clientY) ? (window.event as MouseEvent).clientY : 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 110, padding: 0 }}>
-          <div
-            style={{ padding: '6px 10px', cursor: 'pointer', fontWeight: 500, color: '#222', borderRadius: 8, fontSize: '0.97em' }}
-            onClick={e => { e.stopPropagation(); setOpen(false); onHistory(); }}
-          >
-            ดูประวัติการตรวจนับ
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdminProps> = ({ searchTerm = '', verificationPeriod, extraActionButton }) => {
+const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdminProps> = ({ searchTerm = '', verificationPeriod, extraActionButton, onSearch }) => {
   const [pendingAudits, setPendingAudits] = useState<PendingAudit[]>([]);
   const [totalAudits, setTotalAudits] = useState(0);
   const [departments, setDepartments] = useState<{ id: number, name_th: string }[]>([]);
@@ -300,7 +276,9 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
     const ExcelJS = (await import('exceljs')).default;
     const workbook = new ExcelJS.Workbook();
     const worksheet = workbook.addWorksheet('Asset Verification');
-    worksheet.addRow([
+    
+    // Add header row
+    const headers = [
       'Inventory Number',
       'Name',
       'Status',
@@ -309,42 +287,71 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
       'Department',
       'Date',
       'Verification Status',
-    ]);
-    filteredAudits.forEach((audit: PendingAudit) => {
-      worksheet.addRow([
-        audit.inventory_number || '',
-        audit.asset_name,
-        statusLabels[audit.status] || audit.status,
-        audit.note,
-        audit.user_name,
-        audit.department_name || '',
-        formatDate(audit.checked_at),
-        audit.confirmed ? 'Approved' : 'Pending',
-      ]);
-    });
-    worksheet.columns = [
-      { width: 140 },
-      { width: 220 },
-      { width: 110 },
-      { width: 120 },
-      { width: 120 },
-      { width: 180 },
-      { width: 120 },
-      { width: 150 },
     ];
+    worksheet.addRow(headers);
+    
+    // Add data rows
+    const dataRows = filteredAudits.map((audit: PendingAudit) => [
+      audit.inventory_number || '',
+      audit.asset_name || '',
+      statusLabels[audit.status] || audit.status || '',
+      audit.note || '',
+      audit.user_name || '',
+      audit.department_name || '',
+      formatDate(audit.checked_at) || '',
+      audit.confirmed ? 'Approved' : 'Pending',
+    ]);
+    
+    dataRows.forEach(row => {
+      worksheet.addRow(row);
+    });
+    
+    // Calculate dynamic column widths based on actual content
+    const calculateColumnWidth = (columnIndex: number) => {
+      let maxLength = headers[columnIndex].length; // Start with header length
+      
+      // Check all data rows for this column
+      dataRows.forEach(row => {
+        const cellValue = String(row[columnIndex] || '');
+        maxLength = Math.max(maxLength, cellValue.length);
+      });
+      
+      // Add some padding and ensure minimum width
+      const width = Math.max(maxLength + 2, 8);
+      
+      // Cap maximum width to prevent overly wide columns
+      return Math.min(width, 50);
+    };
+    
+    // Calculate widths for all columns
+    const columnWidths = headers.map((_, index) => ({
+      width: calculateColumnWidth(index)
+    }));
+    
+    // Set column widths
+    worksheet.columns = columnWidths;
+    
+    // Apply formatting to all cells
     worksheet.eachRow((row: any, rowNumber: number) => {
       row.eachCell((cell: any, colNumber: number) => {
+        // Set text format for inventory number column
         if (colNumber === 1 && rowNumber > 1) {
           cell.value = String(cell.value ?? '');
           cell.numFmt = '@';
         }
+        
+        // Center alignment for all cells
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
+        
+        // Border for all cells (including empty ones)
         cell.border = {
           top: { style: 'thin', color: { argb: 'FF000000' } },
           left: { style: 'thin', color: { argb: 'FF000000' } },
           bottom: { style: 'thin', color: { argb: 'FF000000' } },
           right: { style: 'thin', color: { argb: 'FF000000' } },
         };
+        
+        // Header styling
         if (rowNumber === 1) {
           cell.font = { bold: true };
           cell.fill = {
@@ -353,8 +360,14 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
             fgColor: { argb: 'FFD9D9D9' },
           };
         }
+        
+        // Ensure empty cells have borders by setting empty string if null/undefined
+        if (cell.value === null || cell.value === undefined) {
+          cell.value = '';
+        }
       });
     });
+    
     const buffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = window.URL.createObjectURL(blob);
@@ -374,34 +387,48 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
 
   return (
     <>
-      <div style={{ padding: isMobile ? '0rem' : '2rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)', marginTop: isMobile ? '55px' : undefined }}>
+      <div style={{ padding: isMobile ? '0.5rem' : '2rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)', marginTop: isMobile ? '48px' : undefined }}>
         {isMobile ? (
-          <>
-            {/* Row 1: All Department */}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem 0.3rem 0.5rem', marginBottom: 8 }}>
-              <select
-                className={styles.filterDropdown}
-                value={departmentFilter}
-                onChange={e => setDepartmentFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 12, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
-              >
-                <option value="all">All Departments</option>
-                {departments.map(dep => (
-                  <option key={dep.id} value={dep.id}>{dep.name_th}</option>
-                ))}
-              </select>
+          <div style={{ maxWidth: 380, margin: '0 auto', width: '100%' }}>
+            <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+              <div className={styles.dropdownWrapper} style={{ flex: 1, minWidth: 0, maxWidth: 180 }}>
+                <select
+                  className={styles.filterDropdown}
+                  value={verificationFilter}
+                  onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
+                  style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
+                >
+                  <option value="all">ทั้งหมด</option>
+                  <option value="pending">Pending</option>
+                  <option value="approved">Approved</option>
+                </select>
+                <span className={styles.caretIcon}><AiOutlineDown /></span>
+              </div>
+              <div className={styles.dropdownWrapper} style={{ flex: 1, minWidth: 0, maxWidth: 180 }}>
+                <select
+                  className={styles.filterDropdown}
+                  value={departmentFilter}
+                  onChange={e => setDepartmentFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                  style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
+                >
+                  <option value="all">All Departments</option>
+                  {departments.map(dep => (
+                    <option key={dep.id} value={dep.id}>{dep.name_th}</option>
+                  ))}
+                </select>
+                <span className={styles.caretIcon}><AiOutlineDown /></span>
+              </div>
             </div>
-            {/* Row 2: Calendar, Status, Export */}
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem', marginBottom: 8, position: 'relative' }}>
+            <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', justifyContent: 'center', marginBottom: 10, position: 'relative' }}>
               <button
-                style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
                 onClick={() => setShowPicker(v => !v)}
                 type="button"
               >
                 <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
               </button>
               {showPicker && (
-                <div style={{ position: 'absolute', zIndex: 20, top: 50, left: 0, right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12 }}>
+                <div style={{ position: 'absolute', zIndex: 90, top: 50, left: 0, border: '1.5px solid #e5e7eb', borderRadius: 12, background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                   <DateRange
                     editableDateInputs={true}
                     onChange={(item: any) => setRange([item.selection])}
@@ -431,16 +458,6 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   </div>
                 </div>
               )}
-              <select
-                className={styles.filterDropdown}
-                value={verificationFilter}
-                onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
-                style={{ flex: 1, background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
-              >
-                <option value="all">ทั้งหมด</option>
-                <option value="pending">Pending</option>
-                <option value="approved">Approved</option>
-              </select>
               <button
                 className={styles.exportXlsxButtonSmall}
                 style={{
@@ -448,8 +465,8 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   color: '#fff',
                   border: 'none',
                   borderRadius: 10,
-                  padding: '0.5rem 1.2rem',
-                  fontSize: '1rem',
+                  padding: '0.5rem 0.5rem',
+                  fontSize: '0.9rem',
                   fontWeight: 600,
                   display: 'flex',
                   alignItems: 'center',
@@ -458,6 +475,10 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   boxShadow: 'var(--shadow-md)',
                   cursor: 'pointer',
                   transition: 'background 0.2s',
+                  flex: 1,
+                  minWidth: 0,
+                  maxWidth: 150,
+                  justifyContent: 'center',
                 }}
                 onMouseOver={e => e.currentTarget.style.background = 'linear-gradient(135deg, #7C5FE6 0%, #F3B6F9 100%)'}
                 onMouseOut={e => e.currentTarget.style.background = 'linear-gradient(135deg, #5768D2 0%, #EB9CED 100%)'}
@@ -465,7 +486,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                 title="Export XLSX"
               >
                 <AiOutlineDownload style={{ fontSize: '1.3em' }} />
-                {!isMobile && 'Export'}
+                <span style={{ marginLeft: 4 }}>Export</span>
               </button>
               {extraActionButton &&
                 React.isValidElement(extraActionButton)
@@ -479,14 +500,18 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                           border: 'none',
                           borderRadius: 10,
                           fontWeight: 600,
-                          fontSize: '1.08rem',
+                          fontSize: '0.9rem',
                           cursor: 'pointer',
-                          marginLeft: 8,
-                          maxWidth: 140,
+                          maxWidth: 150,
                           height: 44,
                           lineHeight: 1.1,
                           boxShadow: 'var(--shadow-md)',
                           transition: 'background 0.2s',
+                          flex: 1,
+                          minWidth: 0,
+                          marginLeft: 0,
+                          marginRight: 0,
+                          justifyContent: 'center',
                           ...(extraActionButton.props && (extraActionButton.props as any).style),
                         },
                         onMouseOver: (e: any) => e.currentTarget.style.background = 'linear-gradient(90deg, #3576E6 0%, #4FC3F7 100%)',
@@ -496,63 +521,93 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   : extraActionButton
               }
             </div>
-            {/* Row 3: search box */}
-            <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
+            {/* Row 3: Search input */}
+            <div style={{ padding: '0 0.5rem 0.5rem 0.5rem' }}>
               <input
                 type="text"
                 placeholder="Search..."
-                className={styles.mobileSearchInput}
                 value={searchTerm}
-                style={{width: '100%', borderRadius: 10, border: '1.5px solid #e5e7eb', height: 44, fontSize: '1rem', background: '#fff', color: '#222', marginTop: 0, marginBottom: 0}}
+                onChange={e => {
+                  const value = e.target.value;
+                  onSearch?.(value);
+                }}
+                className={styles.mobileSearchInput}
               />
             </div>
-            {/* Card view */}
-            <div className={styles.assetCardList}>
+            <div style={{ maxWidth: 380, margin: '0 auto', width: '100%' }}>
               {paginatedAudits.map(audit => (
-                <div className={styles.assetCard} key={audit.id} onClick={async () => {
-                    setSelectedAudit(audit);
-                    setShowDetailPopup(true);
-                    setAssetDetail(null);
-                    try {
-                      const res = await fetch(`/api/assets/${audit.asset_id || audit.id}`, { credentials: 'include' });
-                      if (res.ok) {
-                        const data = await res.json();
-                        setAssetDetail(data);
-                      } else {
-                        setAssetDetail(null);
-                      }
-                    } catch {
+                <div className={styles.assetCard} key={audit.id} style={{ position: 'relative', cursor: 'pointer' }} onClick={async (e) => {
+                  console.log('Asset card clicked!', audit.asset_name);
+                  // ป้องกันการ click เมื่อคลิกที่ไอคอนตาหรือ checkbox
+                  if ((e.target as HTMLElement).closest('[data-history-button]') || 
+                      (e.target as HTMLElement).closest('[data-select-checkbox]')) {
+                    console.log('Clicked on history button or checkbox, ignoring');
+                    return;
+                  }
+                  console.log('Opening asset detail popup...');
+                  console.log('Setting selectedAudit:', audit);
+                  console.log('Setting showDetailPopup to true');
+                  setSelectedAudit(audit);
+                  setShowDetailPopup(true);
+                  setAssetDetail(null);
+                  try {
+                    const res = await fetch(`/api/assets/${audit.asset_id || audit.id}`, { credentials: 'include' });
+                    if (res.ok) {
+                      const data = await res.json();
+                      setAssetDetail(data);
+                    } else {
                       setAssetDetail(null);
                     }
-                  }}>
-                  <img
-                    src={audit.image_url || '/file.svg'}
-                    alt={audit.asset_name}
-                    className={styles.assetCardImage}
-                    onError={e => { (e.target as HTMLImageElement).src = '/file.svg'; }}
-                  />
+                  } catch {
+                    setAssetDetail(null);
+                  }
+                }}>
+                  {/* ไอคอนตาและ checkbox ในมุมขวาบน */}
+                  <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <div data-history-button>
+                      <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
+                    </div>
+                    {(verificationFilter !== 'approved') && !audit.confirmed && (
+                      <div data-select-checkbox>
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(audit.id)}
+                          onChange={(e) => { e.stopPropagation(); toggleSelect(audit.id); }}
+                          style={{ width: 20, height: 20, cursor: 'pointer', margin: 0 }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* รูป asset ตรงกลาง */}
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, padding: '16px 0', marginTop: 45 }}>
+                    <img
+                      src={audit.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
+                      alt={audit.asset_name}
+                      style={{ 
+                        width: 90, 
+                        height: 90, 
+                        objectFit: 'cover', 
+                        borderRadius: 12,
+                        border: '3px solid #e5e7eb',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                      }}
+                      onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                    />
+                  </div>
+                  
                   <div className={styles.assetCardContent}>
-                    <div className={styles.assetCardTitle}>{highlightText(audit.asset_name || '', searchTerm)}</div>
-                    <div className={styles.assetCardMetaRow}><b>Inventory:</b> {highlightText(audit.inventory_number || '', searchTerm)}</div>
-                    <div className={styles.assetCardMetaRow}><b>Status:</b> <span className={styles.statusBadge} style={{ background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd', color: '#fff' }}>{highlightText(statusLabels[audit.status] || audit.status, searchTerm)}</span></div>
+                                    <div className={styles.assetCardTitle}>{highlightText(audit.asset_name || '', searchTerm)}</div>
+                <div className={styles.assetCardMetaRow}><b>Inventory:</b> {highlightText(audit.inventory_number || '', searchTerm)}</div>
+                    <div className={styles.assetCardMetaRow}><b>Status:</b> <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ 
+                      background: audit.status_color ? `${audit.status_color}20` : '#f3f4f6', 
+                      color: audit.status_color || '#6b7280' 
+                    }}>{highlightText(statusLabels[audit.status] || audit.status, searchTerm)}</span></div>
                     <div className={styles.assetCardMetaRow}><b>Note:</b> {highlightText(audit.note || '-', searchTerm)}</div>
                     <div className={styles.assetCardMetaRow}><b>Auditor:</b> {highlightText(audit.user_name || '-', searchTerm)}</div>
                     <div className={styles.assetCardMetaRow}><b>Department:</b> {highlightText(audit.department_name || '-', searchTerm)}</div>
                     <div className={styles.assetCardMetaRow}><b>Date:</b> {highlightText(formatDate(audit.checked_at) || '-', searchTerm)}</div>
-                    <div className={styles.assetCardMetaRow}><b>Verification:</b> <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em' }}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}</span></div>
-                    <div className={styles.assetCardMetaRow} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                      <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
-                    </div>
-                    {(verificationFilter !== 'approved') && !audit.confirmed && (
-                      <div style={{ marginTop: 8 }}>
-                        <input
-                          type="checkbox"
-                          checked={selected.includes(audit.id)}
-                          onChange={() => toggleSelect(audit.id)}
-                          style={{ marginRight: 8 }}
-                        /> Select
-                      </div>
-                    )}
+                    <div className={styles.assetCardMetaRow}><b>Verification:</b> <span className={`${statusBadgeStyles.statusBadge} ${audit.confirmed ? statusBadgeStyles.approved : statusBadgeStyles.pending}`}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}</span></div>
                   </div>
                 </div>
               ))}
@@ -583,7 +638,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                 onClose={() => setShowPopup(false)}
               />
             )}
-          </>
+          </div>
         ) : (
           <>
             <div className={styles.assetsControls} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'nowrap' }}>
@@ -644,7 +699,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
                 </button>
                 {showPicker && (
-                  <div style={{ position: 'absolute', zIndex: 20, top: 50, left: 0, right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12 }}>
+                  <div style={{ position: 'absolute', zIndex: 90, top: 230,  border: '1.5px solid #e5e7eb', borderRadius: 12 ,background: '#fff' }}>
                     <DateRange
                       editableDateInputs={true}
                       onChange={(item: any) => setRange([item.selection])}
@@ -655,7 +710,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                       maxDate={new Date()}
                       rangeColors={['#11998e']}
                     />
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem', background: '#fff' }}>
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.8rem',background: '#fff' }}>
                       <button
                         style={{ padding: '0.5rem 1.1rem', borderRadius: 6, border: 'none', background: '#11998e', color: '#fff', fontWeight: 500, cursor: 'pointer' }}
                         onClick={() => {
@@ -734,22 +789,26 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
               </thead>
               <tbody>
                 {paginatedAudits.map(audit => (
-                  <tr key={audit.id} onClick={async () => {
-                    setSelectedAudit(audit);
-                    setShowDetailPopup(true);
-                    setAssetDetail(null);
-                    try {
-                      const res = await fetch(`/api/assets/${audit.asset_id || audit.id}`, { credentials: 'include' });
-                      if (res.ok) {
-                        const data = await res.json();
-                        setAssetDetail(data);
-                      } else {
+                  <tr 
+                    key={audit.id} 
+                    style={{ cursor: 'pointer' }}
+                    onClick={async () => {
+                      setSelectedAudit(audit);
+                      setShowDetailPopup(true);
+                      setAssetDetail(null);
+                      try {
+                        const res = await fetch(`/api/assets/${audit.asset_id || audit.id}`, { credentials: 'include' });
+                        if (res.ok) {
+                          const data = await res.json();
+                          setAssetDetail(data);
+                        } else {
+                          setAssetDetail(null);
+                        }
+                      } catch {
                         setAssetDetail(null);
                       }
-                    } catch {
-                      setAssetDetail(null);
-                    }
-                  }}>
+                    }}
+                  >
                     <td>
                       {!audit.confirmed && (
                         <input
@@ -776,7 +835,10 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                     <td>{highlightText(audit.inventory_number || '', searchTerm)}</td>
                     <td>{highlightText(audit.asset_name || '', searchTerm)}</td>
                     <td>
-                      <span className={styles.statusBadge} style={{ background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd', color: '#fff' }}>
+                      <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ 
+                        background: audit.status_color ? `${audit.status_color}20` : '#f3f4f6', 
+                        color: audit.status_color || '#6b7280' 
+                      }}>
                         {highlightText(statusLabels[audit.status] || audit.status, searchTerm)}
                       </span>
                     </td>
@@ -788,7 +850,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                       style={{ textAlign: 'center', verticalAlign: 'middle', height: 48 }}
                     >
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                        <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em', display: 'inline-block' }}>
+                        <span className={`${statusBadgeStyles.statusBadge} ${audit.confirmed ? statusBadgeStyles.approved : statusBadgeStyles.pending}`}>
                           {highlightText((audit.confirmed ? 'Approved' : 'Pending'), searchTerm)}
                         </span>
                       </div>
@@ -825,53 +887,55 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                 onClose={() => setShowPopup(false)}
               />
             )}
-            {showDetailPopup && selectedAudit && (
-              <AssetDetailPopup
-                asset={assetDetail ? {
-                  ...assetDetail,
-                  id: String(assetDetail.id || assetDetail.asset_id || selectedAudit.asset_id || selectedAudit.id),
-                  asset_code: assetDetail.asset_code || '',
-                  inventory_number: assetDetail.inventory_number || '',
-                  serial_number: assetDetail.serial_number || '',
-                  name: assetDetail.name || selectedAudit.asset_name || '',
-                  description: assetDetail.description || '',
-                  location_id: assetDetail.location_id || '',
-                  location: assetDetail.location || '',
-                  room: assetDetail.room || '',
-                  department: assetDetail.department || selectedAudit.department_name || '',
-                  department_id: assetDetail.department_id || '',
-                  owner: assetDetail.owner || selectedAudit.user_name || '',
-                  status: assetDetail.status || selectedAudit.status,
-                  image_url: assetDetail.image_url || selectedAudit.image_url || '',
-                  acquired_date: assetDetail.acquired_date || selectedAudit.checked_at || '',
-                  created_at: assetDetail.created_at || '',
-                  updated_at: assetDetail.updated_at || '',
-                } : {
-                  id: String(selectedAudit.asset_id || selectedAudit.id),
-                  asset_code: '',
-                  inventory_number: '',
-                  serial_number: '',
-                  name: selectedAudit.asset_name || '',
-                  description: '',
-                  location_id: '',
-                  location: '',
-                  room: '',
-                  department: selectedAudit.department_name || '',
-                  department_id: '',
-                  owner: selectedAudit.user_name || '',
-                  status: selectedAudit.status,
-                  image_url: selectedAudit.image_url || '',
-                  acquired_date: selectedAudit.checked_at || '',
-                  created_at: '',
-                  updated_at: '',
-                }}
-                isOpen={showDetailPopup}
-                onClose={() => setShowDetailPopup(false)}
-                isAdmin={false}
-                isCreating={false}
-              />
-            )}
           </>
+        )}
+        
+        {/* AssetDetailPopup - ใช้ร่วมกันทั้ง mobile และ desktop */}
+        {showDetailPopup && selectedAudit && (
+          <AssetDetailPopup
+            asset={assetDetail ? {
+              ...assetDetail,
+              id: String(assetDetail.id || assetDetail.asset_id || selectedAudit.asset_id || selectedAudit.id),
+              asset_code: assetDetail.asset_code || '',
+              inventory_number: assetDetail.inventory_number || '',
+              serial_number: assetDetail.serial_number || '',
+              name: assetDetail.name || selectedAudit.asset_name || '',
+              description: assetDetail.description || '',
+              location_id: assetDetail.location_id || '',
+              location: assetDetail.location || '',
+              room: assetDetail.room || '',
+              department: assetDetail.department || selectedAudit.department_name || '',
+              department_id: assetDetail.department_id || '',
+              owner: assetDetail.owner || selectedAudit.user_name || '',
+              status: assetDetail.status || selectedAudit.status,
+              image_url: assetDetail.image_url || selectedAudit.image_url || '',
+              acquired_date: assetDetail.acquired_date || selectedAudit.checked_at || '',
+              created_at: assetDetail.created_at || '',
+              updated_at: assetDetail.updated_at || '',
+            } : {
+              id: String(selectedAudit.asset_id || selectedAudit.id),
+              asset_code: '',
+              inventory_number: '',
+              serial_number: '',
+              name: selectedAudit.asset_name || '',
+              description: '',
+              location_id: '',
+              location: '',
+              room: '',
+              department: selectedAudit.department_name || '',
+              department_id: '',
+              owner: selectedAudit.user_name || '',
+              status: selectedAudit.status,
+              image_url: selectedAudit.image_url || '',
+              acquired_date: selectedAudit.checked_at || '',
+              created_at: '',
+              updated_at: '',
+            }}
+            isOpen={showDetailPopup}
+            onClose={() => setShowDetailPopup(false)}
+            isAdmin={false}
+            isCreating={false}
+          />
         )}
       </div>
     </>

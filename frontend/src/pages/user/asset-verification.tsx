@@ -42,8 +42,21 @@ const AssetVerificationUserPage: React.FC = () => {
       />
       <div style={
         isMobile
-          ? { padding: '1rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)', marginTop: 40 }
-          : { padding: '2rem', backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)' }
+          ? {  
+              backgroundColor: 'transparent', 
+              borderRadius: '0', 
+              boxShadow: 'none', 
+              marginTop: 25,
+              width: '100%',
+              maxWidth: '100vw',
+              overflow: 'hidden'
+            }
+          : { 
+              padding: '2rem', 
+              backgroundColor: 'var(--card-bg)', 
+              borderRadius: '15px', 
+              boxShadow: 'var(--shadow-sm)' 
+            }
       }>
         <h1></h1>
         <AssetVerificationTable searchTerm={searchTerm} />

@@ -1,20 +1,5 @@
 import React, { createContext, useState, useContext, ReactNode, useCallback } from 'react';
-
-interface Asset {
-  id: string;
-  asset_code: string;
-  name: string;
-  description: string;
-  location: string;
-  location_id?: string;
-  department: string;
-  department_id?: string;
-  owner: string;
-  status: 'active' | 'transferring' | 'audited' | 'missing' | 'broken' | 'disposed'; // Updated status types
-  image_url: string | null;
-  acquired_date: string;
-  serial_number?: string;
-}
+import { Asset } from '../common/types/asset';
 
 interface AssetContextType {
   assets: Asset[];

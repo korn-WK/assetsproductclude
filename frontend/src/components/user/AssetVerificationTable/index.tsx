@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import styles from '../AssetsTable/AssetsTable.module.css';
+import statusBadgeStyles from '../../common/statusBadge.module.css';
 import { formatDate } from '../../../lib/utils';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
 import { useAuth } from '../../../contexts/AuthContext';
 import Image from 'next/image';
 import Pagination from '../../common/Pagination';
-import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
-import { AiOutlineDownload, AiOutlineCalendar } from 'react-icons/ai';
+import { AiOutlineDownload, AiOutlineCalendar, AiOutlineDown } from 'react-icons/ai';
 // @ts-ignore
 import { DateRange } from 'react-date-range';
 import { format, parse, isAfter, isBefore, isEqual } from 'date-fns';
@@ -16,8 +16,9 @@ import 'react-date-range/dist/theme/default.css';
 import { useStatusOptions } from '../../../lib/statusOptions';
 import Swal from 'sweetalert2';
 import { AiOutlineEye } from 'react-icons/ai';
-import type { Asset } from '../../common/AssetDetailPopup';
+import type { Asset } from '../../../common/types/asset';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
+import { highlightText } from '../../common/highlightText';
 
 interface PendingAudit {
   id: number;
@@ -36,13 +37,6 @@ interface PendingAudit {
 
 interface AssetVerificationTableProps {
   searchTerm?: string;
-}
-function highlightText(text: string, keyword: string) {
-  if (!keyword) return text;
-  const regex = new RegExp(`(${keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
-  return text.split(regex).map((part, i) =>
-    part.toLowerCase() === keyword.toLowerCase() ? <mark key={i} style={{ background: '#ffe066', color: '#222', padding: 0 }}>{part}</mark> : part
-  );
 }
 // เพิ่ม dropdown menu component ภายในไฟล์นี้ (minimal inline)
 function ThreeDotsMenu({ onHistory }: { onHistory: () => void }) {
@@ -121,22 +115,26 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   ]);
   const [showPicker, setShowPicker] = useState(false);
   const [search, setSearch] = useState(searchTerm || '');
-  const [departments, setDepartments] = useState<{ id: number, name_th: string }[]>([]);
-  const [departmentFilter, setDepartmentFilter] = useState<'all' | number>('all');
+
   const [isMobile, setIsMobile] = useState(false);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
+  const [showAuditPeriodModal, setShowAuditPeriodModal] = useState(false);
+  const [auditPeriodRange, setAuditPeriodRange] = useState<[{ startDate?: Date; endDate?: Date; key: string }]>([
+    {
+      startDate: undefined,
+      endDate: undefined,
+      key: 'selection',
+    },
+  ]);
+  const [loadingAuditPeriod, setLoadingAuditPeriod] = useState(false);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
-  useEffect(() => {
-    fetch('/api/assets/departments')
-      .then(res => res.json())
-      .then(data => setDepartments(data));
-  }, []);
+
 
   const { options: statusOptions, loading: statusLoading } = useStatusOptions();
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
@@ -147,6 +145,78 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
       .then(data => setPendingAudits(data))
       .catch(() => setPendingAudits([]));
   }, []);
+
+  // โหลดการตั้งค่าวันที่การตรวจนับ
+  useEffect(() => {
+    fetch('/api/settings/user-edit-window')
+      .then(res => res.json())
+      .then(data => {
+        if (data.start_date && data.end_date) {
+          setAuditPeriodRange([
+            {
+              startDate: new Date(data.start_date),
+              endDate: new Date(data.end_date),
+              key: 'selection',
+            },
+          ]);
+        }
+      })
+      .catch(() => {
+        // ถ้าไม่มีข้อมูล ให้ใช้ค่าเริ่มต้น
+        setAuditPeriodRange([
+          {
+            startDate: new Date(),
+            endDate: new Date(),
+            key: 'selection',
+          },
+        ]);
+      });
+  }, []);
+
+  const handleSaveAuditPeriod = async () => {
+    setLoadingAuditPeriod(true);
+    try {
+      // ตรวจสอบ transfer pending ก่อน
+      const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
+      const transfers = await res.json();
+      if (Array.isArray(transfers) && transfers.length > 0) {
+        setLoadingAuditPeriod(false);
+        Swal.fire({
+          icon: 'warning',
+          title: 'ไม่สามารถบันทึกได้',
+          text: 'กรุณาอนุมัติหรือปฏิเสธรายการโอนย้ายค้างอยู่ในหน้า Asset Transfer Verification ให้หมดก่อน!',
+          confirmButtonText: 'ตกลง',
+        });
+        return;
+      }
+
+      await fetch('/api/settings/user-edit-window', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          start_date: auditPeriodRange[0].startDate?.toISOString().slice(0, 19).replace('T', ' '),
+          end_date: auditPeriodRange[0].endDate?.toISOString().slice(0, 19).replace('T', ' '),
+        }),
+      });
+      
+      setLoadingAuditPeriod(false);
+      Swal.fire({
+        icon: 'success',
+        title: 'บันทึกช่วงเวลาตรวจนับเรียบร้อยแล้ว',
+        confirmButtonText: 'ตกลง',
+      }).then(() => {
+        setShowAuditPeriodModal(false);
+      });
+    } catch (error) {
+      setLoadingAuditPeriod(false);
+      Swal.fire({
+        icon: 'error',
+        title: 'เกิดข้อผิดพลาด',
+        text: 'ไม่สามารถบันทึกการตั้งค่าได้',
+        confirmButtonText: 'ตกลง',
+      });
+    }
+  };
 
   // Filter audits by date range (using react-date-range)
   const filteredAudits = pendingAudits.filter(audit => {
@@ -193,11 +263,8 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     setCurrentPage(1);
   }, [verificationFilter, pendingAudits]);
 
-  const auditsByDepartment = departmentFilter === 'all'
-    ? filteredAudits
-    : filteredAudits.filter(a => a.department_name && departments.find(d => d.id === departmentFilter && d.name_th === a.department_name));
-  const paginatedAudits = auditsByDepartment.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
-  const totalPages = Math.ceil(auditsByDepartment.length / rowsPerPage);
+  const paginatedAudits = filteredAudits.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+  const totalPages = Math.ceil(filteredAudits.length / rowsPerPage);
 
   const toggleSelect = (id: number) => {
     setSelected(sel => sel.includes(id) ? sel.filter(i => i !== id) : [...sel, id]);
@@ -378,32 +445,31 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   return (
     <>
       {isMobile ? (
-        <div style={{  backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)' }}>
-          {/* Row 1: Department dropdown */}
-          <div style={{ display: 'flex', alignItems: 'center', padding: '0 0.5rem 0.3rem 0.5rem', marginBottom: 8 }}>
-            <select
-              className={styles.filterDropdown}
-              value={departmentFilter}
-              onChange={e => setDepartmentFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-              style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 12, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
-            >
-              <option value="all">All Departments</option>
-              {departments.map(dep => (
-                <option key={dep.id} value={dep.id}>{dep.name_th}</option>
-              ))}
-            </select>
-          </div>
-          {/* Row 2: Calendar, Status, Export */}
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', padding: '0 0.5rem', marginBottom: 8, position: 'relative' }}>
+        <div style={{ backgroundColor: 'var(--card-bg)', borderRadius: '15px', boxShadow: 'var(--shadow-sm)', padding: '0.8rem' }}>
+          {/* Row 1: Dropdown, Calendar, Export */}
+          <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+            <div className={styles.dropdownWrapper} style={{ flex: 1, minWidth: 0, maxWidth: 180 }}>
+              <select
+                className={styles.filterDropdown}
+                value={verificationFilter}
+                onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
+                style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
+              >
+                <option value="all">ทั้งหมด</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+              </select>
+              <span className={styles.caretIcon}><AiOutlineDown /></span>
+            </div>
             <button
-              style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+              style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
               onClick={() => setShowPicker(v => !v)}
               type="button"
             >
               <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
             </button>
             {showPicker && (
-              <div style={{ position: 'absolute', zIndex: 20, top: 50, left: 0, right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12 }}>
+              <div style={{ position: 'absolute', zIndex: 90, top: 50, left: 0, border: '1.5px solid #e5e7eb', borderRadius: 12, background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                 <DateRange
                   editableDateInputs={true}
                   onChange={(item: any) => setRange([item.selection])}
@@ -433,69 +499,117 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 </div>
               </div>
             )}
-            <select
-              className={styles.filterDropdown}
-              value={verificationFilter}
-              onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
-              style={{ flex: 1, background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
+            <button
+              className={styles.exportXlsxButtonSmall}
+              style={{
+                background: 'linear-gradient(135deg, #5768D2 0%, #EB9CED 100%)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: 10,
+                padding: '0.5rem 0.5rem',
+                fontSize: '0.9rem',
+                fontWeight: 600,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                height: 44,
+                boxShadow: 'var(--shadow-md)',
+                cursor: 'pointer',
+                transition: 'background 0.2s',
+                flex: 1,
+                minWidth: 0,
+                maxWidth: 150,
+                justifyContent: 'center',
+              }}
+              onMouseOver={e => e.currentTarget.style.background = 'linear-gradient(135deg, #7C5FE6 0%, #F3B6F9 100%)'}
+              onMouseOut={e => e.currentTarget.style.background = 'linear-gradient(135deg, #5768D2 0%, #EB9CED 100%)'}
+              onClick={handleExportXLSX}
+              title="Export XLSX"
             >
-              <option value="all">ทั้งหมด</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-            </select>
-            <button className={styles.exportXlsxButtonSmall} style={{ color: '#fff', border: 'none', borderRadius: 10, padding: '0.5rem 1.2rem', fontSize: '1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, height: 44, boxShadow: 'var(--shadow-md)' }} onClick={handleExportXLSX}>
               <AiOutlineDownload style={{ fontSize: '1.3em' }} />
-              Export
+              <span style={{ marginLeft: 4 }}>Export</span>
             </button>
           </div>
-          {/* Row 3: search box */}
-          <div style={{padding: '0 0.5rem 0.5rem 0.5rem'}}>
+          {/* Row 2: Search */}
+          <div style={{ padding: '0 0.2rem 0.8rem 0.2rem' }}>
             <input
               type="text"
-              placeholder="Search..."
+              placeholder="ค้นหาสินทรัพย์..."
               className={styles.mobileSearchInput}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              style={{width: '100%', borderRadius: 10, border: '1.5px solid #e5e7eb', height: 44, fontSize: '1rem', background: '#fff', color: '#222', marginTop: 0, marginBottom: 0}}
+              style={{
+                width: '100%', 
+                borderRadius: 10, 
+                border: '1.5px solid #e5e7eb', 
+                height: 44, 
+                fontSize: '0.95rem', 
+                background: '#fff', 
+                color: '#222', 
+                marginTop: 0, 
+                marginBottom: 0,
+                padding: '0 1rem',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+              }}
             />
           </div>
-          {/* Card view */}
-          <div className={styles.assetCardList}>
+          {/* Card view - ปรับให้เหมือน admin version */}
+          <div className={styles.assetCardList} style={{ gap: '0.8rem' }}>
             {paginatedAudits.map(audit => (
-              <div className={styles.assetCard} key={audit.id} onClick={() => {
-                if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
-                  setDetailAsset(mapPendingAuditToAsset(audit));
-                  setShowDetailPopup(true);
-                }
-              }}>
-                <img
-                  src={audit.image_url || '/file.svg'}
-                  alt={audit.asset_name}
-                  className={styles.assetCardImage}
-                  onError={e => { (e.target as HTMLImageElement).src = '/file.svg'; }}
-                />
+              <div 
+                className={styles.assetCard} 
+                key={audit.id} 
+                style={{ position: 'relative', cursor: 'pointer' }} 
+                onClick={() => {
+                  if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
+                    setDetailAsset(mapPendingAuditToAsset(audit));
+                    setShowDetailPopup(true);
+                  }
+                }}
+              >
+                {/* ไอคอนตาและ checkbox ในมุมขวาบน */}
+                <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 10, display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div data-history-button>
+                    <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
+                  </div>
+                  {(verificationFilter !== 'approved') && !audit.confirmed && (
+                    <div data-select-checkbox>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(audit.id)}
+                        onChange={(e) => { e.stopPropagation(); toggleSelect(audit.id); }}
+                        style={{ width: 20, height: 20, cursor: 'pointer', margin: 0 }}
+                      />
+                    </div>
+                  )}
+                </div>
+                
+                {/* รูป asset ตรงกลาง */}
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, padding: '16px 0', marginTop: 45 }}>
+                  <img
+                    src={audit.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
+                    alt={audit.asset_name}
+                    style={{ 
+                      width: 90, 
+                      height: 90, 
+                      objectFit: 'cover', 
+                      borderRadius: 12,
+                      border: '3px solid #e5e7eb',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                    }}
+                    onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                  />
+                </div>
+                
                 <div className={styles.assetCardContent}>
                   <div className={styles.assetCardTitle}>{highlightText(audit.asset_name || '', search || '')}</div>
                   <div className={styles.assetCardMetaRow}><b>Inventory:</b> {highlightText(audit.inventory_number || '', search || '')}</div>
-                  <div className={styles.assetCardMetaRow}><b>Status:</b> <span className={styles.statusBadge} style={{ background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd', color: '#fff' }}>{highlightText(statusLabels[audit.status] || audit.status, search || '')}</span></div>
+                  <div className={styles.assetCardMetaRow}><b>Status:</b> <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd', color: '#fff' }}>{highlightText(statusLabels[audit.status] || audit.status, search || '')}</span></div>
                   <div className={styles.assetCardMetaRow}><b>Note:</b> {highlightText(audit.note || '-', search || '')}</div>
                   <div className={styles.assetCardMetaRow}><b>Auditor:</b> {highlightText(audit.user_name || '-', search || '')}</div>
                   <div className={styles.assetCardMetaRow}><b>Department:</b> {highlightText(audit.department_name || '-', search || '')}</div>
                   <div className={styles.assetCardMetaRow}><b>Date:</b> {highlightText(formatDate(audit.checked_at) || '-', search || '')}</div>
-                  <div className={styles.assetCardMetaRow}><b>Verification:</b> <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em' }}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), search || '')}</span></div>
-                  <div className={styles.assetCardMetaRow} style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
-                    <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
-                  </div>
-                  {(verificationFilter !== 'approved') && !audit.confirmed && (
-                    <div style={{ marginTop: 8 }}>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(audit.id)}
-                        onChange={e => { e.stopPropagation(); toggleSelect(audit.id); }}
-                        style={{ marginRight: 8 }}
-                      /> Select
-                    </div>
-                  )}
+                  <div className={styles.assetCardMetaRow}><b>Verification:</b> <span className={`${statusBadgeStyles.statusBadge} ${audit.confirmed ? statusBadgeStyles.approved : statusBadgeStyles.pending}`}>{highlightText((audit.confirmed ? 'Approved' : 'Pending'), search || '')}</span></div>
                 </div>
               </div>
             ))}
@@ -533,29 +647,20 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
           <div className={styles.assetsControls} style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'nowrap' }}>
             <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               <div className={styles.dropdownWrapper}>
-                <select
-                  className={styles.departmentDropdown}
-                  value={verificationFilter}
-                  onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
-                >
-                  <option value="all">ทั้งหมด</option>
-                  <option value="pending">Pending</option>
-                  <option value="approved">Approved</option>
-                </select>
+                <div style={{ position: 'relative', display: 'inline-block' }}>
+                  <select
+                    className={styles.departmentDropdown}
+                    value={verificationFilter}
+                    onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
+                  >
+                    <option value="all">ทั้งหมด</option>
+                    <option value="pending">Pending</option>
+                    <option value="approved">Approved</option>
+                  </select>
+                  <span className={styles.caretIcon}><AiOutlineDown /></span>
+                </div>
               </div>
-              <div className={styles.dropdownWrapper}>
-                <select
-                  className={styles.filterDropdown}
-                  value={departmentFilter}
-                  onChange={e => setDepartmentFilter(e.target.value === 'all' ? 'all' : Number(e.target.value))}
-                  style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
-                >
-                  <option value="all">All Departments</option>
-                  {departments.map(dep => (
-                    <option key={dep.id} value={dep.id}>{dep.name_th}</option>
-                  ))}
-                </select>
-              </div>
+
             </div>
             {/* Right: date picker + export */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -626,11 +731,11 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
               </button>
             </div>
           </div>
-          {/* Table: let columns auto-fit content */}
-          <table className={styles.assetsTable} style={{ tableLayout: 'fixed', width: '100%' }}>
+          {/* Table: ปรับความกว้างให้เหมาะสม */}
+          <table className={styles.assetsTable} style={{ tableLayout: 'fixed', width: '100%', maxWidth: '1600px', margin: '0 auto' }}>
             <thead>
               <tr>
-                <th style={{ width: 30 }}>
+                <th style={{ width: 40 }}>
                   {/* Checkbox เฉพาะถ้า filter เป็น pending หรือ all */}
                   {(verificationFilter !== 'approved') && (
                     <input
@@ -644,25 +749,28 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   )}
                 </th>
                 <th style={{ width: 70 }}>Image</th>
-                <th style={{ width: 120 }}>Inventory Number</th>
-                <th style={{ width: 180 }}>Name</th>
-                <th style={{ width: 120 }}>Status</th>
+                <th style={{ width: 140 }}>Inventory Number</th>
+                <th style={{ width: 200 }}>Name</th>
+                <th style={{ width: 160 }}>Status</th>
                 <th style={{ width: 120 }}>Note</th>
                 <th style={{ width: 120 }}>Auditor</th>
-                <th style={{ width: 190 }}>Department</th>
-                <th style={{ width: 140 }}>Date</th>
-                <th style={{ width: 140 }}>Verification Status</th>
-                <th style={{ width: 80 }}>History</th>
+                <th style={{ width: 200 }}>Department</th>
+                <th style={{ width: 160 }}>Date</th>
+                <th style={{ width: 120 }}>Verification Status</th>
+                <th style={{ width: 80, textAlign: 'center' }}>History</th>
               </tr>
             </thead>
             <tbody>
               {paginatedAudits.map(audit => (
-                <tr key={audit.id} onClick={() => {
-                  if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
-                    setDetailAsset(mapPendingAuditToAsset(audit));
-                    setShowDetailPopup(true);
-                  }
-                }}>
+                <tr key={audit.id} 
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => {
+                    if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
+                      setDetailAsset(mapPendingAuditToAsset(audit));
+                      setShowDetailPopup(true);
+                    }
+                  }}
+                >
                   <td>
                     {/* แสดง checkbox เฉพาะถ้ายังไม่ approved */}
                     {!audit.confirmed && (
@@ -690,13 +798,9 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   <td>{highlightText(audit.inventory_number || '', search || '')}</td>
                   <td>{highlightText(audit.asset_name || '', search || '')}</td>
                   <td>
-                    <span style={{
+                    <span className={`${statusBadgeStyles.statusBadge} compact`} style={{
                       background: (statusOptions.find(opt => opt.value === audit.status)?.color) || '#adb5bd',
-                      color: '#fff',
-                      borderRadius: 8,
-                      padding: '0.2em 0.8em',
-                      fontWeight: 500,
-                      fontSize: '0.95em'
+                      color: '#fff'
                     }}>
                       {highlightText(statusLabels[audit.status] || audit.status, search || '')}
                     </span>
@@ -709,13 +813,15 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                     style={{ textAlign: 'center', verticalAlign: 'middle', height: 48 }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-                      <span style={{ background: audit.confirmed ? '#22c55e' : '#facc15', color: '#fff', borderRadius: 8, padding: '0.2em 0.8em', fontWeight: 500, fontSize: '0.95em', display: 'inline-block' }}>
+                      <span className={`${statusBadgeStyles.statusBadge} ${audit.confirmed ? statusBadgeStyles.approved : statusBadgeStyles.pending}`}>
                         {highlightText(audit.confirmed ? 'Approved' : 'Pending', search || '')}
                       </span>
                     </div>
                   </td>
-                  <td style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
+                  <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <ThreeDotsMenu onHistory={() => { setPopupAssetId(audit.asset_id); setShowPopup(true); }} />
+                    </div>
                   </td>
                 </tr>
               ))}
