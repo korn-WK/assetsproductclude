@@ -18,7 +18,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
   React.useEffect(() => {
     console.log('DEBUG: user:', user, 'loading:', loading);
     if (!loading) {
-      const role = user?.role?.toLowerCase();
+      const role = user?.originalRole?.toLowerCase();
       if (!user || role !== 'superadmin') {
         console.log('DEBUG: redirecting because user is not superadmin');
         router.replace('/admin/dashboard');
@@ -33,7 +33,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const role = user?.role?.toLowerCase();
+  const role = user?.originalRole?.toLowerCase();
   if (loading || !user || role !== 'superadmin') {
     console.log('DEBUG: return null', { loading, user, role });
     return null;

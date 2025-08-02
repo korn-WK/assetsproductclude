@@ -47,7 +47,7 @@ const Sidebar: React.FC<SidebarProps> = ({ open, onClose }) => {
               </Link>
             </li>
             {/* Asset Verification for Admin only */}
-            {user?.role?.toLowerCase() === 'admin' && (
+            {user?.originalRole?.toLowerCase() === 'admin' && (
               <>
               <li className={styles.navItem}>
                 <Link href="/user/asset-verification" className={styles.navLink + (currentPath === '/user/asset-verification' ? ' ' + styles.active : '')}>

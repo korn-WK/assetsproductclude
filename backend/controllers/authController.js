@@ -1,6 +1,35 @@
 // controllers/authController.js
 const jwt = require('jsonwebtoken');
+const crypto = require('crypto');
 require('dotenv').config();
+
+// Function to hash role
+const hashRole = (role) => {
+  return crypto.createHash('sha256').update(role).digest('hex');
+};
+
+// Function to verify if a role matches a hash
+const verifyRoleHash = (role, hash) => {
+  return hashRole(role) === hash;
+};
+
+// Function to get original role from common hashes (for known roles)
+const getOriginalRole = (hashedRole) => {
+  const roleHashes = {
+    'SuperAdmin': hashRole('SuperAdmin'),
+    'Admin': hashRole('Admin'),
+    'User': hashRole('User'),
+    'user': hashRole('user'),
+    'admin': hashRole('admin')
+  };
+  
+  for (const [role, hash] of Object.entries(roleHashes)) {
+    if (hash === hashedRole) {
+      return role;
+    }
+  }
+  return null; // Return null if hash doesn't match any known role
+};
 
 const generateToken = (user, expiresIn = '15m') => {
   return jwt.sign(
@@ -8,7 +37,7 @@ const generateToken = (user, expiresIn = '15m') => {
       id: user.id, 
       username: user.username, 
       email: user.email, 
-      role: user.role, 
+      role: hashRole(user.role), // Hash the role
       name: user.name, 
       picture: user.picture,
       department_id: user.department_id // Add department_id to token
@@ -54,12 +83,14 @@ const googleAuthCallback = (req, res) => {
     });
 
     // Check if user is admin and redirect accordingly
-    const isSuperAdmin = req.user.role === 'SuperAdmin' || req.user.email === 'admin@mfu.ac.th' || req.user.email?.toLowerCase().includes('superadmin');
-    const isAdmin = req.user.role === 'Admin' || req.user.role === 'admin';
+    const userRoleHash = req.user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    const isSuperAdmin = originalUserRole === 'SuperAdmin' || req.user.email === 'admin@mfu.ac.th' || req.user.email?.toLowerCase().includes('superadmin');
+    const isAdmin = originalUserRole === 'Admin' || originalUserRole === 'admin';
     let redirectUrl;
     if (isSuperAdmin) {
       redirectUrl = `${process.env.CLIENT_URL}/admin/asset-management`;
-    } else if (isAdmin || req.user.role === 'User' || req.user.role === 'user') {
+    } else if (isAdmin || originalUserRole === 'User' || originalUserRole === 'user') {
       redirectUrl = `${process.env.CLIENT_URL}/user/asset-browser`;
     } else {
       redirectUrl = `${process.env.CLIENT_URL}/user/asset-browser`;
@@ -124,7 +155,15 @@ function tryRefreshToken(req, res, next) {
 
 const authorizeRoles = (...roles) => {
   return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) {
+    if (!req.user) {
+      return res.status(403).json({ message: 'Forbidden: You do not have permission to access this resource.' });
+    }
+    
+    // Check if user's role (which is now hashed) matches any of the allowed roles
+    const userRoleHash = req.user.role;
+    const hasAllowedRole = roles.some(role => hashRole(role) === userRoleHash);
+    
+    if (!hasAllowedRole) {
       return res.status(403).json({ message: 'Forbidden: You do not have permission to access this resource.' });
     }
     next();
@@ -134,7 +173,14 @@ const authorizeRoles = (...roles) => {
 // New controller to get user data from a valid token
 const getMe = (req, res) => {
   // The verifyToken middleware has already attached the user to the request
-  res.status(200).json(req.user);
+  const userData = { ...req.user };
+  
+  // Convert hashed role back to original role for frontend
+  if (userData.role) {
+    userData.originalRole = getOriginalRole(userData.role);
+  }
+  
+  res.status(200).json(userData);
 };
 
 // New: Logout endpoint to clear the cookie
@@ -215,4 +261,8 @@ module.exports = {
   getMe,
   updateUserDepartment,
   generateRefreshToken, // เผื่อใช้ในอนาคต
+  // Utility functions for role hashing
+  hashRole,
+  verifyRoleHash,
+  getOriginalRole,
 };

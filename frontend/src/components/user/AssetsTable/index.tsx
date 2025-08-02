@@ -774,7 +774,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
             <div className={styles.assetsHeader} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <div>
                 <p className={styles.totalAssets}>Total {assets.length} assets</p>
-                {user?.role?.toLowerCase() === 'admin' ? (
+                {user?.originalRole?.toLowerCase() === 'admin' ? (
                   <p className={styles.listOfEquipment}>Asset management for admin</p>
                 ) : (
                   <p className={styles.listOfEquipment}>Asset management for user</p>

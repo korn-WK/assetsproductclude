@@ -26,6 +26,7 @@ const {
 } = require("../models/asset.js");
 
 const { createAssetAudit, getAssetAudits } = require("../models/assetAudit.js");
+const { getOriginalRole } = require("./authController.js");
 
 const { pool } = require("../lib/db.js");
 
@@ -109,7 +110,9 @@ async function patchAssetStatus(req, res) {
     const user = req.user;
 
     // Check if user can update status (SuperAdmin or user/admin with department)
-    if (user.role !== 'SuperAdmin' && user.role !== 'Admin' && user.department_id === null) {
+    const userRoleHash = user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (originalUserRole !== 'SuperAdmin' && originalUserRole !== 'Admin' && user.department_id === null) {
       return res.status(403).json({ 
         error: "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department." 
       });
@@ -156,7 +159,8 @@ async function getAssets(req, res) {
   try {
     // Get user's department_id and role from the JWT token
     const userDepartmentId = req.user.department_id;
-    const userRole = req.user.role;
+    const userRoleHash = req.user.role;
+    const originalUserRole = getOriginalRole(userRoleHash); // Convert hash back to original role
     const { acquired_date, department } = req.query;
 
     let assets;
@@ -168,7 +172,7 @@ async function getAssets(req, res) {
         return res.status(400).json({ error: "Invalid department name" });
       }
       assets = await getAssetsByUserDepartment(departmentId);
-    } else if (userRole === "SuperAdmin") {
+    } else if (originalUserRole === "SuperAdmin") {
       // SuperAdmin เห็น asset ทั้งหมด
       assets = await getAllAssets();
     } else {
@@ -216,7 +220,8 @@ async function getStats(req, res) {
   try {
     // Get user's department_id and role from the JWT token
     const userDepartmentId = req.user.department_id;
-    const userRole = req.user.role;
+    const userRoleHash = req.user.role;
+    const originalUserRole = getOriginalRole(userRoleHash); // Convert hash back to original role
     const { year, department } = req.query;
 
     let assets;
@@ -228,7 +233,7 @@ async function getStats(req, res) {
         return res.status(400).json({ error: "Invalid department name" });
       }
       assets = await getAssetsByUserDepartment(departmentId);
-    } else if (userRole === "SuperAdmin" || userRole === "admin") {
+    } else if (originalUserRole === "SuperAdmin" || originalUserRole === "admin") {
       assets = await getAllAssets();
     } else {
       assets = await getAssetsByUserDepartment(userDepartmentId);
@@ -304,19 +309,20 @@ async function searchAssetsController(req, res) {
   try {
     const query = req.query.q || "";
     const userDepartmentId = req.user.department_id;
-    const userRole = req.user.role;
+    const userRoleHash = req.user.role;
+    const originalUserRole = getOriginalRole(userRoleHash); // Convert hash back to original role
 
     console.log("Search request received:");
     console.log("- Query:", query);
     console.log("- User department ID:", userDepartmentId);
-    console.log("- User role:", userRole);
+    console.log("- User role:", originalUserRole);
     console.log("- User object:", req.user);
 
     if (!query) {
       console.log("Empty query, returning all assets for user department");
       // Return all assets filtered by user's department if search is empty
       let allAssets;
-      if (userRole === "SuperAdmin") {
+      if (originalUserRole === "SuperAdmin") {
         // SuperAdmin เห็น asset ทั้งหมด
         allAssets = await getAllAssets();
       } else {
@@ -328,7 +334,7 @@ async function searchAssetsController(req, res) {
 
     console.log("Searching assets with query:", query);
     let assets;
-    if (userRole === "SuperAdmin") {
+    if (originalUserRole === "SuperAdmin") {
       // SuperAdmin ค้นหาใน asset ทั้งหมด
       assets = await searchAssets(query);
     } else {
@@ -350,7 +356,9 @@ async function updateAssetById(req, res) {
     const user = req.user;
 
     // Check if user can edit (SuperAdmin or user with department)
-    if (user.role !== 'SuperAdmin' && user.role !== 'Admin' && user.department_id === null) {
+    const userRoleHash = user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (originalUserRole !== 'SuperAdmin' && originalUserRole !== 'Admin' && user.department_id === null) {
       return res.status(403).json({ 
         error: "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department." 
       });
@@ -444,7 +452,9 @@ async function deleteAssetById(req, res) {
     const user = req.user;
 
     // Check if user can delete (SuperAdmin only)
-    if (user.role !== 'SuperAdmin') {
+    const userRoleHash = user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (originalUserRole !== 'SuperAdmin') {
       return res.status(403).json({ 
         error: "Access denied. Only SuperAdmins can delete assets." 
       });
@@ -514,7 +524,9 @@ async function createAssetController(req, res) {
     const user = req.user;
 
     // Check if user can create (SuperAdmin or user with department)
-    if (user.role !== 'SuperAdmin' && user.role !== 'Admin' && user.department_id === null) {
+    const userRoleHash = user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (originalUserRole !== 'SuperAdmin' && originalUserRole !== 'Admin' && user.department_id === null) {
       return res.status(403).json({ 
         error: "Access denied. Users without department assignment cannot create assets. Please contact your administrator to assign a department." 
       });
@@ -623,8 +635,10 @@ async function getDashboardGraphs(req, res) {
 async function getAssetAuditList(req, res) {
   try {
     const user = req.user;
+    const userRoleHash = user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
     const filter = {};
-    if (user.role !== 'SuperAdmin') {
+    if (originalUserRole !== 'SuperAdmin') {
       filter.department_id = user.department_id;
     }
     // ดึงทั้ง pending และ approved
@@ -680,7 +694,9 @@ async function getAssetAuditHistory(req, res) {
 // ดึง log ตรวจนับทั้งหมด (สำหรับ superadmin, รองรับ pagination)
 async function getAllAssetAudits(req, res) {
   try {
-    if (!req.user || req.user.role !== 'SuperAdmin') {
+    const userRoleHash = req.user?.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (!req.user || originalUserRole !== 'SuperAdmin') {
       return res.status(403).json({ error: 'Access denied' });
     }
     const limit = parseInt(req.query.limit) || 50;

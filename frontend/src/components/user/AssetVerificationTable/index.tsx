@@ -559,7 +559,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                     return;
                   }
                   
-                  if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
+                  if (user?.originalRole?.toLowerCase() === 'admin' || user?.originalRole?.toLowerCase() === 'superadmin') {
                     setDetailAsset(mapPendingAuditToAsset(audit));
                     setShowDetailPopup(true);
                   }
@@ -763,7 +763,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 <tr key={audit.id} 
                   style={{ cursor: 'pointer' }}
                   onClick={() => {
-                    if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
+                    if (user?.originalRole?.toLowerCase() === 'admin' || user?.originalRole?.toLowerCase() === 'superadmin') {
                       setDetailAsset(mapPendingAuditToAsset(audit));
                       setShowDetailPopup(true);
                     }

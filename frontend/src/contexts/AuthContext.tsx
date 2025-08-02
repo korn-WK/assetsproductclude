@@ -7,6 +7,7 @@ interface User {
   email: string;
   department_id: number | null;
   role?: string;
+  originalRole?: string; // Add originalRole field
   picture?: string | null;
 }
 
@@ -40,7 +41,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Update isAdmin logic
   // Only SuperAdmin is considered admin for admin routes
-  const isAdmin = !!(user?.role?.toLowerCase() === 'superadmin');
+  const isAdmin = !!(user?.originalRole?.toLowerCase() === 'superadmin');
 
   useEffect(() => {
     checkAuthStatus();

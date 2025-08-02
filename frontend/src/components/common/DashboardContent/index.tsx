@@ -279,7 +279,7 @@ const DashboardContent: React.FC = () => {
           </div>
           {/* Main Content as Cards/Charts */}
           <div className={styles.mainContent}>
-            {user?.role?.toLowerCase() === 'superadmin' && (
+            {user?.originalRole?.toLowerCase() === 'superadmin' && (
               <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <select
                   className={styles.mobileDropdown}
@@ -390,7 +390,7 @@ const DashboardContent: React.FC = () => {
           {/* Desktop Sidebar Cards */}
           <div className={styles.sidebarCards} style={{
         flex: '0 0 340px',
-        marginTop: user?.role?.toLowerCase() === 'superadmin' ? 60 : 0,
+                        marginTop: user?.originalRole?.toLowerCase() === 'superadmin' ? 60 : 0,
             maxHeight: `${VISIBLE_CARDS * 100 + 40}px`,
             overflowY: 'auto',
         display: 'flex',
@@ -456,7 +456,7 @@ const DashboardContent: React.FC = () => {
       </div>
       {/* Main Content */}
           <div className={styles.mainContent} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
-        {user?.role?.toLowerCase() === 'superadmin' && (
+                    {user?.originalRole?.toLowerCase() === 'superadmin' && (
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
             <div style={{ position: 'relative', display: 'inline-block', maxWidth: 180 }}>
               <select

@@ -15,7 +15,7 @@ const AssetVerificationUserPage: React.FC = () => {
 
   useEffect(() => {
     if (!loading) {
-      if (!user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'superadmin')) {
+      if (!user || (user.originalRole?.toLowerCase() !== 'admin' && user.originalRole?.toLowerCase() !== 'superadmin')) {
         router.replace('/user/asset-browser');
       }
     }
@@ -28,7 +28,7 @@ const AssetVerificationUserPage: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  if (loading || !user || (user.role?.toLowerCase() !== 'admin' && user.role?.toLowerCase() !== 'superadmin')) {
+  if (loading || !user || (user.originalRole?.toLowerCase() !== 'admin' && user.originalRole?.toLowerCase() !== 'superadmin')) {
     return null;
   }
 
@@ -36,7 +36,7 @@ const AssetVerificationUserPage: React.FC = () => {
     <Layout sidebar={<Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
       <Navbar
         title="Asset Verification"
-        isAdmin={user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'admin'}
+        isAdmin={user.originalRole?.toLowerCase() === 'superadmin' || user.originalRole?.toLowerCase() === 'admin'}
         onMenuClick={() => setSidebarOpen(true)}
         onSearch={setSearchTerm}
       />

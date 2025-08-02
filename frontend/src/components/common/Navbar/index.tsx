@@ -225,10 +225,10 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
             {!isMobile && (
               <div className={styles.userInfo}>
                 <span className={styles.userName}>{user.name}</span>
-                {user.role?.toLowerCase() === 'superadmin' && (
+                {user.originalRole?.toLowerCase() === 'superadmin' && (
                   <div className={styles.adminBadge}>SuperAdmin</div>
                 )}
-                {user.role?.toLowerCase() === 'admin' && (
+                {user.originalRole?.toLowerCase() === 'admin' && (
                   <div className={`${styles.adminBadge} ${styles.admin}`}>Admin</div>
                 )}
               </div>

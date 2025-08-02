@@ -54,10 +54,10 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       user.name?.toLowerCase().includes(q) ||
       user.email?.toLowerCase().includes(q) ||
       user.department_name?.toLowerCase().includes(q) ||
-      user.role?.toLowerCase().includes(q) ||
+                      user.originalRole?.toLowerCase().includes(q) ||
       formatDate(user.created_at).toLowerCase().includes(q)
     );
-    const matchRole = roleFilter === 'all' || user.role.toLowerCase() === roleFilter.toLowerCase();
+          const matchRole = roleFilter === 'all' || user.originalRole.toLowerCase() === roleFilter.toLowerCase();
     
     // Date range filter
     let matchDate = true;
@@ -193,7 +193,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       user.name || '',
       user.email || '',
       user.department_name || '',
-      user.role || '',
+      user.originalRole || '',
       formatDate(user.created_at),
     ]));
     const workbook = new ExcelJS.Workbook();
@@ -414,7 +414,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
                 </div>
                 <div className={styles.cardFields}>
                   <div className={styles.cardField}><span>Department:</span> {highlightText(user.department_name || 'Not Assigned', searchTerm || '')}</div>
-                  <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.role, searchTerm || '')}</span></div>
+                  <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.originalRole === 'SuperAdmin' ? styles.roleSuperAdmin : user.originalRole === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.originalRole, searchTerm || '')}</span></div>
                   <div className={styles.cardField}><span>Created At:</span> {highlightText(formatDate(user.created_at), searchTerm || '')}</div>
                 </div>
                 <div className={styles.cardActions}>
@@ -451,7 +451,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
         <div className={styles.header}>
           <div>
             <p className={styles.totalAssets}>{userTitle}</p>
-            {user?.role === 'SuperAdmin' ? (
+                            {user?.originalRole === 'SuperAdmin' ? (
               <p style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-color-primary)', marginTop: '1rem', marginBottom: 0 }}>User management for administrators</p>
             ) : (
               <p style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-color-primary)', marginTop: '1rem', marginBottom: 0 }}>Asset management for user</p>
@@ -548,17 +548,17 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
                   <td>
                     <span className={
                       `${styles.roleBadge} ${
-                        user.role === 'SuperAdmin'
+                        user.originalRole === 'SuperAdmin'
                           ? styles.roleSuperAdmin
-                          : user.role === 'Admin'
+                          : user.originalRole === 'Admin'
                           ? styles.roleAdmin
                           : styles.roleUser
                       }`
                     }>
-                      {user.role === 'SuperAdmin' && <FaCrown style={{marginRight: 4}} />}
-                      {user.role === 'Admin' && <FaUserShield style={{marginRight: 4}} />}
-                      {user.role === 'User' && <FaUser style={{marginRight: 4}} />}
-                      {highlightText(user.role, searchTerm || '')}
+                      {user.originalRole === 'SuperAdmin' && <FaCrown style={{marginRight: 4}} />}
+                      {user.originalRole === 'Admin' && <FaUserShield style={{marginRight: 4}} />}
+                      {user.originalRole === 'User' && <FaUser style={{marginRight: 4}} />}
+                      {highlightText(user.originalRole, searchTerm || '')}
                     </span>
                   </td>
                   <td>{highlightText(formatDate(user.created_at), searchTerm || '')}</td>

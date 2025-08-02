@@ -15,7 +15,7 @@ const AssetTransferVerificationPage: React.FC = () => {
 
   useEffect(() => {
     if (!loading) {
-      const role = user?.role?.toLowerCase();
+      const role = user?.originalRole?.toLowerCase();
       if (!user || role !== 'admin') {
         router.replace('/user/asset-browser');
       }
@@ -29,7 +29,7 @@ const AssetTransferVerificationPage: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const role = user?.role?.toLowerCase();
+  const role = user?.originalRole?.toLowerCase();
   if (loading || !user || role !== 'admin') {
     return null;
   }

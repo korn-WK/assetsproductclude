@@ -157,8 +157,8 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const now = new Date();
 
   // แยก role ให้ชัดเจน
-  const isSuperadmin = user?.role?.toLowerCase() === 'superadmin';
-  const isPureAdmin = user?.role?.toLowerCase() === 'admin' && !isSuperadmin;
+      const isSuperadmin = user?.originalRole?.toLowerCase() === 'superadmin';
+    const isPureAdmin = user?.originalRole?.toLowerCase() === 'admin' && !isSuperadmin;
   const isRegularUser = !isSuperadmin && !isPureAdmin;
   const isAdminOrSuperadmin = isSuperadmin || isPureAdmin;
 

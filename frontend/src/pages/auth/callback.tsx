@@ -23,7 +23,7 @@ const AuthCallbackPage = () => {
       fetch('/api/auth/me', { credentials: 'include' })
         .then(res => res.json())
         .then(user => {
-          const role = user?.role?.toLowerCase();
+          const role = user?.originalRole?.toLowerCase();
           if (role === 'user' || role === 'admin') {
             router.push('/user/asset-browser');
           } else if (role === 'superadmin') {

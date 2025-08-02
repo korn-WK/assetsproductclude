@@ -1,4 +1,4 @@
-const { verifyToken } = require('../controllers/authController');
+const { verifyToken, getOriginalRole } = require('../controllers/authController');
 
 // Middleware to protect admin routes
 const requireAdmin = (req, res, next) => {
@@ -6,7 +6,9 @@ const requireAdmin = (req, res, next) => {
     if (err) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    if (req.user.role !== 'SuperAdmin') {
+    const userRoleHash = req.user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (originalUserRole !== 'SuperAdmin') {
       return res.status(403).json({ 
         message: 'Access denied. SuperAdmin privileges required.',
         error: 'FORBIDDEN'
@@ -22,7 +24,9 @@ const requireUser = (req, res, next) => {
     if (err) {
       return res.status(401).json({ message: 'Authentication required' });
     }
-    if (req.user.role === 'SuperAdmin') {
+    const userRoleHash = req.user.role;
+    const originalUserRole = getOriginalRole(userRoleHash);
+    if (originalUserRole === 'SuperAdmin') {
       return res.status(403).json({ 
         message: 'Access denied. This route is for regular users and admins only.',
         error: 'FORBIDDEN'

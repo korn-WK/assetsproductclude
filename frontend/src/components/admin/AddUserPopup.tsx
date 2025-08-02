@@ -104,17 +104,17 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
             user[key] = cell.toString().trim();
           });
           // Normalize role
-          if (user.role) {
-            const roleRaw = user.role.toString().toLowerCase().replace(/\s/g, '');
+              if (user.originalRole) {
+      const roleRaw = user.originalRole.toString().toLowerCase().replace(/\s/g, '');
             const roleMap: any = {
               user: 'User',
               admin: 'Admin',
               superadmin: 'SuperAdmin',
             };
-            user.role = roleMap[roleRaw] || user.role.trim();
+            user.originalRole = roleMap[roleRaw] || user.originalRole.trim();
           }
           // Minimal validation
-          if (user.username && user.name && user.email && user.role) {
+          if (user.username && user.name && user.email && user.originalRole) {
             console.log('Parsed user from Excel:', user);
             users.push(user);
           }
@@ -144,7 +144,7 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
           username: user.username,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.originalRole,
           department_id: department_id || undefined,
         };
         await axios.post('/api/users', payload);
