@@ -58,7 +58,6 @@ export const DropdownProvider: React.FC<DropdownProviderProps> = ({ children }) 
   const fetchDropdownData = useCallback(async () => {
     // Don't fetch if not authenticated or still loading auth
     if (authLoading || !user) {
-      console.log('Auth loading or no user, skipping dropdown data fetch');
       return;
     }
 
@@ -66,8 +65,6 @@ export const DropdownProvider: React.FC<DropdownProviderProps> = ({ children }) 
     setError(null);
     
     try {
-      console.log('Fetching dropdown data...');
-      
       // Fetch all data in parallel with timeout
       const timeoutPromise = new Promise((_, reject) => 
         setTimeout(() => reject(new Error('Request timeout')), 10000)
@@ -84,11 +81,7 @@ export const DropdownProvider: React.FC<DropdownProviderProps> = ({ children }) 
         timeoutPromise
       ]) as Response[];
 
-      console.log('API responses:', {
-        departments: departmentsRes.status,
-        locations: locationsRes.status,
-        users: usersRes.status
-      });
+
 
       if (!departmentsRes.ok) throw new Error(`Failed to fetch departments: ${departmentsRes.statusText}`);
       if (!locationsRes.ok) throw new Error(`Failed to fetch locations: ${locationsRes.statusText}`);
@@ -100,11 +93,7 @@ export const DropdownProvider: React.FC<DropdownProviderProps> = ({ children }) 
         usersRes.json(),
       ]);
 
-      console.log('Dropdown data loaded:', {
-        departments: departmentsData.length,
-        locations: locationsData.length,
-        users: usersData.length
-      });
+
 
       setDepartments(departmentsData);
       setLocations(locationsData);
@@ -117,7 +106,6 @@ export const DropdownProvider: React.FC<DropdownProviderProps> = ({ children }) 
       // Retry after 5 seconds if it's a network error
       if (err instanceof Error && err.message.includes('timeout')) {
         setTimeout(() => {
-          console.log('Retrying dropdown data fetch...');
           fetchDropdownData();
         }, 5000);
       }
@@ -133,7 +121,6 @@ export const DropdownProvider: React.FC<DropdownProviderProps> = ({ children }) 
   // Load data when user becomes authenticated
   useEffect(() => {
     if (!authLoading && user && !hasLoaded) {
-      console.log('User authenticated, loading dropdown data...');
       fetchDropdownData();
     }
   }, [authLoading, user, hasLoaded, fetchDropdownData]);

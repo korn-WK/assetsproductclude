@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { AiOutlineCalendar, AiOutlineDown, AiOutlineClose, AiOutlineCamera, AiOutlinePrinter, AiOutlineDownload } from 'react-icons/ai';
 import styles from './AssetsTable.module.css';
@@ -28,7 +28,7 @@ interface AssetsTableProps {
 }
 
 const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTerm, onSearch, initialStatusFilter }) => {
-  const { assets, loading, error, fetchAssets } = useAssets();
+  const { assets, loading, error, fetchAssets, updateAsset, refreshAssets, pauseAutoRefresh, resumeAutoRefresh } = useAssets();
   const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
   const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>('All');
@@ -50,6 +50,12 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
   const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: any }>({});
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printType, setPrintType] = useState<'barcode' | 'qrcode'>('barcode');
+
+  // Auto-refresh states
+  const [isPageVisible, setIsPageVisible] = useState(true);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const focusRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Check if user can edit (user with department)
   const canEdit = user && user.department_id !== null;
@@ -79,7 +85,44 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     // eslint-disable-next-line
   }, []);
 
-
+  // ฟังก์ชันสำหรับ refresh pending data
+  const refreshPendingData = useCallback(async () => {
+    if (!assets || assets.length === 0) return;
+    
+    // Refresh pending audits
+    const fetchPendingAudits = async () => {
+      try {
+        const res = await fetch('/api/assets/audits/list', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const map: { [assetId: string]: any } = {};
+          for (const audit of data) {
+            if (!audit.confirmed && audit.asset_id) {
+              map[String(audit.asset_id)] = audit;
+            }
+          }
+          setPendingAudits(map);
+        }
+      } catch (error) {
+        console.error('Error fetching pending audits:', error);
+      }
+    };
+    
+    // Refresh pending transfers
+    const fetchTransfers = async () => {
+      const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
+      const data = await res.json();
+      // map asset_id เป็น key (string)
+      const map: { [assetId: string]: any } = {};
+      for (const t of data) {
+        // handle asset_id เป็น number หรือ string
+        map[String(t.asset_id)] = t;
+      }
+      setPendingTransfers(map);
+    };
+    
+    await Promise.all([fetchPendingAudits(), fetchTransfers()]);
+  }, [assets]);
 
   useEffect(() => {
     if (dateRange.startDate && dateRange.endDate) {
@@ -130,6 +173,117 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     fetchTransfers();
   }, [assets]);
 
+  // Auto-refresh only when data changes (using polling with longer interval)
+  useEffect(() => {
+    const startAutoRefresh = () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+      
+      // Check for updates every 10 minutes instead of frequent polling
+      autoRefreshIntervalRef.current = setInterval(async () => {
+        if (isPageVisible) {
+          try {
+            console.log('⏰ Auto-refresh triggered (10 min interval)');
+            // Only refresh if there might be updates (reduced frequency)
+            await refreshAssets();
+            await refreshPendingData();
+            setLastRefreshTime(new Date());
+            console.log('✅ Auto-refresh completed');
+          } catch (error) {
+            console.error('❌ Auto-refresh error:', error);
+            // Don't show error to user for auto-refresh failures
+          }
+        }
+      }, 600000); // 10 minutes - production setting
+    };
+
+    startAutoRefresh();
+
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+    };
+  }, [isPageVisible, refreshAssets, refreshPendingData]);
+
+  // Manual refresh trigger when user performs actions
+  const triggerManualRefresh = useCallback(async () => {
+    try {
+      console.log('🔄 Triggering manual refresh...');
+      await refreshAssets();
+      await refreshPendingData();
+      setLastRefreshTime(new Date());
+      console.log('✅ Manual refresh completed');
+    } catch (error) {
+      console.error('❌ Manual refresh error:', error);
+    }
+  }, [refreshAssets, refreshPendingData]);
+
+  // Focus/Visibility Detection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsPageVisible(isVisible);
+      
+      if (isVisible) {
+        // Clear any existing timeout
+        if (focusRefreshTimeoutRef.current) {
+          clearTimeout(focusRefreshTimeoutRef.current);
+        }
+        
+        // Refresh data immediately when tab becomes visible
+        console.log('👁️ Tab became visible, refreshing data...');
+        refreshAssets();
+        refreshPendingData();
+        setLastRefreshTime(new Date());
+        
+        // Also refresh after a short delay to ensure we get the latest data
+        focusRefreshTimeoutRef.current = setTimeout(() => {
+          refreshAssets();
+          refreshPendingData();
+        }, 1000);
+      }
+    };
+
+    const handleFocus = () => {
+      if (isPageVisible) {
+        console.log('🎯 Window focused, refreshing data...');
+        // Only refresh if popup is not open to prevent refresh loops
+        if (!isPopupOpen) {
+          refreshAssets();
+          refreshPendingData();
+          setLastRefreshTime(new Date());
+        } else {
+          console.log('⏸️ Skipping focus refresh - popup is open');
+        }
+      }
+    };
+
+    // Disable focus refresh when popup is open
+    const handleFocusWithPopupCheck = () => {
+      if (isPageVisible && !isPopupOpen) {
+        console.log('🎯 Window focused, refreshing data...');
+        refreshAssets();
+        refreshPendingData();
+        setLastRefreshTime(new Date());
+      } else if (isPageVisible && isPopupOpen) {
+        console.log('⏸️ Skipping focus refresh - popup is open');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    // Temporarily disable focus refresh to prevent loops
+    // window.addEventListener('focus', handleFocusWithPopupCheck);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      // window.removeEventListener('focus', handleFocusWithPopupCheck);
+      if (focusRefreshTimeoutRef.current) {
+        clearTimeout(focusRefreshTimeoutRef.current);
+      }
+    };
+  }, [isPageVisible, refreshAssets, refreshPendingData]);
 
 
   useEffect(() => {
@@ -151,7 +305,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     // Since Dashboard now passes Thai status values directly, we can simplify the matching
     const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
     
-    console.log('AssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
+    // console.log('AssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
     
     let matchesDate = true;
     if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
@@ -195,7 +349,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
 
   // ปรับ getStatusClass และ getStatusDisplay ให้รองรับ transferring แบบ virtual
   const getStatusClass = (status: string, hasPending: boolean, hasPendingTransfer: boolean) => {
-    console.log('getStatusClass called with status:', status, 'hasPending:', hasPending, 'hasPendingTransfer:', hasPendingTransfer);
+    // console.log('getStatusClass called with status:', status, 'hasPending:', hasPending, 'hasPendingTransfer:', hasPendingTransfer);
     if (hasPendingTransfer) return styles.statusTransferring;
     if (hasPending) return styles.statusPending;
     switch (status) {
@@ -208,7 +362,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
       case 'ชำรุด': return styles.statusBroken; // เพิ่ม case สำหรับภาษาไทย
       case 'ยกเลิก': return styles.statusDisposed; // เพิ่ม case สำหรับภาษาไทย
       default: 
-        console.log('No matching status class for:', status);
+        // console.log('No matching status class for:', status);
         return '';
     }
   };
@@ -221,6 +375,10 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
   };
 
   const handleAssetClick = (asset: Asset) => {
+    // Pause auto-refresh immediately when clicking to open popup
+    console.log('⏸️ Pausing auto-refresh in handleAssetClick');
+    pauseAutoRefresh();
+    
     setSelectedAsset({
       ...asset,
       inventory_number: asset.inventory_number || '',
@@ -233,23 +391,44 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
   const handleClosePopup = () => {
     setIsPopupOpen(false);
     setSelectedAsset(null);
+    
+    // Resume auto-refresh when closing popup
+    console.log('▶️ Resuming auto-refresh in handleClosePopup');
+    resumeAutoRefresh();
   };
 
   const handleAssetUpdate = (updatedAsset: Asset) => {
+    console.log('📝 Asset update triggered:', updatedAsset.id);
+    
+    // Update the asset in context immediately
+    updateAsset(updatedAsset);
+    
+    // Update the selected asset with the updated data
     setSelectedAsset({
       ...updatedAsset,
       inventory_number: updatedAsset.inventory_number || '',
       room: updatedAsset.room || '',
       created_at: updatedAsset.created_at || '',
     });
-    fetchAssets();
+    
+    // Close the popup
+    handleClosePopup();
+    
+    // Show success message
+    Swal.fire({
+      title: 'Updated!',
+      text: 'Asset has been updated successfully.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    });
   };
 
 
 
   const handleSearch = () => {
     // Implement search functionality
-    console.log('Searching for:', searchQuery);
+    // console.log('Searching for:', searchQuery);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -492,7 +671,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                   }}
                   style={{ width: '100%', paddingRight: '2rem' }}
                 >
-                  <option value="All">ทุกสถานะ</option>
+                  <option value="All">All Status</option>
                   {statusOptions.map(opt => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
@@ -548,7 +727,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                     onClick={e => e.stopPropagation()}
                     style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, width: 18, height: 18 }}
                   />
-                  <img src={asset.image_url || '/file.svg'} alt={asset.name} className={adminStyles.assetCardImage} />
+                  <img src={asset.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'} alt={asset.name} className={adminStyles.assetCardImage} />
                   <div className={adminStyles.assetCardContent}>
                     <div className={adminStyles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
                     <div className={adminStyles.assetCardMetaRow}>
@@ -561,14 +740,24 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                       <span><b>Department:</b> {highlightText(asset.department || '', searchTerm || '')}</span>
                     </div>
                     <div className={adminStyles.assetCardMetaRow}>
-                      <span><b>Status:</b> 
-                        <span
-                          className={statusBadgeStyles.statusBadge}
-                          style={asset.status_color ? { background: asset.status_color, color: '#fff' } : undefined}
-                        >
-                          {highlightText(getStatusDisplay(asset.status || '', asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer), searchTerm || '')}
+                                              <span><b>Status:</b> 
+                          {asset.has_pending_transfer ? (
+                            <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                              {getStatusDisplay(asset.status || '', false, undefined, true)}
+                            </span>
+                          ) : asset.has_pending_audit ? (
+                            <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ background: '#facc15', color: '#fff' }}>
+                              Pending
+                            </span>
+                          ) : (
+                            <span className={`${statusBadgeStyles.statusBadge} compact`} style={{ 
+                              background: asset.status_color ? `${asset.status_color}20` : '#f3f4f6', 
+                              color: asset.status_color || '#6b7280' 
+                            }}>
+                              {highlightText(getStatusDisplay(asset.status || '', asset.has_pending_audit || false, asset.pending_status || undefined, !!asset.has_pending_transfer), searchTerm || '')}
+                            </span>
+                          )}
                         </span>
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -606,7 +795,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                         setCurrentPage(1);
                       }}
                     >
-                      <option value="All">ทุกสถานะ</option>
+                      <option value="All">All Status</option>
                       {statusOptions.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}

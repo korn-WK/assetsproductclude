@@ -2,6 +2,9 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 
+// Import database connection
+const db = require("../lib/db.js");
+
 // Import authentication middleware
 const { verifyToken } = require("../controllers/authController.js");
 
@@ -111,6 +114,23 @@ router.get("/audits/list", verifyToken, getAssetAuditList);
 router.post("/audits/confirm", verifyToken, confirmAssetAudits);
 router.get("/asset-audits/:assetId", verifyToken, getAssetAuditHistory);
 router.get("/audits/all", verifyToken, getAllAssetAudits);
+
+// Real-time update endpoint
+router.get("/last-updated", verifyToken, async (req, res) => {
+  try {
+    // Get the latest updated_at timestamp from assets table
+    const query = "SELECT MAX(updated_at) as lastUpdated FROM assets";
+    const [results] = await db.query(query);
+    
+    const lastUpdated = results[0]?.lastUpdated || new Date();
+    console.log('Returning lastUpdated:', lastUpdated);
+    
+    res.json({ lastUpdated });
+  } catch (error) {
+    console.error('Error in last-updated endpoint:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
 
 // Parameterized routes (must be last to avoid conflicts) - these need authentication
 router.put("/:id", verifyToken, updateAssetById);

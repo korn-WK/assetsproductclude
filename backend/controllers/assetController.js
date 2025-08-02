@@ -161,7 +161,7 @@ async function getAssets(req, res) {
 
     let assets;
     // ถ้ามี query department (ชื่อแผนก) ให้ filter ด้วย department นั้น
-    if (department && department !== "All") {
+    if (department && department !== "All Departments") {
       // แปลงชื่อแผนกเป็น id
       const departmentId = await getDepartmentIdByName(department);
       if (!departmentId) {
@@ -221,7 +221,7 @@ async function getStats(req, res) {
 
     let assets;
 
-    if (department && department !== 'ทุกหน่วยงาน') {
+    if (department && department !== 'All Departments') {
       // filter ตาม department ที่เลือก
       const departmentId = await getDepartmentIdByName(department);
       if (!departmentId) {

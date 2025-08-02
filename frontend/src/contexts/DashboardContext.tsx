@@ -76,7 +76,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
     setError(null);
     try {
       let url = `/api/assets/stats?year=${year}`;
-      if (department && department !== 'ทุกหน่วยงาน') {
+      if (department && department !== 'All Departments') {
         url += `&department=${encodeURIComponent(department)}`;
       }
       const response = await fetch(url, {

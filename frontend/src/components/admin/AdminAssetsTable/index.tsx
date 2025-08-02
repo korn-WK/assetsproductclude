@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { AiOutlineCalendar, AiOutlinePlus, AiOutlineSearch, AiOutlineDown, AiOutlineCamera, AiOutlineDownload } from 'react-icons/ai';
 import Swal from 'sweetalert2';
@@ -25,7 +25,7 @@ interface AdminAssetsTableProps {
 }
 
 const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick, searchTerm, onSearch, initialStatusFilter }) => {
-  const { assets, loading, error, fetchAssets } = useAssets();
+  const { assets, loading, error, fetchAssets, updateAsset, refreshAssets, pauseAutoRefresh, resumeAutoRefresh } = useAssets();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedAsset, setSelectedAsset] = useState<Asset | null>(null);
@@ -51,23 +51,175 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printType, setPrintType] = useState<'barcode' | 'qrcode'>('barcode');
 
+  // Auto-refresh states
+  const [isPageVisible, setIsPageVisible] = useState(true);
+  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+  const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const focusRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Handle initialStatusFilter prop
   useEffect(() => {
-    console.log('AdminAssetsTable: initialStatusFilter received:', initialStatusFilter);
     if (initialStatusFilter) {
-      console.log('AdminAssetsTable: Setting activeFilter to:', initialStatusFilter);
       setActiveFilter(initialStatusFilter);
     }
   }, [initialStatusFilter]);
 
-  useEffect(() => {
-    console.log('AdminAssetsTable: activeFilter changed to:', activeFilter);
-  }, [activeFilter]);
+
 
   // Fetch assets from context when the component mounts
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
+
+  // ฟังก์ชันสำหรับ refresh pending data
+  const refreshPendingData = useCallback(async () => {
+    if (!assets || assets.length === 0) return;
+    
+    // Refresh pending transfers
+    const fetchTransfers = async () => {
+      const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
+      const data = await res.json();
+      const map: { [assetId: string]: any } = {};
+      for (const t of data) {
+        map[String(t.asset_id)] = t;
+      }
+      setPendingTransfers(map);
+    };
+    
+    // Refresh pending audits
+    const fetchAudits = async () => {
+      try {
+        const res = await fetch('/api/assets/audits/list', { credentials: 'include' });
+        if (res.ok) {
+          const data = await res.json();
+          const auditMap: { [assetId: string]: any } = {};
+          for (const audit of data) {
+            if (!audit.confirmed && audit.asset_id) {
+              auditMap[String(audit.asset_id)] = audit;
+            }
+          }
+          // Note: We don't have pendingAudits state in AdminAssetsTable, but we can add it if needed
+        }
+      } catch (error) {
+        console.error('Error fetching pending audits:', error);
+      }
+    };
+    
+    await Promise.all([fetchTransfers(), fetchAudits()]);
+  }, [assets]);
+
+  // Auto-refresh only when data changes (using polling with longer interval)
+  useEffect(() => {
+    const startAutoRefresh = () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+      
+      // Check for updates every 10 minutes instead of frequent polling
+      autoRefreshIntervalRef.current = setInterval(async () => {
+        if (isPageVisible) {
+          try {
+            // Only refresh if there might be updates (reduced frequency)
+            await refreshAssets();
+            await refreshPendingData();
+            setLastRefreshTime(new Date());
+          } catch (error) {
+            console.error('❌ Auto-refresh error:', error);
+            // Don't show error to user for auto-refresh failures
+          }
+        }
+      }, 600000); // 10 minutes - production setting
+    };
+
+    startAutoRefresh();
+
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current);
+      }
+    };
+  }, [isPageVisible, refreshAssets, refreshPendingData]);
+
+  // Manual refresh trigger when user performs actions
+  const triggerManualRefresh = useCallback(async () => {
+    try {
+      await refreshAssets();
+      await refreshPendingData();
+      setLastRefreshTime(new Date());
+    } catch (error) {
+      console.error('Manual refresh error:', error);
+    }
+  }, [refreshAssets, refreshPendingData]);
+
+  // Focus/Visibility Detection
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      const isVisible = !document.hidden;
+      setIsPageVisible(isVisible);
+      
+      if (isVisible) {
+        // Clear any existing timeout
+        if (focusRefreshTimeoutRef.current) {
+          clearTimeout(focusRefreshTimeoutRef.current);
+        }
+        
+        // Refresh data immediately when tab becomes visible
+        refreshAssets();
+        refreshPendingData();
+        setLastRefreshTime(new Date());
+        
+        // Also refresh after a short delay to ensure we get the latest data
+        focusRefreshTimeoutRef.current = setTimeout(() => {
+          refreshAssets();
+          refreshPendingData();
+        }, 1000);
+      }
+    };
+
+    const handleFocus = () => {
+      if (isPageVisible) {
+        // Only refresh if popup is not open to prevent refresh loops
+        if (!isPopupOpen) {
+          refreshAssets();
+          refreshPendingData();
+          setLastRefreshTime(new Date());
+        }
+      }
+    };
+
+    // Disable focus refresh when popup is open
+    const handleFocusWithPopupCheck = () => {
+      if (isPageVisible && !isPopupOpen) {
+        refreshAssets();
+        refreshPendingData();
+        setLastRefreshTime(new Date());
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (focusRefreshTimeoutRef.current) {
+        clearTimeout(focusRefreshTimeoutRef.current);
+      }
+    };
+  }, [isPageVisible, refreshAssets, refreshPendingData]);
+
+  // Temporarily disable focus refresh to prevent loops
+  // useEffect(() => {
+  //   if (!isPopupOpen) {
+  //     console.log('🔍 Adding focus listener - popup closed');
+  //     window.addEventListener('focus', handleFocusWithPopupCheck);
+  //   } else {
+  //     console.log('⏸️ Removing focus listener - popup open');
+  //     window.removeEventListener('focus', handleFocusWithPopupCheck);
+  //   }
+
+  //   return () => {
+  //     window.removeEventListener('focus', handleFocusWithPopupCheck);
+  //   };
+  // }, [isPopupOpen, handleFocusWithPopupCheck]);
 
   // ดึง transfer pending ทั้งหมด (superadmin เห็นทุก transfer)
   useEffect(() => {
@@ -148,7 +300,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     // Fix: Use statusLabels to map from label to value for filtering
     const matchesStatus = activeFilter === 'All' || asset.status === activeFilter;
     
-    console.log('AdminAssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
+    // console.log('AdminAssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
     
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
     // Filter by createdAt (ช่วงวันที่)
@@ -200,6 +352,9 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
   };
 
   const handleAssetClick = (asset: Asset) => {
+    // Pause auto-refresh immediately when clicking to open popup
+    pauseAutoRefresh();
+    
     setIsCreating(false);
     setSelectedAsset({
       ...asset,
@@ -213,11 +368,29 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     setIsPopupOpen(false);
     setSelectedAsset(null);
     setIsCreating(false);
+    
+    // Resume auto-refresh when closing popup
+    resumeAutoRefresh();
   };
 
-  const handleAssetUpdate = () => {
-    fetchAssets();
+  const handleAssetUpdate = (updatedAsset: Asset) => {
+    // Update the asset in context immediately
+    updateAsset(updatedAsset);
+    
+    // Update the selected asset with the updated data
+    setSelectedAsset(updatedAsset);
+    
+    // Close the popup
     handleClosePopup();
+    
+    // Show success message
+    Swal.fire({
+      title: 'Updated!',
+      text: 'Asset has been updated successfully.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    });
   };
 
   const handleDeleteAsset = async (assetId: string) => {
@@ -235,7 +408,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
           timer: 1500,
           showConfirmButton: false
         });
-        fetchAssets(); // Refresh the list
+        refreshAssets(); // Refresh the list using context
+        refreshPendingData(); // Refresh pending data
         handleClosePopup(); // Close the popup after successful deletion
       } else {
         Swal.fire({
@@ -248,7 +422,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
       console.error('Error deleting asset:', error);
       Swal.fire({
         title: 'Error!',
-        text: 'An error occurred while deleting the asset.',
+        text: 'Failed to delete asset.',
         icon: 'error'
       });
     }
@@ -286,9 +460,26 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     setIsPopupOpen(true);
   };
 
+  const handleAssetCreate = (newAsset: Asset) => {
+    // Trigger manual refresh to get latest data
+    triggerManualRefresh();
+    
+    // Close the popup
+    handleClosePopup();
+    
+    // Show success message
+    Swal.fire({
+      title: 'Created!',
+      text: 'Asset has been created successfully.',
+      icon: 'success',
+      timer: 1500,
+      showConfirmButton: false
+    });
+  };
+
   const handleSearch = () => {
     // Implement search functionality
-    console.log('Searching for:', searchTerm);
+    // console.log('Searching for:', searchTerm);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -693,7 +884,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                         setCurrentPage(1);
                       }}
                     >
-                      <option value="All">ทุกสถานะ</option>
+                      <option value="All">All Status</option>
                       {statusOptions.map(opt => (
                         <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
@@ -709,7 +900,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                         setCurrentPage(1);
                       }}
                     >
-                      <option value="All">ทุกแผนก</option>
+                      <option value="All">All Departments</option>
                       {departments.map(dep => (
                         <option key={dep.id} value={dep.name_th}>{dep.name_th}{dep.name_en ? ` (${dep.name_en})` : ''}</option>
                       ))}
@@ -895,10 +1086,11 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
         asset={selectedAsset}
         isOpen={isPopupOpen}
         onClose={handleClosePopup}
-        onUpdate={handleAssetUpdate}
+        onUpdate={isCreating ? handleAssetCreate : handleAssetUpdate}
         onDelete={handleDeleteAsset}
         isAdmin={true}
         isCreating={isCreating}
+        showUserEdit={true}
       />
 
       {/* Print Modal */}

@@ -814,7 +814,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
           }}
           isAdmin={false}
           isCreating={false}
-          showUserEdit={false}
+          showUserEdit={true}
         />
       )}
 

@@ -35,32 +35,7 @@ interface PendingAudit {
   department_name?: string;
 }
 
-const statusTabs = [
-  { key: 'all', label: 'ทั้งหมด' },
-  { key: 'พร้อมใช้งาน', label: 'พร้อมใช้งาน' },
-  { key: 'รอใช้งาน', label: 'รอใช้งาน' },
-  { key: 'รอตัดจำหน่าย', label: 'รอตัดจำหน่าย' },
-  { key: 'ชำรุด', label: 'ชำรุด' },
-  { key: 'รอซ่อม', label: 'รอซ่อม' },
-  { key: 'ระหว่างการปรับปรุง', label: 'ระหว่างการปรับปรุง' },
-  { key: 'ไม่มีความจำเป็นต้องใช้', label: 'ไม่มีความจำเป็นต้องใช้' },
-  { key: 'สูญหาย', label: 'สูญหาย' },
-  { key: 'รอแลกเปลี่ยน', label: 'รอแลกเปลี่ยน' },
-  { key: 'แลกเปลี่ยน', label: 'แลกเปลี่ยน' },
-  { key: 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า', label: 'มีกรรมสิทธิ์ภายใต้สัญญาเช่า' },
-  { key: 'รอโอนย้าย', label: 'รอโอนย้าย' },
-  { key: 'รอโอนกรรมสิทธิ์', label: 'รอโอนกรรมสิทธิ์' },
-  { key: 'ชั่วคราว', label: 'ชั่วคราว' },
-  { key: 'ขาย', label: 'ขาย' },
-  { key: 'แปรสภาพ', label: 'แปรสภาพ' },
-  { key: 'ทำลาย', label: 'ทำลาย' },
-  { key: 'สอบข้อเท็จจริง', label: 'สอบข้อเท็จจริง' },
-  { key: 'เงินชดเชยที่ดินและอาสิน', label: 'เงินชดเชยที่ดินและอาสิน' },
-  { key: 'ระหว่างทาง', label: 'ระหว่างทาง' },
-];
-const statusLabels: Record<string, string> = Object.fromEntries(statusTabs.map(s => [s.key, s.label]));
-const statusColors: Record<string, string> = Object.fromEntries(statusTabs.map(s => [s.key, '#22c55e']));
-const statusOptions = statusTabs.filter(s => s.key !== 'all').map(s => ({ value: s.key, label: s.label }));
+
 
 // เพิ่มฟังก์ชันแปลง PendingAudit -> Asset
 function mapPendingAuditToAsset(audit: PendingAudit) {
@@ -398,7 +373,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
                   style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
                 >
-                  <option value="all">ทั้งหมด</option>
+                  <option value="all">All</option>
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                 </select>
@@ -650,7 +625,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                       value={verificationFilter}
                       onChange={e => setVerificationFilter(e.target.value as any)}
                     >
-                      <option value="all">ทั้งหมด</option>
+                      <option value="all">All</option>
                       <option value="pending">Pending</option>
                       <option value="approved">Approved</option>
                     </select>
@@ -821,14 +796,14 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                     </td>
                     <td style={{ textAlign: 'center' }}>
                       <Image
-                        src={audit.image_url || '/file.svg'}
+                        src={audit.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                         alt={audit.asset_name}
                         width={60}
                         height={60}
                         style={{ objectFit: 'cover', borderRadius: 8 }}
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = '/file.svg';
+                          target.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
                         }}
                       />
                     </td>

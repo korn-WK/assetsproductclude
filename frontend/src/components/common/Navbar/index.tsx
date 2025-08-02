@@ -90,7 +90,7 @@ const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, sc
     };
   }, []);
 
-  console.log('User data in Navbar:', user);
+
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);

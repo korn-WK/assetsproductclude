@@ -29,7 +29,7 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
         
         .label-grid {
           display: grid;
-          grid-template-columns: repeat(3, 1fr);
+          grid-template-columns: repeat(4, 1fr);
           gap: 5px;
           max-width: 210mm;
           margin: 0 auto;
@@ -37,11 +37,15 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
         }
         
         /* For labels that don't fill the last row completely */
-        .label-grid:has(.label:nth-child(3n+1):last-child) {
+        .label-grid:has(.label:nth-child(4n+1):last-child) {
           justify-items: start;
         }
         
-        .label-grid:has(.label:nth-child(3n+2):last-child) {
+        .label-grid:has(.label:nth-child(4n+2):last-child) {
+          justify-items: start;
+        }
+        
+        .label-grid:has(.label:nth-child(4n+3):last-child) {
           justify-items: start;
         }
         
@@ -51,36 +55,40 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
           padding: 5px;
           text-align: center;
           background: white;
-          min-height: 60px;
+          min-height: 40px;
           display: flex;
           flex-direction: column;
-          justify-content: space-between;
+          justify-content: flex-start;
           align-items: center;
           box-sizing: border-box;
         }
         
         .asset-name {
-          font-size: 10px;
+          font-size: 6px;
           font-weight: bold;
           color: #000;
-          margin-bottom: 3px;
-          line-height: 1.1;
+          margin: 0;
+          padding: 0;
+          line-height: 1;
           max-width: 100%;
           word-wrap: break-word;
         }
         
         .barcode-container {
-          margin: 2px 0;
+          margin-bottom: 0px;
+          padding: 0;
           display: flex;
           justify-content: center;
           align-items: center;
         }
         
         .barcode-number {
-          font-size: 8px;
+          font-size: 7.5px;
           color: #000;
-          margin-top: 2px;
+          margin: 0;
+          padding: 0;
           font-family: monospace;
+          line-height: 1;
         }
         
         svg {
@@ -91,17 +99,15 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
         ` : `
         .label {
           border: 1px solid #000;
-          padding: 8px;
+          padding: 1px;
           text-align: center;
           background: white;
-          min-height: 120px;
-          height: 120px;
+          min-height: 20px;
           display: flex;
           flex-direction: column;
           justify-content: space-between;
           align-items: center;
           box-sizing: border-box;
-          gap: 5px;
           width: 100%;
           max-width: 100%;
         }
@@ -169,8 +175,8 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
         
         // Create individual SVG for each barcode
         const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        tempSvg.setAttribute('width', '120');
-        tempSvg.setAttribute('height', '30');
+        tempSvg.setAttribute('width', '180');
+        tempSvg.setAttribute('height', '40');
         tempSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
         tempSvg.id = `barcode-temp-${index}`;
         tempContainer.appendChild(tempSvg);
@@ -178,10 +184,12 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
         // Generate barcode using JsBarcode
         try {
           JsBarcode(tempSvg, barcodeNumber, {
-            width: 1.2,
-            height: 20,
-            fontSize: 8,
-            marginTop: 25,
+            width: 1.5,
+            height: 40,
+            fontSize: 6,
+            marginTop: 5,
+            marginLeft: 15,
+            marginRight: 15,
             displayValue: false,
             background: '#fff',
             lineColor: '#000',
@@ -191,9 +199,9 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
           console.warn(`Failed to generate barcode for ${barcodeNumber}:`, error);
           // Create a simple fallback barcode
           tempSvg.innerHTML = `
-            <rect width="120" height="30" fill="white"/>
-            <rect x="10" y="5" width="100" height="20" fill="black"/>
-            <text x="60" y="25" text-anchor="middle" font-family="monospace" font-size="8" fill="black">${barcodeNumber}</text>
+            <rect width="180" height="40" fill="white"/>
+            <rect x="40" y="2" width="100" height="20" fill="black"/>
+            <text x="70" y="40" text-anchor="middle" font-family="monospace" font-size="6" fill="black">${barcodeNumber}</text>
           `;
         }
         
@@ -233,10 +241,10 @@ export async function generatePrintContent(options: PrintOptions): Promise<strin
           <div class="label">
             <div class="asset-name">${asset.name}</div>
             <div class="barcode-container">
-              <svg width="120" height="30" xmlns="http://www.w3.org/2000/svg">
-                <rect width="120" height="30" fill="white"/>
-                <rect x="10" y="5" width="100" height="20" fill="black"/>
-                <text x="60" y="25" text-anchor="middle" font-family="monospace" font-size="8" fill="black">${barcodeNumber}</text>
+              <svg width="140" height="25" xmlns="http://www.w3.org/2000/svg">
+                <rect width="140" height="25" fill="white"/>
+                <rect x="20" y="2" width="100" height="20" fill="black"/>
+                <text x="70" y="22" text-anchor="middle" font-family="monospace" font-size="6" fill="black">${barcodeNumber}</text>
               </svg>
             </div>
             <div class="barcode-number">${barcodeNumber}</div>

@@ -40,34 +40,26 @@ interface AssetVerificationTableProps {
 }
 // เพิ่ม dropdown menu component ภายในไฟล์นี้ (minimal inline)
 function ThreeDotsMenu({ onHistory }: { onHistory: () => void }) {
-  const [open, setOpen] = React.useState(false);
-  const menuRef = React.useRef<HTMLDivElement>(null);
-  React.useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
-    }
-    if (open) document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [open]);
   return (
-    <div style={{ position: 'relative', display: 'inline-block', marginLeft: 12 }} ref={menuRef}>
+    <div style={{ position: 'relative', display: 'inline-block', marginLeft: 12 }}>
       <button
-        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, borderRadius: 4 }}
-        onClick={e => { e.stopPropagation(); setOpen(v => !v); }}
-        aria-label="More actions"
+        style={{ 
+          background: 'none', 
+          border: 'none', 
+          cursor: 'pointer', 
+          padding: 4, 
+          borderRadius: 4,
+          transition: 'color 0.2s'
+        }}
+        onClick={e => { 
+          e.stopPropagation(); 
+          onHistory(); 
+        }}
+        aria-label="View audit history"
+        title="ดูประวัติการตรวจนับ"
       >
         <AiOutlineEye size={20} />
       </button>
-      {open && (
-        <div style={{ position: 'fixed', right: 32, top: (window.event && (window.event as MouseEvent).clientY) ? (window.event as MouseEvent).clientY : 28, background: '#fff', border: '1px solid #e5e7eb', borderRadius: 8, boxShadow: '0 4px 16px rgba(0,0,0,0.18)', zIndex: 9999, minWidth: 110, padding: 0 }}>
-          <div
-            style={{ padding: '6px 10px', cursor: 'pointer', fontWeight: 500, color: '#222', borderRadius: 8, fontSize: '0.97em' }}
-            onClick={e => { e.stopPropagation(); setOpen(false); onHistory(); }}
-          >
-            ดูประวัติการตรวจนับ
-          </div>
-        </div>
-      )}
     </div>
   );
 }
@@ -455,7 +447,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
                 style={{ width: '100%', background: '#fafbfc', border: '1.5px solid #e5e7eb', borderRadius: 10, height: 44, fontSize: '1rem', color: '#222', fontWeight: 500 }}
               >
-                <option value="all">ทั้งหมด</option>
+                <option value="all">All</option>
                 <option value="pending">Pending</option>
                 <option value="approved">Approved</option>
               </select>
@@ -560,7 +552,13 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 className={styles.assetCard} 
                 key={audit.id} 
                 style={{ position: 'relative', cursor: 'pointer' }} 
-                onClick={() => {
+                onClick={(e) => {
+                  // ตรวจสอบว่า event มาจาก checkbox หรือไม่
+                  const target = e.target as HTMLElement;
+                  if (target.closest('[data-select-checkbox]') || target.closest('[data-history-button]')) {
+                    return;
+                  }
+                  
                   if (user?.role?.toLowerCase() === 'admin' || user?.role?.toLowerCase() === 'superadmin') {
                     setDetailAsset(mapPendingAuditToAsset(audit));
                     setShowDetailPopup(true);
@@ -653,7 +651,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                     value={verificationFilter}
                     onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
                   >
-                    <option value="all">ทั้งหมด</option>
+                    <option value="all">All</option>
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
                   </select>
@@ -784,14 +782,14 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   </td>
                   <td style={{ textAlign: 'center' }}>
                     <Image
-                      src={audit.image_url || '/file.svg'}
+                      src={audit.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                       alt={audit.asset_name}
                       width={60}
                       height={60}
                       style={{ objectFit: 'cover', borderRadius: 8 }}
                       onError={(e) => {
                         const target = e.target as HTMLImageElement;
-                        target.src = '/file.svg';
+                        target.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
                       }}
                     />
                   </td>
@@ -862,7 +860,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
           onClose={() => setShowDetailPopup(false)}
           isAdmin={false}
           isCreating={false}
-          showUserEdit={false}
+          showUserEdit={true}
         />
       )}
     </>

@@ -39,11 +39,11 @@ const DashboardContent: React.FC = () => {
   const [graphData, setGraphData] = useState<any>(null);
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [departments, setDepartments] = useState<{ id: number; name_th: string }[]>([]);
-  const [selectedDepartment, setSelectedDepartment] = useState<string>('ทุกหน่วยงาน');
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('All Departments');
   const [statuses, setStatuses] = useState<{ value: string; label: string }[]>([]);
   const [isMobile, setIsMobile] = useState(false);
   const router = useRouter();
-  const { isAdmin } = useAuth(); // Added useAuth hook
+  const { isAdmin, user } = useAuth(); // Added useAuth hook
 
   useEffect(() => {
     fetch('/api/statuses')
@@ -279,22 +279,46 @@ const DashboardContent: React.FC = () => {
           </div>
           {/* Main Content as Cards/Charts */}
           <div className={styles.mainContent}>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <select
-                className={styles.mobileDropdown}
-                value={selectedDepartment}
-                onChange={e => setSelectedDepartment(e.target.value)}
-              >
-                <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
-                {sortedDepartments.map(dep => (
-                  <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
-                ))}
-              </select>
-            </div>
+            {user?.role?.toLowerCase() === 'superadmin' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <select
+                  className={styles.mobileDropdown}
+                  value={selectedDepartment}
+                  onChange={e => setSelectedDepartment(e.target.value)}
+                >
+                  <option value="All Departments">All Departments</option>
+                  {sortedDepartments.map(dep => (
+                    <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className={styles.chartContainer}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                <span style={{ fontWeight: 600, fontSize: 15 }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
-                <span style={{ fontSize: 13, color: '#888', marginLeft: 8 }}>{getThaiDateString()}</span>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                marginBottom: 8,
+                alignItems: 'center'
+              }}>
+                <span style={{ 
+                  fontWeight: 600, 
+                  fontSize: isMobile ? 14 : 15 
+                }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: isMobile ? 4 : 8
+                }}>
+                  <span style={{ 
+                    fontSize: isMobile ? 12 : 14, 
+                    color: '#888'
+                  }}>ข้อมูล ณ ปัจจุบัน</span>
+                  <span style={{ 
+                    fontSize: isMobile ? 12 : 14, 
+                    color: '#888',
+                    marginRight: 10
+                  }}>{getThaiDateString()}</span>
+                </div>
               </div>
               <ResponsiveContainer width="100%" height={220}>
                 <LineChart data={statusChartData}>
@@ -307,7 +331,32 @@ const DashboardContent: React.FC = () => {
               </ResponsiveContainer>
             </div>
             <div className={styles.chartContainer}>
-              <div style={{ fontWeight: 600, marginBottom: 8, fontSize: 15 }}>bar chart</div>
+              <div style={{ 
+                display: 'flex', 
+                justifyContent: 'space-between', 
+                marginBottom: 8,
+                alignItems: 'center'
+              }}>
+                <span style={{ 
+                  fontWeight: 600, 
+                  fontSize: isMobile ? 14 : 15 
+                }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center',
+                  gap: isMobile ? 4 : 8
+                }}>
+                  <span style={{ 
+                    fontSize: isMobile ? 12 : 14, 
+                    color: '#888'
+                  }}>ข้อมูล ณ ปัจจุบัน</span>
+                  <span style={{ 
+                    fontSize: isMobile ? 12 : 14, 
+                    color: '#888',
+                    marginRight: 10
+                  }}>{getThaiDateString()}</span>
+                </div>
+              </div>
               <div style={{ marginBottom: 10, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
                 {allCards.map((c, idx) => (
                   <label key={c.label} style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 13 }}>
@@ -341,7 +390,7 @@ const DashboardContent: React.FC = () => {
           {/* Desktop Sidebar Cards */}
           <div className={styles.sidebarCards} style={{
         flex: '0 0 340px',
-        marginTop: 60,
+        marginTop: user?.role?.toLowerCase() === 'superadmin' ? 60 : 0,
             maxHeight: `${VISIBLE_CARDS * 100 + 40}px`,
             overflowY: 'auto',
         display: 'flex',
@@ -407,25 +456,28 @@ const DashboardContent: React.FC = () => {
       </div>
       {/* Main Content */}
           <div className={styles.mainContent} style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
-          <div style={{ position: 'relative', display: 'inline-block', maxWidth: 180 }}>
-            <select
-              style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 15, maxWidth: '180px', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', paddingRight: '2.2em' }}
-              value={selectedDepartment}
-              onChange={e => setSelectedDepartment(e.target.value)}
-            >
-              <option value="ทุกหน่วยงาน">ทุกหน่วยงาน</option>
-              {sortedDepartments.map(dep => (
-                <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
-              ))}
-            </select>
-            <span className={styles.caretIcon} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><AiOutlineDown /></span>
+        {user?.role?.toLowerCase() === 'superadmin' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+            <div style={{ position: 'relative', display: 'inline-block', maxWidth: 180 }}>
+              <select
+                style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid #e5e7eb', background: '#fff', fontSize: 15, maxWidth: '180px', appearance: 'none', WebkitAppearance: 'none', MozAppearance: 'none', paddingRight: '2.2em' }}
+                value={selectedDepartment}
+                onChange={e => setSelectedDepartment(e.target.value)}
+              >
+                <option value="All Departments">All Departments</option>
+                {sortedDepartments.map(dep => (
+                  <option key={dep.id} value={dep.name_th}>{dep.name_th}</option>
+                ))}
+              </select>
+              <span className={styles.caretIcon} style={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)', pointerEvents: 'none' }}><AiOutlineDown /></span>
+            </div>
           </div>
-        </div>
+        )}
             <div className={styles.chartContainer} style={{ background: '#fff', borderRadius: 16, padding: 24, boxShadow: '0 2px 8px #0001', minHeight: 320 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-start', marginBottom: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
-            <span style={{ fontSize: 14, color: '#888', marginLeft: 8 }}>{getThaiDateString()}</span>
+            <span style={{ fontSize: 14, color: '#888', marginLeft: 8 }}>ข้อมูล ณ ปัจจุบัน</span>
+            <span style={{ fontSize: 14, color: '#888', marginLeft: 4}}>{getThaiDateString()}</span>
           </div>
           <ResponsiveContainer width="100%" height={260}>
             <LineChart data={statusChartData}>
@@ -441,7 +493,8 @@ const DashboardContent: React.FC = () => {
           
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-start', marginBottom: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 17 }}>จำนวนครุภัณฑ์แต่ละสถานะ</span>
-            <span style={{ fontSize: 14, color: '#888', marginLeft: 8 }}>{getThaiDateString()}</span>
+            <span style={{ fontSize: 14, color: '#888', marginLeft: 8 }}>ข้อมูล ณ ปัจจุบัน</span>
+            <span style={{ fontSize: 14, color: '#888', marginLeft: 4}}>{getThaiDateString()}</span>
           </div>
           <div style={{ marginBottom: 12, display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             {allCards.map((c, idx) => (

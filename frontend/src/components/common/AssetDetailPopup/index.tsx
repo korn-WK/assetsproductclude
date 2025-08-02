@@ -6,6 +6,7 @@ import styles from './AssetDetailPopup.module.css';
 import DropdownSelect from '../DropdownSelect';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useDropdown } from '../../../contexts/DropdownContext';
+import { useAssets } from '../../../contexts/AssetContext';
 import { formatDate } from '../../../lib/utils';
 import { generateBarcode, sanitizeBarcodeText, isValidBarcodeText } from '../../../lib/barcodeUtils';
 import { QRCodeCanvas } from 'qrcode.react';
@@ -52,23 +53,14 @@ function useUserEditWindow() {
   const [isInAuditPeriod, setIsInAuditPeriod] = useState(false);
 
   useEffect(() => {
-    console.log('🔍 Fetching user edit window settings...');
     fetch('/api/settings/user-edit-window')
       .then(res => res.json())
       .then(data => {
-        console.log('📅 Received settings data:', data);
         if (data.start_date && data.end_date) {
           const now = new Date();
           const start = new Date(data.start_date);
           const end = new Date(data.end_date);
           const inAuditPeriod = now >= start && now <= end;
-          
-          console.log('⏰ Date comparison:', {
-            now: now.toISOString(),
-            start: start.toISOString(),
-            end: end.toISOString(),
-            inAuditPeriod
-          });
           
           setCanEditWindow(true); // ให้แก้ไขได้เสมอ (จะควบคุมการแสดงปุ่มใน canShowEditButton)
           setIsInAuditPeriod(inAuditPeriod);
@@ -78,7 +70,6 @@ function useUserEditWindow() {
             localStorage.removeItem('editedAssetsInAuditPeriod');
           }
         } else {
-          console.log('⚠️ No audit period dates found, allowing normal editing');
           setCanEditWindow(true); // ถ้าไม่มีข้อมูล ให้แก้ไขได้
           setIsInAuditPeriod(false);
           localStorage.removeItem('editedAssetsInAuditPeriod');
@@ -97,7 +88,22 @@ function useUserEditWindow() {
 }
 
 const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false, showAuditHistory = false, showUserEdit = true }) => {
+  const { pauseAutoRefresh, resumeAutoRefresh } = useAssets();
   const initialAsset = asset ? { ...asset } : null;
+
+  // Pause auto-refresh immediately when component mounts or asset changes
+  useEffect(() => {
+    if (asset) {
+      pauseAutoRefresh();
+    }
+  }, [asset, pauseAutoRefresh]);
+
+  // Also pause when popup opens
+  useEffect(() => {
+    if (isOpen) {
+      pauseAutoRefresh();
+    }
+  }, [isOpen, pauseAutoRefresh]);
   const [editedAsset, setEditedAsset] = useState<Asset | null>(initialAsset);
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -113,26 +119,28 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   const { canEditWindow, checked, isInAuditPeriod } = useUserEditWindow();
   const [showEditWindowNotice, setShowEditWindowNotice] = useState(false);
   const [hideAuditNotice, setHideAuditNotice] = useState(false);
+
+  // Pause auto-refresh when popup is open to prevent refresh loops
+  useEffect(() => {
+    if (isOpen) {
+      // Pause immediately when popup opens
+      pauseAutoRefresh();
+    } else {
+      // Resume when popup closes
+      resumeAutoRefresh();
+    }
+  }, [isOpen, pauseAutoRefresh, resumeAutoRefresh]);
   
   // เพิ่ม state สำหรับเก็บข้อมูลว่า asset นี้เคย edit ในช่วงตรวจนับแล้วหรือยัง
   const [hasEditedInAuditPeriod, setHasEditedInAuditPeriod] = useState(false);
 
   // ตรวจสอบว่า asset นี้เคย edit ในช่วงตรวจนับแล้วหรือยัง
   useEffect(() => {
-    console.log('🔍 Checking if asset has been edited during audit period:', {
-      assetId: asset?.id,
-      isInAuditPeriod,
-      hasEditedInAuditPeriod
-    });
-    
     if (asset?.id && isInAuditPeriod) {
       const editedAssets = JSON.parse(localStorage.getItem('editedAssetsInAuditPeriod') || '[]');
       const hasEdited = editedAssets.includes(asset.id);
-      console.log('📝 Edited assets from localStorage:', editedAssets);
-      console.log('✅ Asset has been edited:', hasEdited);
       setHasEditedInAuditPeriod(hasEdited);
     } else {
-      console.log('🔄 Resetting hasEditedInAuditPeriod to false');
       setHasEditedInAuditPeriod(false);
     }
   }, [asset?.id, isInAuditPeriod]);
@@ -176,16 +184,6 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
   // ปรับ logic canEdit - ตรวจสอบว่าสามารถ edit ได้หรือไม่
   const canEdit = isAdminOrSuperadmin || (user && user.department_id !== null && canEditWindow);
-  
-  // Debug log สำหรับตรวจสอบ canEdit
-  console.log('🔍 canEdit calculation:', {
-    isSuperadmin,
-    isPureAdmin,
-    isRegularUser,
-    userDepartmentId: user?.department_id,
-    canEditWindow,
-    canEdit
-  });
 
   // ตรวจสอบว่าสามารถแสดงปุ่ม edit ได้หรือไม่
   const canShowEditButton = () => {
@@ -203,16 +201,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     return false;
   };
 
-  // Debug log สำหรับตรวจสอบ canShowEditButton
-  console.log('🔍 canShowEditButton calculation:', {
-    isSuperadmin,
-    isPureAdmin,
-    isRegularUser,
-    isInAuditPeriod,
-    hasEditedInAuditPeriod,
-    canEdit,
-    result: canShowEditButton()
-  });
+
 
   // Check if user can only view (user without department)
   const canOnlyView = !isAdminOrSuperadmin && user && user.department_id === null;
@@ -343,7 +332,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
       setEditedAsset((prev: Asset | null) => prev ? { ...prev, [field]: limitedValue } : null);
     } else if (field === 'inventory_number') {
-      // Limit inventory_number to 20 characters
+      // Limit inventory_number to 20 characters (don't pad yet)
       const limitedValue = value.toString().slice(0, 20);
       setEditedAsset((prev: Asset | null) => prev ? { ...prev, [field]: limitedValue } : null);
     } else {
@@ -495,7 +484,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     }
 
     const barcodeText = editedAsset.inventory_number;
-    console.log('Generating barcode for:', barcodeText);
+
 
     // Create a temporary SVG element to generate barcode
     const tempSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -514,7 +503,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     
     // Get the barcode SVG content
     const barcodeSvg = tempSvg.innerHTML;
-    console.log('Generated barcode SVG:', barcodeSvg);
+
     document.body.removeChild(tempSvg);
 
     // Create print window with grid layout
@@ -546,7 +535,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           
           .label-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 5px;
             max-width: 210mm;
             margin: 0 auto;
@@ -554,11 +543,15 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           }
           
           /* For labels that don't fill the last row completely */
-          .label-grid:has(.label:nth-child(3n+1):last-child) {
+          .label-grid:has(.label:nth-child(4n+1):last-child) {
             justify-items: start;
           }
           
-          .label-grid:has(.label:nth-child(3n+2):last-child) {
+          .label-grid:has(.label:nth-child(4n+2):last-child) {
+            justify-items: start;
+          }
+          
+          .label-grid:has(.label:nth-child(4n+3):last-child) {
             justify-items: start;
           }
           
@@ -567,36 +560,41 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             padding: 5px;
             text-align: center;
             background: white;
-            min-height: 60px;
+            min-height: 40px;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
             align-items: center;
             box-sizing: border-box;
           }
           
           .asset-name {
-            font-size: 10px;
+            font-size: 6px;
             font-weight: bold;
             color: #000;
-            margin-bottom: 3px;
-            line-height: 1.1;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
             max-width: 100%;
             word-wrap: break-word;
           }
           
           .barcode-container {
-            margin: 2px 0;
+            margin-top: 2px;
+            margin-bottom: 1px;
+            padding: 0;
             display: flex;
             justify-content: center;
             align-items: center;
           }
           
           .barcode-number {
-            font-size: 8px;
+            font-size: 7.5px;
             color: #000;
-            margin-top: 2px;
+            margin: 0;
+            padding: 0;
             font-family: monospace;
+            line-height: 1;
           }
           
           svg {
@@ -625,7 +623,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         <div class="label">
           <div class="asset-name">${assetName}</div>
           <div class="barcode-container">
-            <svg width="120" height="30" xmlns="http://www.w3.org/2000/svg" id="barcode-${i}"></svg>
+            <svg width="180" height="40" xmlns="http://www.w3.org/2000/svg" id="barcode-${i}"></svg>
           </div>
           <div class="barcode-number">${barcodeNumber}</div>
         </div>
@@ -636,36 +634,38 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         </div>
         <script>
           window.onload = function() {
-            console.log('Print window loaded');
+        
             
             // Generate barcodes for all elements
             setTimeout(function() {
-              console.log('Generating barcodes...');
+
               
               const barcodeElements = document.querySelectorAll('[id^="barcode-"]');
-              console.log('Found barcode elements:', barcodeElements.length);
+              
               
               barcodeElements.forEach((element, index) => {
-                console.log('Generating barcode for element', index);
+                
                 try {
                   JsBarcode(element, '${barcodeNumber}', {
-                    width: 1.2,
-                    height: 30,
-                    fontSize: 8,
-                    marginTop: 0,
+                    width: 1.5,
+                    height: 40,
+                    fontSize: 6,
+                    marginTop: 5,
+                    marginLeft: 15,
+                    marginRight: 15,
                     displayValue: false,
                     background: '#fff',
                     lineColor: '#000',
                     format: 'CODE128'
                   });
-                  console.log('Successfully generated barcode for element', index);
+                  
                 } catch (error) {
                   console.error('Failed to generate barcode for element', index, ':', error);
                 }
               });
               
               setTimeout(function() {
-                console.log('Printing...');
+
                 window.print();
                 setTimeout(function() {
                   window.close();
@@ -689,7 +689,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     }
 
     const qrText = editedAsset.inventory_number;
-    console.log('Generating QR code for:', qrText);
+
 
     // Create print window with grid layout
     const printWindow = window.open('', '', 'width=800,height=600');
@@ -705,7 +705,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     tempDiv.style.top = '-9999px';
     document.body.appendChild(tempDiv);
     
-    console.log('Starting QR code generation for:', qrNumber);
+    
 
     // Import and use qrcode.react
     const { QRCodeSVG } = await import('qrcode.react');
@@ -729,14 +729,14 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
     await new Promise(resolve => setTimeout(resolve, 100));
 
     // Get the SVG content
-    console.log('Temp div content:', tempDiv.innerHTML);
+    
     const svgElement = tempDiv.querySelector('svg');
     let qrSvg = '';
     if (svgElement) {
       qrSvg = svgElement.outerHTML;
-      console.log('QR Code SVG generated successfully');
+      
     } else {
-      console.log('SVG element not found, using fallback pattern');
+      
       // Fallback to simple pattern if SVG not found
       const size = 80;
       const cellSize = 4;
@@ -787,7 +787,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           
           .label-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             grid-template-rows: auto;
             gap: 5px;
             max-width: 210mm;
@@ -798,11 +798,15 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           }
           
           /* For labels that don't fill the last row completely */
-          .label-grid:has(.label:nth-child(3n+1):last-child) {
+          .label-grid:has(.label:nth-child(4n+1):last-child) {
             justify-items: start;
           }
           
-          .label-grid:has(.label:nth-child(3n+2):last-child) {
+          .label-grid:has(.label:nth-child(4n+2):last-child) {
+            justify-items: start;
+          }
+          
+          .label-grid:has(.label:nth-child(4n+3):last-child) {
             justify-items: start;
           }
           
@@ -1103,6 +1107,8 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
 
   const handleClose = () => {
     setIsEditing(false); // Always reset editing state
+    // Resume auto-refresh when closing popup
+    resumeAutoRefresh();
     onClose();
   };
 
@@ -1118,6 +1124,8 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       setImagePreview(null);
       setIsEditing(false);
     }
+    // Resume auto-refresh when canceling
+    resumeAutoRefresh();
   };
 
   const handleDelete = () => {
@@ -1281,16 +1289,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           canEditDepartment = !isInAuditPeriod;
         }
         
-        // Debug log สำหรับตรวจสอบ department field editability
-        console.log('🔍 Department field editability:', {
-          field,
-          isSuperadmin,
-          isPureAdmin,
-          isRegularUser,
-          isCreating,
-          isInAuditPeriod,
-          canEditDepartment
-        });
+
         
         if (canEditDepartment) {
           return (
@@ -1330,6 +1329,20 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
               type={type}
               value={value || ''}
               onChange={(e) => handleInputChange(field, e.target.value)}
+              onBlur={(e) => {
+                if (field === 'inventory_number') {
+                  let inputValue = e.target.value;
+                  // ลบเลข 0 นำหน้าออกก่อน (เฉพาะเมื่อขึ้นต้นด้วย 0)
+                  if (inputValue.startsWith('0')) {
+                    inputValue = inputValue.replace(/^0+/, '');
+                  }
+                  // ถ้ามีข้อมูลและความยาวน้อยกว่า 20 ตัว ให้เพิ่ม 0 นำหน้า
+                  if (inputValue.length > 0 && inputValue.length < 20) {
+                    inputValue = inputValue.padStart(20, '0');
+                    setEditedAsset(prev => prev ? { ...prev, inventory_number: inputValue } : null);
+                  }
+                }
+              }}
               className={styles.editInput}
               placeholder={field === 'asset_code' ? '' : ''}
               maxLength={field === 'inventory_number' ? 20 : undefined}
@@ -1695,7 +1708,20 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           <h2>{headerText}</h2>
           <div className={styles.headerActions}>
             {!isEditing && canShowEditButton() && showUserEdit !== false && (
-              <button className={styles.editButton} onClick={() => setIsEditing(true)} title="Edit">
+              <button className={styles.editButton} onClick={() => {
+                // ปรับ inventory number ให้มี 20 หลักเมื่อเริ่ม edit
+                if (editedAsset?.inventory_number) {
+                  let inventoryNumber = editedAsset.inventory_number;
+                  // ลบเลข 0 นำหน้าออกก่อน
+                  inventoryNumber = inventoryNumber.replace(/^0+/, '');
+                  // เพิ่มเลข 0 นำหน้าให้ครบ 20 หลัก
+                  if (inventoryNumber.length > 0 && inventoryNumber.length < 20) {
+                    inventoryNumber = inventoryNumber.padStart(20, '0');
+                  }
+                  setEditedAsset(prev => prev ? { ...prev, inventory_number: inventoryNumber } : null);
+                }
+                setIsEditing(true);
+              }} title="Edit">
                 <AiOutlineEdit />
               </button>
             )}
