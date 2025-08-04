@@ -16,8 +16,8 @@ interface FormModalProps {
   onClose: () => void;
   title: string;
   fields: FormField[];
-  initialData?: any;
-  onSubmit: (data: any) => Promise<void>;
+  initialData?: Record<string, unknown>;
+  onSubmit: (data: Record<string, unknown>) => Promise<void>;
   submitText?: string;
 }
 
@@ -30,17 +30,17 @@ const FormModal: React.FC<FormModalProps> = ({
   onSubmit,
   submitText = 'Save'
 }) => {
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setFormData(initialData);
     }
-  }, [isOpen, JSON.stringify(initialData)]);
+  }, [isOpen, initialData]);
 
   const handleInputChange = (name: string, value: string) => {
-    setFormData((prev: any) => ({
+    setFormData((prev: Record<string, unknown>) => ({
       ...prev,
       [name]: value
     }));
@@ -110,7 +110,7 @@ const FormModal: React.FC<FormModalProps> = ({
                 <textarea
                   id={field.name}
                   name={field.name}
-                  value={formData[field.name] || ''}
+                  value={String(formData[field.name] || '')}
                   onChange={(e) => handleInputChange(field.name, e.target.value)}
                   placeholder={field.placeholder}
                   className={styles.textarea}
@@ -121,7 +121,7 @@ const FormModal: React.FC<FormModalProps> = ({
                   id={field.name}
                   name={field.name}
                   type="color"
-                  value={formData[field.name] || '#adb5bd'}
+                  value={String(formData[field.name] || '#adb5bd')}
                   onChange={(e) => handleInputChange(field.name, e.target.value)}
                   className={styles.input}
                   style={{ width: 40, height: 28, border: 'none', background: 'none', cursor: 'pointer', verticalAlign: 'middle' }}
@@ -131,7 +131,7 @@ const FormModal: React.FC<FormModalProps> = ({
                   id={field.name}
                   name={field.name}
                   type={field.type}
-                  value={formData[field.name] || ''}
+                  value={String(formData[field.name] || '')}
                   onChange={(e) => handleInputChange(field.name, e.target.value)}
                   placeholder={field.placeholder}
                   className={styles.input}

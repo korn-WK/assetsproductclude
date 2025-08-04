@@ -1,29 +1,25 @@
 import React, { useState, useRef, useEffect } from 'react';
-// @ts-ignore
+import Image from 'next/image';
+// @ts-expect-error - Quagga has no types
 import Quagga from 'quagga';
 import styles from './BarcodeScanner.module.css';
 import jsQR from 'jsqr';
 
 interface BarcodeScannerProps {
   onBarcodeDetected: (barcode: string) => void;
-  onError?: (error: string) => void;
   onClose?: () => void;
 }
 
 const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
   onBarcodeDetected,
-  onError,
   onClose
 }) => {
-  const [scanMode, setScanMode] = useState<'camera' | 'upload'>('camera');
+  const [scanMode] = useState<'camera' | 'upload'>('camera');
   const [error, setError] = useState<string>('');
-  const [isLoading, setIsLoading] = useState(false);
   const [torchOn, setTorchOn] = useState(false);
   const videoRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const [barcodeBuffer, setBarcodeBuffer] = useState<string[]>([]);
-  const BUFFER_SIZE = 5; // ตรวจจับซ้ำ 5 ครั้ง
   const [scannedType, setScannedType] = useState<string | null>(null); // 'barcode' | 'qrcode'
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
 
@@ -46,11 +42,10 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     const videoTrack = streamRef.current.getVideoTracks()[0];
     
     try {
-      // @ts-ignore
       const capabilities = videoTrack.getCapabilities?.();
-      // @ts-ignore
+      // @ts-expect-error - Torch capability is not in standard MediaStreamTrack
       if (capabilities && capabilities.torch) {
-        // @ts-ignore
+        // @ts-expect-error - Torch constraint is not in standard MediaTrackConstraints
         await videoTrack.applyConstraints({ advanced: [{ torch: !torchOn }] });
         setTorchOn(!torchOn);
       } else {
@@ -61,11 +56,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     }
   };
 
-  // เพิ่มฟังก์ชัน scan QR code จาก imageData
-  const scanQRCodeFromImageData = (imageData: ImageData): string | null => {
-    const code = jsQR(imageData.data, imageData.width, imageData.height);
-    return code ? code.data : null;
-  };
+
 
   // ปรับ startCameraScan ให้ตรวจทั้ง barcode และ QR code
   const startCameraScan = async () => {
@@ -99,7 +90,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
         numOfWorkers: 4,
         frequency: 20,
         debug: true
-      }, (err: any) => {
+      }, (err: unknown) => {
         if (err) {
           setError('ไม่สามารถเข้าถึงกล้องได้ กรุณาตรวจสอบสิทธิ์การเข้าถึงกล้อง');
           return;
@@ -119,33 +110,21 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       } else if (typeof Quagga.off === 'function') {
         Quagga.off('detected');
       }
-      Quagga.onDetected((result: any) => {
+      Quagga.onDetected((result: { codeResult: { code: string } }) => {
         let barcode = result.codeResult.code;
         barcode = barcode.trim().toUpperCase();
         if (!/^[A-Z0-9\-_\/.\s"*:;,'()\[\]{}@#$%&+=!?|\\^~<>]{1,50}$/i.test(barcode)) {
           return;
         }
-        setBarcodeBuffer(prev => {
-          const newBuffer = [...prev, barcode].slice(-BUFFER_SIZE);
-          const counts = newBuffer.reduce((acc, val) => {
-            acc[val] = (acc[val] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
-          const sortedEntries = Object.entries(counts).sort((a, b) => (b[1] as number) - (a[1] as number));
-          const [mostCommon, count] = sortedEntries[0] as [string, number];
-          if (count >= 3) {
-            Quagga.stop();
-            setScannedType('barcode');
-            onBarcodeDetected(mostCommon);
-            return [];
-          }
-          return newBuffer;
-        });
+        // Process barcode detection
+        Quagga.stop();
+        setScannedType('barcode');
+        onBarcodeDetected(barcode);
       });
-    } catch (err) {
-      setError('เกิดข้อผิดพลาดในการสแกน');
-    }
-  };
+            } catch {
+              setError('เกิดข้อผิดพลาดในการสแกน');
+            }
+          };
 
   // เพิ่มฟังก์ชัน scan QR code จากกล้อง
   const scanQRCodeFromCamera = async () => {
@@ -186,7 +165,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
     const file = event.target.files?.[0];
     if (!file) return;
     try {
-      setIsLoading(true);
+      // Start loading
       setError('');
       setScannedType(null);
       const fileUrl = URL.createObjectURL(file);
@@ -205,7 +184,6 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
           const qr = jsQR(imageData.data, imageData.width, imageData.height);
           if (qr && qr.data) {
             setScannedType('qrcode');
-            setIsLoading(false);
             onBarcodeDetected(qr.data);
             URL.revokeObjectURL(fileUrl);
             if (fileInputRef.current) fileInputRef.current.value = '';
@@ -233,14 +211,13 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
               drawScanline: true,
               showPattern: true
             }
-          }, (result: any) => {
+          }, (result: { codeResult?: { code: string } } | undefined) => {
             if (result && result.codeResult) {
               setScannedType('barcode');
               onBarcodeDetected(result.codeResult.code);
             } else {
               setError('ไม่สามารถอ่านบาร์โค้ดหรือคิวอาร์โค้ดจากรูปภาพได้ กรุณาตรวจสอบรูปภาพ');
             }
-            setIsLoading(false);
             URL.revokeObjectURL(fileUrl);
             if (fileInputRef.current) fileInputRef.current.value = '';
           });
@@ -248,20 +225,15 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
       };
       img.onerror = () => {
         setError('ไม่สามารถอ่านไฟล์ภาพได้');
-        setIsLoading(false);
         if (fileInputRef.current) fileInputRef.current.value = '';
       };
-    } catch (err) {
+    } catch {
       setError('ไม่สามารถอ่านบาร์โค้ดหรือคิวอาร์โค้ดจากรูปภาพได้ กรุณาตรวจสอบรูปภาพ');
-      setIsLoading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  const handleModeChange = (mode: 'camera' | 'upload') => {
-    setScanMode(mode);
-    setError('');
-  };
+
 
   return (
     <div className={styles.modalOverlay}>
@@ -282,7 +254,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             title="เปิด/ปิดไฟฉาย"
             aria-label="เปิดหรือปิดไฟฉาย"
           >
-            <img src="/flashlight-whitel.png" alt="ไฟฉาย" width={28} height={28} />
+            <Image src="/flashlight-whitel.png" alt="ไฟฉาย" width={28} height={28} />
           </button>
           <button
             className={styles.iconCircle + ' ' + styles.switchCameraBtn}
@@ -291,7 +263,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             aria-label="สลับกล้องหน้า/หลัง"
             title="สลับกล้องหน้า/หลัง"
           >
-            <img src="/flip.png" alt="Switch Camera" width={28} height={28} />
+            <Image src="/flip.png" alt="Switch Camera" width={28} height={28} />
           </button>
           <button
             className={styles.iconCircle + ' ' + styles.uploadBtn}
@@ -299,7 +271,7 @@ const BarcodeScanner: React.FC<BarcodeScannerProps> = ({
             type="button"
             aria-label="อัปโหลดรูปภาพบาร์โค้ด"
           >
-            <img src="/upload-white.png" alt="อัปโหลด" width={28} height={28} />
+            <Image src="/upload-white.png" alt="อัปโหลด" width={28} height={28} />
           </button>
           
           <div ref={videoRef} className={styles.video} style={{ filter: 'contrast(1.2) brightness(1.1)' }} />

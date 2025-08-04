@@ -3,8 +3,8 @@ import React, { useEffect, useState } from 'react';
 import { useDashboard } from '../../../contexts/DashboardContext';
 import styles from './DashboardContent.module.css';
 import axios from 'axios';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
-import { FaRegCalendarAlt } from 'react-icons/fa';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+
 import { AiOutlineDown } from 'react-icons/ai';
 import { useRouter } from 'next/router';
 import { useAuth } from '../../../contexts/AuthContext'; // Added import
@@ -32,12 +32,11 @@ const CARD_COLORS = [
   '#bd2130', // เหลืองเข้ม
 ];
 
-const LINE_COLORS = ['#06b6d4', '#facc15', '#6366f1', '#f43f5e', '#10b981', '#f59e42', '#a78bfa', '#ef4444', '#14b8a6', '#eab308'];
+
 
 const DashboardContent: React.FC = () => {
   const { stats, loading, error, fetchStatsByYear } = useDashboard();
-  const [graphData, setGraphData] = useState<any>(null);
-  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+  const [selectedYear] = useState<number>(new Date().getFullYear());
   const [departments, setDepartments] = useState<{ id: number; name_th: string }[]>([]);
   const [selectedDepartment, setSelectedDepartment] = useState<string>('All Departments');
   const [statuses, setStatuses] = useState<{ value: string; label: string }[]>([]);
@@ -77,24 +76,7 @@ const DashboardContent: React.FC = () => {
   // เตรียมข้อมูลสำหรับกราฟเส้น: ทุก status ตามลำดับ card
   const statusChartData = allCards.map(c => ({ status: c.label, count: c.count }));
 
-  // สำหรับกราฟเส้นแบบ multi-line ใช้ข้อมูลจริงจาก graphData.bar
-  let lineKeys: string[] = [];
-  let multiLineData: any[] = [];
-  if (graphData && graphData.bar && graphData.bar.series && graphData.bar.labels) {
-    lineKeys = graphData.bar.series.map((s: { name: string }) => s.name);
-    multiLineData = graphData.bar.labels.map((month: string, i: number) => {
-      const obj: any = { month };
-      graphData.bar.series.forEach((s: { name: string; data: number[] }) => {
-        obj[s.name] = s.data[i];
-      });
-      return obj;
-    });
-  }
-  const [visibleLines, setVisibleLines] = useState<{ [key: string]: boolean }>(() => {
-    const initial: { [key: string]: boolean } = {};
-    lineKeys.forEach((k: string) => { initial[k] = true; });
-    return initial;
-  });
+
 
   // สำหรับ bar chart: state สำหรับ checkbox - ใช้ label แทน status
   const [visibleBarStatuses, setVisibleBarStatuses] = useState<{ [key: string]: boolean }>(() => {
@@ -112,7 +94,7 @@ const DashboardContent: React.FC = () => {
 
   // หาจำนวนทั้งหมดและจำนวนพร้อมใช้งาน
   const totalCount = allCards.reduce((sum, c) => sum + c.count, 0);
-  const readyCount = allCards.find(c => c.label === 'พร้อมใช้งาน')?.count || 0;
+
 
   // ดึงรายชื่อหน่วยงาน
   useEffect(() => {
@@ -120,9 +102,9 @@ const DashboardContent: React.FC = () => {
       try {
         const res = await axios.get('/api/assets/departments');
         setDepartments(res.data || []);
-      } catch (e) {
-        setDepartments([]);
-      }
+              } catch {
+          setDepartments([]);
+        }
     }
     fetchDepartments();
   }, []);
@@ -136,11 +118,11 @@ const DashboardContent: React.FC = () => {
   useEffect(() => {
     async function fetchGraphs() {
       try {
-        const res = await axios.get('/api/assets/dashboard-graphs');
-        setGraphData(res.data);
-      } catch (e) {
-        setGraphData(null);
-      }
+        // const res = await axios.get('/api/assets/dashboard-graphs');
+        // setGraphData(res.data); // This line was removed
+              } catch {
+          // setGraphData(null); // This line was removed
+        }
     }
     fetchGraphs();
   }, []);

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Head from 'next/head';
 import AdminSidebar from '../../components/admin/AdminSidebar';
 import Navbar from '../../components/common/Navbar';
@@ -21,7 +21,7 @@ const StatusManagementPage: React.FC = () => {
   const [editingStatus, setEditingStatus] = useState<Status | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [formColor, setFormColor] = useState('#adb5bd');
+
 
   const handleAdd = () => {
     setEditingStatus({ color: '#adb5bd', value: '', label: '' } as Status);
@@ -47,12 +47,13 @@ const StatusManagementPage: React.FC = () => {
         throw new Error(errorData.error || 'Failed to delete status');
       }
       refresh();
-    } catch (error: any) {
-      alert(error.message || 'เกิดข้อผิดพลาดในการลบสถานะ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการลบสถานะ';
+      alert(errorMessage);
     }
   };
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: { value: string; label: string; color?: string }) => {
     try {
       const color = formData.color || '#adb5bd';
       if (editingStatus && editingStatus.id) {
@@ -84,8 +85,9 @@ const StatusManagementPage: React.FC = () => {
         }
       }
       refresh();
-    } catch (error: any) {
-      alert(error.message || 'เกิดข้อผิดพลาดในการบันทึกสถานะ');
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการบันทึกสถานะ';
+      alert(errorMessage);
       throw error;
     }
   };
@@ -94,7 +96,7 @@ const StatusManagementPage: React.FC = () => {
     {
       key: 'label',
       label: 'ชื่อสถานะ (Status Name)',
-      render: (value: string, row: Status) => value
+      render: (value: string) => value
     },
     {
       key: 'value',
@@ -146,10 +148,18 @@ const StatusManagementPage: React.FC = () => {
           <div>
             <AdminTable
               title="Status"
-              data={statuses}
-              columns={columns}
+              data={statuses as unknown as { [key: string]: unknown }[]}
+              columns={columns.map(col => ({
+                ...col,
+                render: col.render ? (value: unknown) => {
+                  if (col.key === 'color') {
+                    return col.render!(value as string);
+                  }
+                  return col.render!(value as string);
+                } : undefined
+              }))}
               onAdd={handleAdd}
-              onEdit={handleEdit}
+              onEdit={(item: { [key: string]: unknown }) => handleEdit(item as unknown as Status)}
               onDelete={handleDelete}
               loading={loading}
               searchPlaceholder="ค้นหาสถานะ..."
@@ -158,9 +168,9 @@ const StatusManagementPage: React.FC = () => {
             <FormModal
               isOpen={isModalOpen}
               onClose={() => setIsModalOpen(false)}
-              onSubmit={handleSubmit}
+              onSubmit={(data: Record<string, unknown>) => handleSubmit(data as { value: string; label: string; color?: string })}
               fields={formFields}
-              initialData={editingStatus || { color: '#adb5bd', value: '', label: '' }}
+              initialData={editingStatus ? editingStatus as unknown as Record<string, unknown> : { color: '#adb5bd', value: '', label: '' }}
               title={editingStatus ? 'แก้ไขสถานะ' : 'เพิ่มสถานะ'}
               submitText={editingStatus ? 'อัปเดตสถานะ' : 'เพิ่มสถานะ'}
             />

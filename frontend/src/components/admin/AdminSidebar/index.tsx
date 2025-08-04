@@ -1,7 +1,7 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { AiFillHome, AiOutlineBarChart, AiOutlineFileText, AiOutlineSetting, AiOutlineUser, AiOutlineTeam, AiOutlineDatabase, AiOutlineMenu, AiOutlineClose } from 'react-icons/ai';
+import { AiOutlineBarChart, AiOutlineFileText, AiOutlineSetting, AiOutlineUser, AiOutlineTeam, AiOutlineDatabase, AiOutlineClose } from 'react-icons/ai';
 import styles from './AdminSidebar.module.css';
 import { useRouter } from 'next/router';
 

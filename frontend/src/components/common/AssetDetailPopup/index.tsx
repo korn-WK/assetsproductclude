@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, CSSProperties } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineDownload, AiOutlineHistory, AiOutlineInfoCircle } from 'react-icons/ai';
+import { AiOutlineEdit, AiOutlineDelete, AiOutlineClose, AiOutlineCalendar, AiOutlineUser, AiOutlineEnvironment, AiOutlineTag, AiOutlineHistory, AiOutlineInfoCircle } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AssetDetailPopup.module.css';
 import DropdownSelect from '../DropdownSelect';
@@ -11,7 +11,6 @@ import { formatDate } from '../../../lib/utils';
 import { generateBarcode, sanitizeBarcodeText, isValidBarcodeText } from '../../../lib/barcodeUtils';
 import { QRCodeCanvas } from 'qrcode.react';
 import jsQR from 'jsqr';
-import axios from 'axios';
 import { useStatusOptions } from '../../../lib/statusOptions';
 import bannerStyles from '../../user/AssetsTable/AssetsTable.module.css';
 import DatePicker from 'react-datepicker';
@@ -25,7 +24,6 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 import { Asset } from '../../../common/types/asset';
-import statusBadgeStyles from '../statusBadge.module.css';
 
 interface AssetDetailPopupProps {
   asset: Asset | null;
@@ -33,7 +31,6 @@ interface AssetDetailPopupProps {
   onClose: () => void;
   onUpdate?: (updatedAsset: Asset) => void;
   onDelete?: (assetId: string) => void;
-  isAdmin?: boolean;
   isCreating?: boolean;
   showAuditHistory?: boolean; // เพิ่ม prop นี้
   showUserEdit?: boolean;
@@ -87,7 +84,7 @@ function useUserEditWindow() {
   return { canEditWindow, checked, isInAuditPeriod };
 }
 
-const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isAdmin = false, isCreating = false, showAuditHistory = false, showUserEdit = true }) => {
+const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onClose, onUpdate, onDelete, isCreating = false, showAuditHistory = false, showUserEdit = true }) => {
   const { pauseAutoRefresh, resumeAutoRefresh } = useAssets();
   const initialAsset = asset ? { ...asset } : null;
 
@@ -263,28 +260,6 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
   };
 
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
-  const statusColors: Record<string, string> = {
-    'พร้อมใช้งาน': '#28a745',
-    'รอใช้งาน': '#b35f00',
-    'รอตัดจำหน่าย': '#6f42c1',
-    'ชำรุด': '#adb5bd',
-    'รอซ่อม': '#dc3545',
-    'ระหว่างการปรับปรุง': '#b02a37',
-    'ไม่มีความจำเป็นต้องใช้': '#795548',
-    'สูญหาย': '#218838',
-    'รอแลกเปลี่ยน': '#6c757d',
-    'แลกเปลี่ยน': '#17a2b8',
-    'มีกรรมสิทธิ์ภายใต้สัญญาเช่า': '#fd7e14',
-    'รอโอนย้าย': '#e0a800',
-    'รอโอนกรรมสิทธิ์': '#007bff',
-    'ชั่วคราว': '#6c757d',
-    'ขาย': '#5bc0de',
-    'แปรสภาพ': '#ffc107',
-    'ทำลาย': '#6cb2eb',
-    'สอบข้อเท็จจริง': '#20c997',
-    'เงินชดเชยที่ดินและอาสิน': '#c82333',
-    'ระหว่างทาง': '#bd2130',
-  };
 
   const handleInputChange = (field: keyof Asset, value: string | Date) => {
     if (field === 'acquired_date') {
@@ -364,34 +339,16 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         return;
       }
 
-      setImageFile(file);
       const reader = new FileReader();
       reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
+        const result = e.target?.result as string;
+        setEditedAsset((prev: Asset | null) => prev ? { ...prev, image_url: result } : null);
       };
       reader.readAsDataURL(file);
     }
   };
 
-  const handlePrintBarcode = () => {
-    if (!editedAsset.inventory_number) {
-      Swal.fire({
-        title: 'No Inventory Number',
-        text: 'Please enter an inventory number to generate a barcode for printing.',
-        icon: 'warning'
-      });
-      return;
-    }
-
-    const printWindow = window.open('', '', 'width=400,height=300');
-    if (!printWindow || !barcodeRef.current) return;
-
-    printWindow.document.write('<html><body>' + barcodeRef.current.outerHTML + '</body></html>');
-    printWindow.document.close();
-    printWindow.print();
-  };
-
-    const handlePrintBarcodeLabels = () => {
+  const handlePrintBarcodeLabels = () => {
     if (!editedAsset.inventory_number) {
       Swal.fire({
         title: 'No Inventory Number',
@@ -501,9 +458,6 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       return;
     }
     
-    // Get the barcode SVG content
-    const barcodeSvg = tempSvg.innerHTML;
-
     document.body.removeChild(tempSvg);
 
     // Create print window with grid layout
@@ -688,7 +642,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       return;
     }
 
-    const qrText = editedAsset.inventory_number;
+
 
 
     // Create print window with grid layout
@@ -1029,7 +983,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         setLoading(false);
         return;
       }
-      let finalAssetData: any = { ...editedAsset, image_url: imageUrl };
+      let finalAssetData: Asset & { image_url?: string } = { ...editedAsset, image_url: imageUrl || undefined };
       // --- เพิ่มเติม: acquired_date เป็นเวลาประเทศไทย ---
       if (acquiredDate) {
         finalAssetData.acquired_date = dayjs(acquiredDate).tz('Asia/Bangkok').format('YYYY-MM-DD HH:mm');
@@ -1163,7 +1117,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       if (f === 'department_id') return !!asset.department_id && asset.department_id !== '';
       if (f === 'status') return !!asset.status && asset.status !== '';
       if (f === 'inventory_number') return !!asset.inventory_number && asset.inventory_number.length === 20;
-      return !!(asset as any)[f] && (asset as any)[f].toString().trim() !== '';
+      return !!(asset as unknown as Record<string, unknown>)[f] && (asset as unknown as Record<string, unknown>)[f]?.toString().trim() !== '';
     });
   };
 
@@ -1389,7 +1343,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           videoRef.current.play();
         }
       }, 100);
-    } catch (err) {
+    } catch {
       Swal.fire({ title: 'Camera Error', text: 'Cannot access camera', icon: 'error' });
       setShowCamera(false);
     }
@@ -1448,7 +1402,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
         boxShadow: '0 8px 32px #0008',
         position: 'relative',
         display: 'flex',
-        flexDirection: 'column' as any,
+        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         overflow: 'hidden',
@@ -1464,7 +1418,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
       boxShadow: '0 8px 32px #0008',
       position: 'relative',
       display: 'flex',
-      flexDirection: 'column' as any,
+              flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
       overflow: 'hidden',
@@ -1486,7 +1440,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           </>
         ) : (
           <>
-            <img src={capturedPhoto} alt="Captured" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18 }} />
+            <Image src={capturedPhoto} alt="Captured" width={400} height={300} style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 18 }} />
             {/* Retake & Use Photo buttons */}
             <div style={{ position: 'absolute', bottom: 16, left: 0, width: '100%', display: 'flex', justifyContent: 'space-between', padding: '0 18px', zIndex: 10 }}>
               <button onClick={() => setCapturedPhoto(null)} style={{ background: '#fff', color: '#2196f3', border: 'none', borderRadius: 20, padding: '10px 22px', fontSize: 16, fontWeight: 600, boxShadow: '0 2px 8px #0003' }}>ถ่ายใหม่</button>
@@ -1622,7 +1576,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
           className={styles.downloadButton}
           disabled={!codeValue}
         >
-          <img src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
+          <Image src="/dowload.png" alt="Download" width={24} height={24} className={styles.barcodeIcon} />
         </button>
 
         {/* Print Labels - แสดงเฉพาะเมื่อเป็น Barcode */}
@@ -1633,7 +1587,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             className={styles.printLabelsButton}
             disabled={!codeValue}
           >
-            <img src="/print.png" alt="Print Labels" width={24} height={24} className={styles.barcodeIcon} />
+            <Image src="/print.png" alt="Print Labels" width={24} height={24} className={styles.barcodeIcon} />
           </button>
         )}
 
@@ -1645,7 +1599,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             className={styles.printQRCodeLabelsButton}
             disabled={!codeValue}
           >
-            <img src="/print.png" alt="Print QR Labels" width={24} height={24} className={styles.barcodeIcon} />
+            <Image src="/print.png" alt="Print QR Labels" width={24} height={24} className={styles.barcodeIcon} />
           </button>
         )}
 
@@ -1656,7 +1610,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
             title="Upload Barcode/QR Image to set Inventory Number"
           >
             <input type="file" accept="image/*" style={{ display: 'none' }} onChange={handleBarcodeImageUpload} />
-            <img src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
+            <Image src="/upload.png" alt="Upload" width={24} height={24} className={styles.barcodeIcon} />
           </label>
         )}
       </div>
@@ -1725,7 +1679,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
                 <AiOutlineEdit />
               </button>
             )}
-            {canOnlyView && (
+            {(canOnlyView || showUserEdit === false) && (
               <div className={styles.viewOnlyBadge} title="View Only - No Department Assigned">
                 View Only
               </div>
@@ -1764,7 +1718,7 @@ const AssetDetailPopup: React.FC<AssetDetailPopupProps> = ({ asset, isOpen, onCl
                     Change Image
                   </label>
                   <button type="button" className={styles.cameraButton} onClick={handleOpenCamera}>
-                    <img src="/add-photo.png" alt="Take Photo" width={24} height={24} style={{ display: 'block' }} />
+                    <Image src="/add-photo.png" alt="Take Photo" width={24} height={24} style={{ display: 'block' }} />
                   </button>
                 </div>
               </div>

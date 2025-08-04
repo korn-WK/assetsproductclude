@@ -104,7 +104,7 @@ const UserEditWindowSetting: React.FC<UserEditWindowSettingProps> = ({ onClose, 
         <h3 style={{ marginBottom: 18, color: '#11998e', fontWeight: 700 }}>ตั้งช่วงเวลาตรวจนับคุรุภัณท์</h3>
         <DateRange
           editableDateInputs={true}
-          onChange={(item: any) => setRange([item.selection])}
+          onChange={(item: { selection: { startDate: Date; endDate: Date; key: string } }) => setRange([item.selection])}
           moveRangeOnFirstSelection={false}
           ranges={range}
           showSelectionPreview={true}

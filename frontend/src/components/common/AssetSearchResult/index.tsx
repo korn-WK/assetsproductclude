@@ -1,6 +1,7 @@
 import React from 'react';
+import Image from 'next/image';
 import styles from './AssetSearchResult.module.css';
-import { Asset } from '../../common/types/asset';
+import { Asset } from '../../../common/types/asset';
 
 interface AssetSearchResultProps {
   asset: Asset | null;
@@ -116,11 +117,15 @@ const AssetSearchResult: React.FC<AssetSearchResultProps> = ({
       <div className={styles.assetCard}>
         <div className={styles.assetImage}>
           {asset.image_url ? (
-            <img 
+            <Image 
               src={asset.image_url} 
               alt={asset.name}
+              width={200}
+              height={150}
+              style={{ objectFit: 'cover' }}
               onError={(e) => {
-                e.currentTarget.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
+                const target = e.target as HTMLImageElement;
+                target.src = '/522733693_1501063091226628_5759500172344140771_n.jpg';
               }}
             />
           ) : (
@@ -133,8 +138,8 @@ const AssetSearchResult: React.FC<AssetSearchResultProps> = ({
         <div className={styles.assetInfo}>
           <div className={styles.assetHeader}>
             <h4>{asset.name}</h4>
-            <span className={`${styles.status} ${getStatusColor(asset.status)}`}>
-              {getStatusText(asset.status)}
+            <span className={`${styles.status} ${getStatusColor(asset.status || '')}`}>
+              {getStatusText(asset.status || '')}
             </span>
           </div>
 
@@ -168,7 +173,7 @@ const AssetSearchResult: React.FC<AssetSearchResultProps> = ({
 
             <div className={styles.detailRow}>
               <span className={styles.label}>วันที่ได้มา:</span>
-              <span className={styles.value}>{formatDate(asset.acquired_date)}</span>
+              <span className={styles.value}>{formatDate(asset.acquired_date || '')}</span>
             </div>
           </div>
         </div>

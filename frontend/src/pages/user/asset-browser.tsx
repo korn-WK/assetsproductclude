@@ -22,31 +22,27 @@ const AssetBrowserPage: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [scannedAsset, setScannedAsset] = useState(null);
   const [showAssetPopup, setShowAssetPopup] = useState(false);
-  const [scannerError, setScannerError] = useState<string | null>(null);
+
   const [searchTerm, setSearchTerm] = useState('');
 
   const handleOpenScanner = () => {
     setShowScanner(true);
-    setScannerError(null);
   };
 
   const handleCloseScanner = () => {
     setShowScanner(false);
-    setScannerError(null);
   };
 
   const handleBarcodeDetected = async (barcode: string) => {
     try {
       console.log(`Barcode detected in user page: "${barcode}"`);
       setShowScanner(false);
-      setScannerError(null);
       const response = await axiosInstance.get(`/api/assets/barcode/${encodeURIComponent(barcode)}`);
       console.log('Asset found:', response.data);
       setScannedAsset(response.data);
       setShowAssetPopup(true);
-    } catch (err: any) {
-      console.error('Error finding asset:', err.response?.data || err.message);
-      setScannerError(err.response?.data?.error || 'ไม่พบคุรุภัณฑ์ในระบบ');
+    } catch (err: unknown) {
+      console.error('Error finding asset:', err instanceof Error ? err.message : 'Unknown error');
       setShowScanner(false);
       setShowAssetPopup(false);
     }
@@ -90,7 +86,6 @@ const AssetBrowserPage: React.FC = () => {
           <BarcodeScanner
             onBarcodeDetected={handleBarcodeDetected}
             onClose={handleCloseScanner}
-            onError={setScannerError}
           />
         )}
         {/* Asset Detail Popup */}
@@ -99,7 +94,6 @@ const AssetBrowserPage: React.FC = () => {
             asset={scannedAsset}
             isOpen={showAssetPopup}
             onClose={handleCloseAssetPopup}
-            isAdmin={false}
             isCreating={false}
           />
         )}

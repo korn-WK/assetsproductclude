@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import Image from 'next/image';
 import styles from '../../user/AssetsTable/AssetsTable.module.css';
 import statusBadgeStyles from '../../common/statusBadge.module.css';
-import * as XLSX from 'xlsx';
-import ExcelJS from 'exceljs';
 import { DateRange } from 'react-date-range';
-import { format, parse, isAfter, isBefore, isEqual } from 'date-fns';
+import { parse, isAfter, isBefore, isEqual, format } from 'date-fns';
+
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { AiOutlineDown, AiOutlineDownload, AiOutlineCalendar, AiOutlineEye } from 'react-icons/ai';
@@ -12,16 +12,11 @@ import { useAuth } from '../../../contexts/AuthContext';
 import Swal from 'sweetalert2';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
 import Pagination from '../../common/Pagination';
-import DepartmentSelector from '../../common/DepartmentSelector';
 import { useDropdown } from '../../../contexts/DropdownContext';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
 import { highlightText } from '../../common/highlightText';
+import { Asset } from '../../../common/types/asset';
 
-const statusColors: Record<string, string> = {
-  pending: '#facc15',
-  approved: '#22c55e',
-  rejected: '#ef4444',
-};
 
 // Transfer status colors
 const transferStatusColors: Record<string, string> = {
@@ -71,7 +66,7 @@ interface AssetTransferVerificationTableProps {
   searchTerm?: string;
 }
 
-const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTableProps> = ({ isSuperAdmin = false, departmentFilter = 'all', onDepartmentChange, searchTerm: propSearchTerm }) => {
+const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTableProps> = ({ isSuperAdmin = false, departmentFilter = 'all', searchTerm: propSearchTerm }) => {
   const { user } = useAuth();
   const [tab, setTab] = useState('all');
   const [viewMode, setViewMode] = useState<'in' | 'out'>('in');
@@ -82,19 +77,19 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
     { startDate: undefined, endDate: undefined, key: 'selection' },
   ]);
   const [showPicker, setShowPicker] = useState(false);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+
   const [selectedAsset, setSelectedAsset] = useState<AssetTransfer | null>(null);
   const [showHistoryPopup, setShowHistoryPopup] = useState(false);
   const [transferLogs, setTransferLogs] = useState([]);
   // เพิ่ม state สำหรับ from department (ลบ toDepartment)
   const [fromDepartment, setFromDepartment] = useState<'all' | number>('all');
-  const { departments, loading: dropdownLoading } = useDropdown();
+  const { departments } = useDropdown();
   const [isMobile, setIsMobile] = useState(false);
   const [searchTerm, setSearchTerm] = useState(propSearchTerm || '');
   // เพิ่ม state สำหรับการเลือกหลายรายการ
   const [selected, setSelected] = useState<number[]>([]);
   // --- เพิ่ม state สำหรับ asset detail ---
-  const [assetDetail, setAssetDetail] = useState<any>(null);
+  const [assetDetail, setAssetDetail] = useState<Asset | null>(null);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
@@ -213,12 +208,59 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
       const res = await fetch(`/api/assets/${asset.asset_id || asset.id}`, { credentials: 'include' });
       if (res.ok) {
         const data = await res.json();
+        console.log('Asset detail API response:', data); // Debug log
         setAssetDetail(data);
       } else {
-        setAssetDetail(null);
+        console.log('Asset detail API failed, using fallback data'); // Debug log
+        // ใช้ fallback data จาก asset transfer เอง
+        setAssetDetail({
+          id: String(asset.asset_id || asset.id),
+          asset_code: asset.asset_name || 'N/A',
+          name: asset.asset_name || 'N/A',
+          description: 'Asset transfer data',
+          location: asset.from_department_name || 'N/A',
+          location_id: asset.from_department_id?.toString() || '',
+          room: '',
+          department: asset.to_department_name || 'N/A',
+          department_id: asset.to_department_id?.toString() || '',
+          owner: asset.requested_by_name || 'N/A',
+          owner_id: asset.requested_by?.toString() || '',
+          status: asset.status || 'N/A',
+          status_color: '',
+          image_url: asset.image_url,
+          acquired_date: asset.requested_at || 'N/A',
+          created_at: asset.requested_at || 'N/A',
+          updated_at: asset.requested_at || 'N/A',
+          has_pending_audit: false,
+          pending_status: null,
+          has_pending_transfer: asset.status === 'pending'
+        });
       }
-    } catch {
-      setAssetDetail(null);
+    } catch (error) {
+      console.log('Asset detail API error:', error); // Debug log
+      // ใช้ fallback data จาก asset transfer เอง
+      setAssetDetail({
+        id: String(asset.asset_id || asset.id),
+        asset_code: asset.asset_name || 'N/A',
+        name: asset.asset_name || 'N/A',
+        description: 'Asset transfer data',
+        location: asset.from_department_name || 'N/A',
+        location_id: asset.from_department_id?.toString() || '',
+        room: '',
+        department: asset.to_department_name || 'N/A',
+        department_id: asset.to_department_id?.toString() || '',
+        owner: asset.requested_by_name || 'N/A',
+        owner_id: asset.requested_by?.toString() || '',
+        status: asset.status || 'N/A',
+        status_color: '',
+        image_url: asset.image_url,
+        acquired_date: asset.requested_at || 'N/A',
+        created_at: asset.requested_at || 'N/A',
+        updated_at: asset.requested_at || 'N/A',
+        has_pending_audit: false,
+        pending_status: null,
+        has_pending_transfer: asset.status === 'pending'
+      });
     }
   };
 
@@ -259,7 +301,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
       showCancelButton: true,
       confirmButtonText: 'Approve',
       cancelButtonText: 'Cancel',
-      reverseButtons: false, // ปุ่ม Approve ซ้าย Cancel ขวา
+      reverseButtons: true, // ปุ่ม Approve ขวา Cancel ซ้าย
     });
     if (!result.isConfirmed) return;
     await Promise.all(selected.map(id => fetch(`/api/asset-transfers/${id}/approve`, { method: 'PATCH', credentials: 'include' })));
@@ -276,7 +318,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
       showCancelButton: true,
       confirmButtonText: 'Reject',
       cancelButtonText: 'Cancel',
-      reverseButtons: false, // ปุ่ม Reject ซ้าย Cancel ขวา
+      reverseButtons: true, // ปุ่ม Reject ขวา Cancel ซ้าย
     });
     if (!result.isConfirmed) return;
     await Promise.all(selected.map(id => fetch(`/api/asset-transfers/${id}/reject`, { method: 'PATCH', credentials: 'include' })));
@@ -304,7 +346,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
         t.requested_at,
       ]);
     });
-    worksheet.columns.forEach((column, i) => {
+    worksheet.columns.forEach((column) => {
       let maxLength = 10;
       column.eachCell?.({ includeEmpty: true }, (cell) => {
         const cellValue = cell.value ? cell.value.toString() : '';
@@ -426,23 +468,30 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
             </div>
 
             {/* Calendar Button */}
-            <button
-              style={{ 
-                background: '#fff', 
-                border: '1.5px solid #e5e7eb', 
-                borderRadius: 10, 
-                width: 48, 
-                height: 48, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center', 
-                padding: 0 
-              }}
-              onClick={() => setShowPicker(v => !v)}
-              type="button"
-            >
-              <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {range[0].startDate && range[0].endDate && (
+                <span style={{ fontWeight: 500, color: '#11998e', fontSize: '0.9rem' }}>
+                  {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                </span>
+              )}
+              <button
+                style={{ 
+                  background: '#fff', 
+                  border: '1.5px solid #e5e7eb', 
+                  borderRadius: 10, 
+                  width: 48, 
+                  height: 48, 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center', 
+                  padding: 0 
+                }}
+                onClick={() => setShowPicker(v => !v)}
+                type="button"
+              >
+                <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
+              </button>
+            </div>
 
             {/* Export Button */}
             <button 
@@ -483,7 +532,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
               }}>
                 <DateRange
                   editableDateInputs={true}
-                  onChange={(item: any) => setRange([item.selection])}
+                  onChange={(item: { selection: { startDate: undefined; endDate: undefined; key: string } }) => setRange([item.selection])}
                   moveRangeOnFirstSelection={false}
                   ranges={range}
                   showSelectionPreview={true}
@@ -576,7 +625,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                 
                 {/* รูป asset ตรงกลาง */}
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, padding: '16px 0', marginTop: 45 }}>
-                  <img
+                  <Image
                     src={t.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                     alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
                     style={{ 
@@ -587,7 +636,9 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                       border: '3px solid #e5e7eb',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }}
-                    onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                    width={90}
+                    height={90}
+                    onError={() => {}}
                   />
                 </div>
                 
@@ -703,9 +754,16 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
               )}
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
-              <button className={styles.iconButton} onClick={() => setShowPicker(v => !v)}>
-                <AiOutlineCalendar />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {range[0].startDate && range[0].endDate && (
+                  <span style={{ fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
+                    {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                  </span>
+                )}
+                <button className={styles.iconButton} onClick={() => setShowPicker(v => !v)}>
+                  <AiOutlineCalendar />
+                </button>
+              </div>
               {showPicker && (
                 <div style={{
                   position: 'absolute',
@@ -717,7 +775,7 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                 }}>
                   <DateRange
                     editableDateInputs={true}
-                    onChange={(item: any) => setRange([item.selection])}
+                    onChange={(item: { selection: { startDate: undefined; endDate: undefined; key: string } }) => setRange([item.selection])}
                     moveRangeOnFirstSelection={false}
                     ranges={range}
                     showSelectionPreview={true}
@@ -807,13 +865,13 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
                     )}
                   </td>
                   <td style={{ textAlign: 'center' }}>
-                    <img
+                    <Image
                       src={t.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                       alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
                       width={60}
                       height={60}
                       style={{ objectFit: 'cover', borderRadius: 8 }}
-                      onError={e => { e.currentTarget.src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                      onError={() => {}}
                     />
                   </td>
                   <td>{highlightText(typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id), searchTerm)}</td>
@@ -917,8 +975,8 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
             setSelectedAsset(null);
             setAssetDetail(null);
           }}
-          isAdmin={true}
           isCreating={false}
+          showUserEdit={false}
         />
       )}
 
@@ -930,7 +988,6 @@ const AssetTransferVerificationTable: React.FC<AssetTransferVerificationTablePro
           onClose={() => setShowHistoryPopup(false)}
           type="transfer"
           logs={transferLogs}
-          asset={selectedAsset}
         />
       )}
     </>

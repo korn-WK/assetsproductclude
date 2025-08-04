@@ -50,7 +50,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
       // แปลง object statuses เป็น array
       let statuses: AssetStatusCount[] = [];
       if (data.statuses && typeof data.statuses === 'object' && !Array.isArray(data.statuses)) {
-        statuses = Object.entries(data.statuses).map(([status, count]) => ({ status, count }));
+        statuses = Object.entries(data.statuses).map(([status, count]) => ({ status, count: count as number }));
       } else if (Array.isArray(data.statuses)) {
         statuses = data.statuses;
       }
@@ -88,7 +88,7 @@ export const DashboardProvider = ({ children }: { children: ReactNode }) => {
       const data = await response.json();
       let statuses: AssetStatusCount[] = [];
       if (data.statuses && typeof data.statuses === 'object' && !Array.isArray(data.statuses)) {
-        statuses = Object.entries(data.statuses).map(([status, count]) => ({ status, count }));
+        statuses = Object.entries(data.statuses).map(([status, count]) => ({ status, count: count as number }));
       } else if (Array.isArray(data.statuses)) {
         statuses = data.statuses;
       }

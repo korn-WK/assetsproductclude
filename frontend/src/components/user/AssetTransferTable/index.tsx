@@ -4,7 +4,7 @@ import statusBadgeStyles from '../../common/statusBadge.module.css';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
 import { DateRange } from 'react-date-range';
-import { format, parse, isAfter, isBefore, isEqual } from 'date-fns';
+import { parse, isAfter, isBefore, isEqual, format } from 'date-fns';
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { AiOutlineDown, AiOutlineDownload, AiOutlineCalendar, AiOutlineEye } from 'react-icons/ai';
@@ -12,6 +12,8 @@ import Swal from 'sweetalert2';
 import Pagination from '../../common/Pagination';
 import ExcelJS from 'exceljs';
 import { highlightText } from '../../common/highlightText';
+import Image from 'next/image';
+import { Asset } from '../../../common/types/asset';
 
 
 
@@ -73,12 +75,12 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
       setLocalSearch(searchTerm);
     }
   }, [searchTerm]);
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
+
   const [viewMode, setViewMode] = useState<'in' | 'out'>('in');
   const [selectedAsset, setSelectedAsset] = useState<AssetTransfer | null>(null);
   const [showHistoryPopup, setShowHistoryPopup] = useState(false);
-  const [transferLogs, setTransferLogs] = useState<any[]>([]);
-  const [assetDetail, setAssetDetail] = useState<any>(null);
+  const [transferLogs, setTransferLogs] = useState<{ id: number; status: string; note?: string; user_name?: string; checked_at?: string; requested_at?: string; transfer_date?: string }[]>([]);
+  const [assetDetail, setAssetDetail] = useState<Asset | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
 
 
@@ -315,7 +317,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
       showCancelButton: true,
       confirmButtonText: 'Approve',
       cancelButtonText: 'Cancel',
-      reverseButtons: false,
+      reverseButtons: true,
     });
     if (!result.isConfirmed) return;
     await Promise.all(selected.map(id => fetch(`/api/asset-transfers/${id}/approve`, { method: 'PATCH', credentials: 'include' })));
@@ -333,7 +335,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
       showCancelButton: true,
       confirmButtonText: 'Reject',
       cancelButtonText: 'Cancel',
-      reverseButtons: false,
+      reverseButtons: true,
     });
     if (!result.isConfirmed) return;
     await Promise.all(selected.map(id => fetch(`/api/asset-transfers/${id}/reject`, { method: 'PATCH', credentials: 'include' })));
@@ -382,18 +384,25 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
             </select>
               <span className={styles.caretIcon}><AiOutlineDown /></span>
             </div>
-            <button
-              style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-              onClick={() => setShowPicker(v => !v)}
-              type="button"
-            >
-              <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
-            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {range[0].startDate && range[0].endDate && (
+                <span style={{ fontWeight: 500, color: '#11998e', fontSize: '0.9rem' }}>
+                  {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                </span>
+              )}
+              <button
+                style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
+                onClick={() => setShowPicker(v => !v)}
+                type="button"
+              >
+                <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
+              </button>
+            </div>
             {showPicker && (
               <div style={{ position: 'absolute', zIndex: 20, top: 50, right: 0, background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 12 }}>
                 <DateRange
                   editableDateInputs={true}
-                  onChange={(item: any) => setRange([item.selection])}
+                  onChange={(item: { selection: { startDate: undefined; endDate: undefined; key: string } }) => setRange([item.selection])}
                   moveRangeOnFirstSelection={false}
                   ranges={range}
                   showSelectionPreview={true}
@@ -492,18 +501,18 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
                   
                   {/* รูป asset ตรงกลาง */}
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, padding: '16px 0', marginTop: viewMode === 'in' ? 45 : 16 }}>
-                  <img
+                  <Image
                     src={t.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                     alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
+                    width={90}
+                    height={90}
                       style={{ 
-                        width: 90, 
-                        height: 90, 
                         objectFit: 'cover', 
                         borderRadius: 12,
                         border: '3px solid #e5e7eb',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                       }}
-                    onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
                   />
                   </div>
                   
@@ -568,7 +577,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
           )}
           {/* Pagination (mobile) */}
           {totalPages > 1 && (
-            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -608,9 +617,16 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
 
             </div>
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', position: 'relative' }}>
-              <button className={styles.iconButton} onClick={() => setShowPicker(v => !v)}>
-                <AiOutlineCalendar />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {range[0].startDate && range[0].endDate && (
+                  <span style={{ fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
+                    {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                  </span>
+                )}
+                <button className={styles.iconButton} onClick={() => setShowPicker(v => !v)}>
+                  <AiOutlineCalendar />
+                </button>
+              </div>
               {showPicker && (
                 <div style={{
                   position: 'absolute',
@@ -622,7 +638,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
                 }}>
                   <DateRange
                     editableDateInputs={true}
-                    onChange={(item: any) => setRange([item.selection])}
+                    onChange={(item: { selection: { startDate: undefined; endDate: undefined; key: string } }) => setRange([item.selection])}
                     moveRangeOnFirstSelection={false}
                     ranges={range}
                     showSelectionPreview={true}
@@ -703,13 +719,13 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
                     </td>
                   )}
                   <td style={{ textAlign: 'center' }}>
-                    <img
+                    <Image
                       src={t.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                       alt={typeof t.asset_name === 'string' ? t.asset_name : String(t.asset_id)}
                       width={60}
                       height={60}
                       style={{ objectFit: 'cover', borderRadius: 8 }}
-                      onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                      onError={(e) => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
                     />
                   </td>
                   <td>
@@ -793,7 +809,7 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
           )}
           {/* Pagination */}
           {totalPages > 1 && (
-            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
               <Pagination
                 currentPage={currentPage}
                 totalPages={totalPages}
@@ -812,9 +828,9 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
             setSelectedAsset(null);
             setAssetDetail(null);
           }}
-          isAdmin={false}
+          
           isCreating={false}
-          showUserEdit={true}
+          showUserEdit={false}
         />
       )}
 
@@ -825,8 +841,11 @@ const AssetTransferTable: React.FC<AssetTransferTableProps> = ({ searchTerm, onS
           open={showHistoryPopup}
           onClose={() => setShowHistoryPopup(false)}
           type="transfer"
-          logs={transferLogs}
-          asset={selectedAsset}
+          logs={transferLogs.map(log => ({
+            ...log,
+            user_name: log.user_name || 'Unknown User',
+            checked_at: log.checked_at || log.requested_at || log.transfer_date || new Date().toISOString()
+          }))}
         />
       )}
     </>

@@ -369,6 +369,16 @@
     background-color: #f3f4f6;
 }
 
+.actionButton:disabled {
+    background: #e5e7eb !important;
+    color: #535355 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+    opacity: 0.6;
+    
+}
+
 .deleteButton:hover {
     color: #ef4444;
     background-color: #fee2e2;

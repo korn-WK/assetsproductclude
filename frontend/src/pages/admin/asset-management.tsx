@@ -21,31 +21,27 @@ const AssetManagementPage: React.FC = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [scannedAsset, setScannedAsset] = useState(null);
   const [showAssetPopup, setShowAssetPopup] = useState(false);
-  const [scannerError, setScannerError] = useState<string | null>(null);
+
   const [searchTerm, setSearchTerm] = useState(''); // เพิ่ม state สำหรับ search
 
   const handleOpenScanner = () => {
     setShowScanner(true);
-    setScannerError(null);
   };
 
   const handleCloseScanner = () => {
     setShowScanner(false);
-    setScannerError(null);
   };
 
   const handleBarcodeDetected = async (barcode: string) => {
     try {
       console.log(`Barcode detected in admin page: "${barcode}"`);
       setShowScanner(false);
-      setScannerError(null);
       const response = await axiosInstance.get(`/api/assets/barcode/${encodeURIComponent(barcode)}`);
       console.log('Asset found:', response.data);
       setScannedAsset(response.data);
       setShowAssetPopup(true);
-    } catch (err: any) {
-      console.error('Error finding asset:', err.response?.data || err.message);
-      setScannerError(err.response?.data?.error || 'ไม่พบคุรุภัณฑ์ในระบบ');
+    } catch (err: unknown) {
+      console.error('Error finding asset:', err instanceof Error ? err.message : 'Unknown error');
       setShowScanner(false);
       setShowAssetPopup(false);
     }
@@ -69,7 +65,6 @@ const AssetManagementPage: React.FC = () => {
           <AssetProvider>
             <Navbar
               title="Asset Management"
-              isAdmin={true}
               onMenuClick={() => setSidebarOpen(true)}
               onSearch={setSearchTerm} // ส่งฟังก์ชันนี้ให้ Navbar
             />
@@ -89,7 +84,7 @@ const AssetManagementPage: React.FC = () => {
           <BarcodeScanner
             onBarcodeDetected={handleBarcodeDetected}
             onClose={handleCloseScanner}
-            onError={setScannerError}
+
           />
         )}
         {/* Asset Detail Popup */}
@@ -98,7 +93,6 @@ const AssetManagementPage: React.FC = () => {
             asset={scannedAsset}
             isOpen={showAssetPopup}
             onClose={handleCloseAssetPopup}
-            isAdmin={true}
             isCreating={false}
             showUserEdit={true}
           />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { AiOutlineCalendar, AiOutlineDown, AiOutlineClose, AiOutlineCamera, AiOutlinePrinter, AiOutlineDownload } from 'react-icons/ai';
+import { AiOutlineDown, AiOutlineClose, AiOutlineCamera, AiOutlineDownload } from 'react-icons/ai';
 import styles from './AssetsTable.module.css';
 import Pagination from '../../common/Pagination';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
@@ -8,7 +8,7 @@ import { useAssets } from '../../../contexts/AssetContext';
 import { formatDate } from '../../../lib/utils';
 import { useDropdown } from '../../../contexts/DropdownContext';
 import Swal from 'sweetalert2';
-import dayjs from 'dayjs';
+
 import { useAuth } from '../../../contexts/AuthContext';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import ExcelJS from 'exceljs';
@@ -29,7 +29,7 @@ interface AssetsTableProps {
 
 const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTerm, onSearch, initialStatusFilter }) => {
   const { assets, loading, error, fetchAssets, updateAsset, refreshAssets, pauseAutoRefresh, resumeAutoRefresh } = useAssets();
-  const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
+  const { fetchDropdownData } = useDropdown();
   const { user } = useAuth();
   const [activeFilter, setActiveFilter] = useState<string>('All');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -40,25 +40,22 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
   const [selectedAssets, setSelectedAssets] = useState<string[]>([]);
 
   const [isMobile, setIsMobile] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [showStatusDropdown, setShowStatusDropdown] = useState(false);
-  const { options: statusOptions, loading: statusLoading } = useStatusOptions();
+  const { options: statusOptions } = useStatusOptions();
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
   const [showViewOnlyNotice, setShowViewOnlyNotice] = useState(true);
-  const [pendingAudits, setPendingAudits] = useState<{ [assetId: string]: { status: string; note: string } | null }>({});
+
   // เพิ่ม hook สำหรับดึง asset_transfers pending ที่เกี่ยวข้องกับ asset ทั้งหมด
-  const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: any }>({});
+  const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: { id: number; status: string; requested_at: string } }>({});
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [printType, setPrintType] = useState<'barcode' | 'qrcode'>('barcode');
 
   // Auto-refresh states
   const [isPageVisible, setIsPageVisible] = useState(true);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const focusRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Check if user can edit (user with department)
-  const canEdit = user && user.department_id !== null;
+
 
   // Check if user can only view (user without department)
   const canOnlyView = user && user.department_id === null;
@@ -95,13 +92,12 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
         const res = await fetch('/api/assets/audits/list', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          const map: { [assetId: string]: any } = {};
+          const map: { [assetId: string]: { confirmed?: boolean; asset_id?: string; status: string; note: string } } = {};
           for (const audit of data) {
             if (!audit.confirmed && audit.asset_id) {
               map[String(audit.asset_id)] = audit;
             }
           }
-          setPendingAudits(map);
         }
       } catch (error) {
         console.error('Error fetching pending audits:', error);
@@ -113,7 +109,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
       const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
       const data = await res.json();
       // map asset_id เป็น key (string)
-      const map: { [assetId: string]: any } = {};
+      const map: { [assetId: string]: { id: number; status: string; requested_at: string } } = {};
       for (const t of data) {
         // handle asset_id เป็น number หรือ string
         map[String(t.asset_id)] = t;
@@ -140,18 +136,18 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
   useEffect(() => {
     if (!assets || assets.length === 0) return;
     const fetchPendingAudits = async () => {
-      const assetIds = assets.map(a => a.id);
+
       // ดึง audit log pending ของ asset ทั้งหมด
       const res = await fetch('/api/assets/audits/list');
       const audits = await res.json();
       // สร้าง map assetId -> audit (pending)
       const pendingMap: { [assetId: string]: { status: string; note: string } } = {};
-      audits.forEach((audit: any) => {
+      audits.forEach((audit: { confirmed?: boolean; asset_id?: string; status: string; note: string }) => {
         if (!audit.confirmed && audit.asset_id) {
           pendingMap[audit.asset_id] = { status: audit.status, note: audit.note };
         }
       });
-      setPendingAudits(pendingMap);
+      // setPendingAudits(pendingMap); // Removed - not defined
     };
     fetchPendingAudits();
   }, [assets]);
@@ -163,7 +159,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
       const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
       const data = await res.json();
       // map asset_id เป็น key (string)
-      const map: { [assetId: string]: any } = {};
+      const map: { [assetId: string]: { id: number; status: string; requested_at: string } } = {};
       for (const t of data) {
         // handle asset_id เป็น number หรือ string
         map[String(t.asset_id)] = t;
@@ -188,7 +184,6 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
             // Only refresh if there might be updates (reduced frequency)
             await refreshAssets();
             await refreshPendingData();
-            setLastRefreshTime(new Date());
             console.log('✅ Auto-refresh completed');
           } catch (error) {
             console.error('❌ Auto-refresh error:', error);
@@ -207,18 +202,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     };
   }, [isPageVisible, refreshAssets, refreshPendingData]);
 
-  // Manual refresh trigger when user performs actions
-  const triggerManualRefresh = useCallback(async () => {
-    try {
-      console.log('🔄 Triggering manual refresh...');
-      await refreshAssets();
-      await refreshPendingData();
-      setLastRefreshTime(new Date());
-      console.log('✅ Manual refresh completed');
-    } catch (error) {
-      console.error('❌ Manual refresh error:', error);
-    }
-  }, [refreshAssets, refreshPendingData]);
+
 
   // Focus/Visibility Detection
   useEffect(() => {
@@ -236,7 +220,6 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
         console.log('👁️ Tab became visible, refreshing data...');
         refreshAssets();
         refreshPendingData();
-        setLastRefreshTime(new Date());
         
         // Also refresh after a short delay to ensure we get the latest data
         focusRefreshTimeoutRef.current = setTimeout(() => {
@@ -246,31 +229,9 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
       }
     };
 
-    const handleFocus = () => {
-      if (isPageVisible) {
-        console.log('🎯 Window focused, refreshing data...');
-        // Only refresh if popup is not open to prevent refresh loops
-        if (!isPopupOpen) {
-          refreshAssets();
-          refreshPendingData();
-          setLastRefreshTime(new Date());
-        } else {
-          console.log('⏸️ Skipping focus refresh - popup is open');
-        }
-      }
-    };
 
-    // Disable focus refresh when popup is open
-    const handleFocusWithPopupCheck = () => {
-      if (isPageVisible && !isPopupOpen) {
-        console.log('🎯 Window focused, refreshing data...');
-        refreshAssets();
-        refreshPendingData();
-        setLastRefreshTime(new Date());
-      } else if (isPageVisible && isPopupOpen) {
-        console.log('⏸️ Skipping focus refresh - popup is open');
-      }
-    };
+
+
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     // Temporarily disable focus refresh to prevent loops
@@ -283,7 +244,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
         clearTimeout(focusRefreshTimeoutRef.current);
       }
     };
-  }, [isPageVisible, refreshAssets, refreshPendingData]);
+  }, [isPageVisible, refreshAssets, refreshPendingData, isPopupOpen]);
 
 
   useEffect(() => {
@@ -308,8 +269,8 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     // console.log('AssetsTable: Filtering asset:', asset.name, 'status:', asset.status, 'activeFilter:', activeFilter, 'matchesStatus:', matchesStatus);
     
     let matchesDate = true;
-    if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
-      const created = new Date((asset as any).created_at);
+    if (dateRange.startDate && dateRange.endDate && (asset as Asset & { created_at?: string }).created_at) {
+      const created = new Date((asset as Asset & { created_at?: string }).created_at || '');
       const start = new Date(dateRange.startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(dateRange.endDate);
@@ -319,7 +280,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     const q = (typeof searchTerm === 'string' ? searchTerm : '').trim().toLowerCase();
     const matchesSearch = !q ||
       asset.asset_code.toLowerCase().includes(q) ||
-      ((asset as any).inventory_number || '').toLowerCase().includes(q) ||
+      ((asset as Asset & { inventory_number?: string }).inventory_number || '').toLowerCase().includes(q) ||
       asset.name.toLowerCase().includes(q) ||
       (asset.department?.toLowerCase() || '').includes(q) ||
       (asset.location?.toLowerCase() || '').includes(q) ||
@@ -338,34 +299,17 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     const hasTransfer = !!pendingTransfers[String(asset.id)];
     return {
     ...asset,
-    inventory_number: (asset as any).inventory_number || '',
-    room: (asset as any).room || '',
-    created_at: (asset as any).created_at || '',
-    has_pending_audit: (asset as any).has_pending_audit || false,
-    pending_status: (asset as any).pending_status || null,
+    inventory_number: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).inventory_number || '',
+    room: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).room || '',
+    created_at: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).created_at || '',
+    has_pending_audit: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).has_pending_audit || false,
+    pending_status: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).pending_status || null,
       has_pending_transfer: hasTransfer,
     } as Asset;
   });
 
   // ปรับ getStatusClass และ getStatusDisplay ให้รองรับ transferring แบบ virtual
-  const getStatusClass = (status: string, hasPending: boolean, hasPendingTransfer: boolean) => {
-    // console.log('getStatusClass called with status:', status, 'hasPending:', hasPending, 'hasPendingTransfer:', hasPendingTransfer);
-    if (hasPendingTransfer) return styles.statusTransferring;
-    if (hasPending) return styles.statusPending;
-    switch (status) {
-      case 'active': return styles.statusActive;
-      case 'missing': return styles.statusMissing;
-      case 'broken': return styles.statusBroken;
-      case 'no_longer_required': return styles.statusDisposed; // ใช้สีเทา
-      case 'พร้อมใช้งาน': return styles.statusActive; // เพิ่ม case สำหรับภาษาไทย
-      case 'สูญหาย': return styles.statusMissing; // เพิ่ม case สำหรับภาษาไทย
-      case 'ชำรุด': return styles.statusBroken; // เพิ่ม case สำหรับภาษาไทย
-      case 'ยกเลิก': return styles.statusDisposed; // เพิ่ม case สำหรับภาษาไทย
-      default: 
-        // console.log('No matching status class for:', status);
-        return '';
-    }
-  };
+
   // ใช้ statusLabels ในการแสดงผล status
   const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string, hasPendingTransfer?: boolean) => {
     if (hasPendingTransfer) return 'Transferring';
@@ -426,16 +370,9 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
 
 
 
-  const handleSearch = () => {
-    // Implement search functionality
-    // console.log('Searching for:', searchQuery);
-  };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
+
+
 
   const handleExportXLSX = async () => {
     if (filteredAssets.length === 0) return;
@@ -443,11 +380,11 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     // Patch filtered assets to ensure all required fields are present
     const patchedFilteredAssets = filteredAssets.map(asset => ({
       ...asset,
-      inventory_number: (asset as any).inventory_number || '',
-      room: (asset as any).room || '',
-      created_at: (asset as any).created_at || '',
-      has_pending_audit: (asset as any).has_pending_audit || false,
-      pending_status: (asset as any).pending_status || null,
+      inventory_number: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).inventory_number || '',
+      room: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).room || '',
+      created_at: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).created_at || '',
+      has_pending_audit: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).has_pending_audit || false,
+      pending_status: (asset as Asset & { inventory_number?: string; room?: string; created_at?: string; has_pending_audit?: boolean; pending_status?: string | null }).pending_status || null,
       has_pending_transfer: !!pendingTransfers[String(asset.id)],
     } as Asset));
     
@@ -520,7 +457,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       if (typeof column.eachCell === 'function') {
-        column.eachCell({ includeEmpty: true }, (cell: any) => {
+        column.eachCell({ includeEmpty: true }, (cell: { value?: unknown }) => {
           const cellValue = cell.value ? cell.value.toString() : '';
           maxLength = Math.max(maxLength, cellValue.length + 2);
         });
@@ -576,16 +513,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
       setSelectedAssets(filteredAssets.map(a => a.id));
     }
   };
-  const handlePrintSelected = () => {
-    // Implement print logic (reuse admin logic if possible)
-    // For now, just alert selected asset ids
-    if (selectedAssets.length === 0) {
-      Swal.fire('กรุณาเลือกคุรุภัณฑ์ที่ต้องการพิมพ์', '', 'info');
-      return;
-    }
-    // TODO: Replace with real print logic
-    Swal.fire('Print', `Assets: ${selectedAssets.join(', ')}`, 'success');
-  };
+
 
   const handlePrintBulk = async () => {
     if (!selectedAssets || selectedAssets.length === 0) {
@@ -595,7 +523,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
     // Patch selectedAssetList to always have inventory_number as string
     const selectedAssetList = filteredAssets
       .filter(asset => selectedAssets.includes(asset.id))
-      .map(asset => ({ ...asset, inventory_number: (asset as any).inventory_number || '' }));
+      .map(asset => ({ ...asset, inventory_number: (asset as Asset & { inventory_number?: string }).inventory_number || '' }));
     
     await printBulkLabels({
       printType,
@@ -703,13 +631,12 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                 placeholder="Search assets..."
                 className={adminStyles.mobileSearchInput}
                 value={searchTerm || ''}
-                onChange={e => {
-                  const value = e.target.value;
-                  if (onSearch) {
-                    onSearch(value);
-                  }
-                  setSearchQuery(value);
-                }}
+                                 onChange={e => {
+                   const value = e.target.value;
+                   if (onSearch) {
+                     onSearch(value);
+                   }
+                 }}
                 style={{width: '100%'}}
               />
             </div>
@@ -727,7 +654,7 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
                     onClick={e => e.stopPropagation()}
                     style={{ position: 'absolute', top: 12, right: 12, zIndex: 2, width: 18, height: 18 }}
                   />
-                  <img src={asset.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'} alt={asset.name} className={adminStyles.assetCardImage} />
+                  <Image src={asset.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'} alt={asset.name} width={80} height={80} className={adminStyles.assetCardImage} />
                   <div className={adminStyles.assetCardContent}>
                     <div className={adminStyles.assetCardTitle}>{highlightText(asset.name, searchTerm || '')}</div>
                     <div className={adminStyles.assetCardMetaRow}>
@@ -957,8 +884,8 @@ const AssetsTable: React.FC<AssetsTableProps> = ({ onScanBarcodeClick, searchTer
           asset={selectedAsset}
           isOpen={isPopupOpen}
           onClose={handleClosePopup}
-          onUpdate={handleAssetUpdate as any}
-          isAdmin={false}
+          onUpdate={handleAssetUpdate}
+          
           isCreating={false}
         />
       )}

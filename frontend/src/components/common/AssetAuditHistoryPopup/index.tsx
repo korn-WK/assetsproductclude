@@ -7,9 +7,15 @@ import Pagination from '../Pagination';
 interface AuditLog {
   id: number;
   status: string;
-  note: string;
+  note?: string;
   user_name: string;
   checked_at: string;
+  requested_at?: string;
+  transfer_date?: string;
+  from_department_name?: string;
+  to_department_name?: string;
+  requested_by_name?: string;
+  transferred_by_name?: string;
 }
 
 interface AssetAuditHistoryPopupProps {
@@ -17,11 +23,10 @@ interface AssetAuditHistoryPopupProps {
   open: boolean;
   onClose: () => void;
   type?: 'audit' | 'transfer';
-  logs?: any[];
-  asset?: any;
+  logs?: AuditLog[];
 }
 
-const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId, open, onClose, type = 'audit', logs = [], asset }) => {
+const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId, open, onClose, type = 'audit', logs = [] }) => {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -106,7 +111,7 @@ const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.9rem' }}>
-                            {formatDate(log.requested_at || log.transfer_date)}
+                            {formatDate((log.requested_at || log.transfer_date) || '')}
                           </span>
                           <span style={{
                             padding: '4px 8px',
@@ -152,7 +157,7 @@ const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId
                       }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span style={{ fontWeight: 600, color: '#374151', fontSize: '0.9rem' }}>
-                            {formatDate(log.checked_at)}
+                            {formatDate(log.checked_at || '')}
                           </span>
                           <span style={{
                             padding: '4px 8px',
@@ -207,7 +212,7 @@ const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId
                     {type === 'transfer'
                       ? paginatedLogs.map((log, i) => (
                           <tr key={i}>
-                            <td>{formatDate(log.requested_at || log.transfer_date)}</td>
+                            <td>{formatDate((log.requested_at || log.transfer_date) || '')}</td>
                             <td>{log.from_department_name || '-'}</td>
                             <td>{log.to_department_name || '-'}</td>
                             <td>{log.requested_by_name || log.transferred_by_name || '-'}</td>
@@ -217,7 +222,7 @@ const AssetAuditHistoryPopup: React.FC<AssetAuditHistoryPopupProps> = ({ assetId
                         ))
                       : paginatedLogs.map(log => (
                       <tr key={log.id}>
-                            <td>{formatDate(log.checked_at)}</td>
+                            <td>{formatDate(log.checked_at || '')}</td>
                             <td>{log.status}</td>
                             <td>{log.note}</td>
                             <td>{log.user_name}</td>

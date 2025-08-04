@@ -40,7 +40,7 @@ export async function exportAssetsToXLSX(assets: Asset[], filename: string = 'as
   });
   
   // Auto-size columns
-  worksheet.columns.forEach((column, i) => {
+  worksheet.columns.forEach((column) => {
     let maxLength = 10;
     column.eachCell?.({ includeEmpty: true }, (cell) => {
       const cellValue = cell.value ? cell.value.toString() : '';

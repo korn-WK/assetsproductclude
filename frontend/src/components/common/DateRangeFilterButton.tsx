@@ -104,7 +104,7 @@ const DateRangeFilterButton: React.FC<DateRangeFilterButtonProps> = ({ value, on
         }}>
           <DateRange
             editableDateInputs={true}
-            onChange={(item: any) => setRange([item.selection])}
+            onChange={(item: { selection: { startDate?: Date; endDate?: Date; key: string } }) => setRange([item.selection])}
             moveRangeOnFirstSelection={false}
             ranges={range}
             showSelectionPreview={true}

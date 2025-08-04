@@ -422,6 +422,14 @@
     transform: scale(1.08);
     box-shadow: var(--shadow-md);
 }
+.actionButton:disabled {
+    background: #e5e7eb !important;
+    color: #b0b0b8 !important;
+    cursor: not-allowed !important;
+    box-shadow: none !important;
+    transform: none !important;
+    opacity: 0.6;
+}
 .deleteButton:hover {
     background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: #fff;

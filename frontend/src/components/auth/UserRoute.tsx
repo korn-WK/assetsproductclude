@@ -7,7 +7,7 @@ interface UserRouteProps {
 }
 
 const UserRoute: React.FC<UserRouteProps> = ({ children }) => {
-  const { isAuthenticated, isAdmin, loading, user } = useAuth();
+  const { isAuthenticated, loading, user } = useAuth();
   const router = useRouter();
 
   if (loading) {

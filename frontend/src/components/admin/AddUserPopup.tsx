@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from '../../lib/axios';
-import * as XLSX from 'xlsx';
+
 import ExcelJS from 'exceljs';
 
 interface Department {
@@ -10,8 +10,8 @@ interface Department {
 
 interface AddUserPopupProps {
   onClose: () => void;
-  onUserAdded: (user: any) => void;
-  onUsersImported: (users: any[]) => void;
+  onUserAdded: (user: { id: number; username: string; name: string; email: string; role: string; department_id?: number }) => void;
+  onUsersImported: (users: { id: number; username: string; name: string; email: string; role: string; department_id?: number }[]) => void;
 }
 
 const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUsersImported }) => {
@@ -25,9 +25,8 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
     department_id: '',
   });
   const [loading, setLoading] = useState(false);
-  const [excelFile, setExcelFile] = useState<File | null>(null);
-  const [excelPreview, setExcelPreview] = useState<any[]>([]);
-  const [excelUsers, setExcelUsers] = useState<any[]>([]);
+  const [excelPreview, setExcelPreview] = useState<{ username: string; name: string; email: string; role: string; department: string }[]>([]);
+  const [excelUsers, setExcelUsers] = useState<{ username: string; name: string; email: string; role: string; department: string }[]>([]);
   const [importing, setImporting] = useState(false);
 
   useEffect(() => {
@@ -35,8 +34,8 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
       try {
         const response = await axios.get('/api/assets/departments');
         setDepartments(response.data);
-      } catch (error) {
-        // handle error
+      } catch (error: unknown) {
+        console.error('Error fetching departments:', error);
       }
     };
     fetchDepartments();
@@ -54,8 +53,8 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
       const response = await axios.post('/api/users', formData);
       onUserAdded(response.data);
       onClose();
-    } catch (error) {
-      // handle error
+    } catch (error: unknown) {
+      console.error('Error adding user:', error);
     } finally {
       setLoading(false);
     }
@@ -65,7 +64,7 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
     console.log('handleExcelChange called');
     if (e.target.files && e.target.files[0]) {
       console.log('File selected:', e.target.files[0].name);
-      setExcelFile(e.target.files[0]);
+
       try {
         // Parse Excel file using ExcelJS
         const file = e.target.files[0];
@@ -77,9 +76,9 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
         // rows[0] is undefined, rows[1] is header
         let header: string[] = [];
         if (rows[1] && Array.isArray(rows[1])) {
-          header = (rows[1] as any[]).map((h) => (h ? h.toString().trim() : ''));
+          header = (rows[1] as string[]).map((h) => (h ? h.toString().trim() : ''));
         } else if (rows[1] && typeof rows[1] === 'object') {
-          header = Object.values(rows[1] as object).map((h) => (h ? h.toString().trim() : ''));
+          header = Object.values(rows[1] as Record<string, unknown>).map((h) => (h ? h.toString().trim() : ''));
         }
         console.log('Parsed header:', header);
         // Robust header mapping: trim and lowercase all header names
@@ -94,34 +93,44 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
         trimmedHeader.forEach((key, idx) => {
           if (expectedFields.includes(key)) headerIndex[key] = idx + (header.length > trimmedHeader.length ? 1 : 0);
         });
-        const users: any[] = [];
+        const users: { username: string; name: string; email: string; role: string; department: string }[] = [];
         for (let i = 2; i < rows.length; i++) {
           const row = rows[i];
           if (!row || !Array.isArray(row)) continue;
-          const user: any = {};
+          const user: { username: string; name: string; email: string; role: string; department: string } = {
+            username: '',
+            name: '',
+            email: '',
+            role: '',
+            department: ''
+          };
           Object.entries(headerIndex).forEach(([key, colIdx]) => {
             const cell = row[colIdx] ?? '';
-            user[key] = cell.toString().trim();
+            if (key === 'username') user.username = cell.toString().trim();
+            if (key === 'name') user.name = cell.toString().trim();
+            if (key === 'email') user.email = cell.toString().trim();
+            if (key === 'role') user.role = cell.toString().trim();
+            if (key === 'department') user.department = cell.toString().trim();
           });
           // Normalize role
-              if (user.originalRole) {
-      const roleRaw = user.originalRole.toString().toLowerCase().replace(/\s/g, '');
-            const roleMap: any = {
+          if (user.role) {
+            const roleRaw = user.role.toString().toLowerCase().replace(/\s/g, '');
+            const roleMap: Record<string, string> = {
               user: 'User',
               admin: 'Admin',
               superadmin: 'SuperAdmin',
             };
-            user.originalRole = roleMap[roleRaw] || user.originalRole.trim();
+            user.role = roleMap[roleRaw] || user.role.trim();
           }
           // Minimal validation
-          if (user.username && user.name && user.email && user.originalRole) {
+          if (user.username && user.name && user.email && user.role) {
             console.log('Parsed user from Excel:', user);
             users.push(user);
           }
         }
         setExcelPreview(users);
         setExcelUsers(users);
-      } catch (err) {
+      } catch (err: unknown) {
         console.error('Error parsing Excel file:', err);
       }
     }
@@ -130,8 +139,8 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
   const handleExcelImport = async () => {
     if (!excelUsers.length) return;
     setImporting(true);
-    let success: any[] = [];
-    let failed: any[] = [];
+    const success: { username: string; name: string; email: string; role: string; department: string }[] = [];
+    const failed: { username: string; name: string; email: string; role: string; department: string; error: string }[] = [];
     for (const user of excelUsers) {
       try {
         // Map department name to department_id if needed (optional: you can fetch departments and match)
@@ -144,26 +153,42 @@ const AddUserPopup: React.FC<AddUserPopupProps> = ({ onClose, onUserAdded, onUse
           username: user.username,
           name: user.name,
           email: user.email,
-          role: user.originalRole,
+          role: user.role,
           department_id: department_id || undefined,
         };
         await axios.post('/api/users', payload);
         success.push(user);
-      } catch (err: any) {
+      } catch (err: unknown) {
         let msg = '';
-        if (err.response && err.response.data && err.response.data.error) {
-          msg = err.response.data.error;
+        if (err instanceof Error) {
+          msg = err.message;
+        } else if (typeof err === 'object' && err !== null && 'response' in err) {
+          const response = (err as { response?: { data?: { error?: string } } }).response;
+          if (response?.data?.error) {
+            msg = response.data.error;
+          } else {
+            msg = 'Unknown error';
+          }
         } else {
-          msg = err.message || 'Unknown error';
+          msg = 'Unknown error';
         }
         failed.push({ ...user, error: msg });
       }
     }
     if (success.length > 0) {
-      onUsersImported(success);
+      // Transform success users to match the expected interface
+      const transformedSuccess = success.map(user => ({
+        id: 0, // This will be set by the server response
+        username: user.username,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        department_id: undefined
+      }));
+      onUsersImported(transformedSuccess);
       setExcelPreview([]);
       setExcelUsers([]);
-      setExcelFile(null);
+
       onClose();
     }
     if (failed.length > 0) {

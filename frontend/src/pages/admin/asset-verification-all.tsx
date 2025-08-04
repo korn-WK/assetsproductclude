@@ -4,20 +4,11 @@ import Navbar from '../../components/common/Navbar';
 import React, { useState, useEffect } from 'react';
 import Layout from '../../components/common/Layout';
 import AssetVerificationTableSuperAdmin from '../../components/admin/AssetVerificationTable';
-import styles from '../../user/AssetsTable/AssetsTable.module.css';
-import DateRangeFilterButton from '../../components/common/DateRangeFilterButton';
-import { DateRange } from 'react-date-range';
-import 'react-date-range/dist/styles.css';
-import 'react-date-range/dist/theme/default.css';
 import UserEditWindowSetting from './UserEditWindowSetting';
 
 const AssetVerificationAllPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [verificationPeriod, setVerificationPeriod] = useState<{ startDate?: Date; endDate?: Date }>({});
-  const [showDatePicker, setShowDatePicker] = useState(false);
-  const [tempPeriod, setTempPeriod] = useState<{ startDate?: Date; endDate?: Date }>({});
-  const [showUserEdit, setShowUserEdit] = useState(true);
   const [showEditWindowModal, setShowEditWindowModal] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -28,22 +19,12 @@ const AssetVerificationAllPage: React.FC = () => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const handleOpenModal = () => {
-    setTempPeriod(verificationPeriod);
-    setShowDatePicker(true);
-  };
-  const handleCancel = () => {
-    setShowDatePicker(false);
-  };
-  const handleOk = () => {
-    setVerificationPeriod(tempPeriod);
-    setShowDatePicker(false);
-  };
+
 
   return (
     <>
       <Head>
-        <title>Asset Verification (All) - SuperAdmin</title>
+        <title>Asset Verification - SuperAdmin</title>
         <meta name="description" content="SuperAdmin asset verification log for all assets" />
         <link rel="icon" href="/favicon.ico" />
       </Head>
@@ -52,7 +33,6 @@ const AssetVerificationAllPage: React.FC = () => {
         <div>
           <AssetVerificationTableSuperAdmin
             searchTerm={searchTerm}
-            verificationPeriod={verificationPeriod}
             onSearch={setSearchTerm}
             extraActionButton={
               <button

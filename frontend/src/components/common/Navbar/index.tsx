@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { AiOutlineMenu, AiOutlineSearch, AiOutlineUser, AiOutlineClose, AiOutlineCamera } from 'react-icons/ai';
+import { AiOutlineMenu, AiOutlineSearch, AiOutlineUser, AiOutlineCamera } from 'react-icons/ai';
 import styles from './Navbar.module.css';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useAssets } from '../../../contexts/AssetContext';
-import Link from 'next/link';
+
 
 interface NavbarProps {
   title?: string;
@@ -15,14 +15,14 @@ interface NavbarProps {
   onSearch?: (keyword: string) => void; // เพิ่ม prop onSearch
 }
 
-const Navbar: React.FC<NavbarProps> = ({ title, isAdmin = false, onMenuClick, scanBarcodeIcon = false, onScanBarcodeClick, onSearch }) => {
+const Navbar: React.FC<NavbarProps> = ({ title, onMenuClick, scanBarcodeIcon = false, onScanBarcodeClick, onSearch }) => {
   const { user, loading, logout } = useAuth();
-  const { searchAssets, fetchAssets, assets } = useAssets(); // เพิ่ม assets
+  const { assets } = useAssets(); // เพิ่ม assets
   const [isDropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isMobile, setIsMobile] = useState(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]); // สำหรับ suggestion dropdown
+  const [suggestions, setSuggestions] = useState<{ id?: string; asset_code?: string; name?: string }[]>([]); // สำหรับ suggestion dropdown
   const [showSuggestions, setShowSuggestions] = useState(false);
   const suggestionsRef = useRef<HTMLDivElement>(null);
 

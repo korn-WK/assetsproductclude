@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { AiOutlinePlus, AiOutlineEdit, AiOutlineDelete, AiOutlineSearch } from 'react-icons/ai';
+import { AiOutlinePlus, AiOutlineEdit, AiOutlineDelete } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AdminTable.module.css';
 import Pagination from '../../common/Pagination';
 
 interface AdminTableProps {
   title: string;
-  data: any[];
+  data: { [key: string]: unknown }[];
   columns: {
     key: string;
     label: string;
-    render?: (value: any, item: any) => React.ReactNode;
+    render?: (value: unknown, item: { [key: string]: unknown }) => React.ReactNode;
   }[];
   onAdd: () => void;
-  onEdit: (item: any) => void;
+  onEdit: (item: { [key: string]: unknown }) => void;
   onDelete: (id: string | number) => Promise<void>;
   loading?: boolean;
   searchPlaceholder?: string;
@@ -37,7 +37,7 @@ const AdminTable: React.FC<AdminTableProps> = ({
   onEdit,
   onDelete,
   loading = false,
-  searchPlaceholder = "Search...",
+
   searchTerm: propSearchTerm // Destructure searchTerm from props
 }) => {
   // searchTerm now comes from props
@@ -59,8 +59,8 @@ const AdminTable: React.FC<AdminTableProps> = ({
     // สำหรับ status management: ค้นหาเฉพาะใน label (ชื่อสถานะ) และ value (รหัส)
     const searchLower = propSearchTerm.toLowerCase();
     return (
-      (item.label && item.label.toLowerCase().includes(searchLower)) ||
-      (item.value && item.value.toLowerCase().includes(searchLower))
+      (item.label && (item.label as string).toLowerCase().includes(searchLower)) ||
+      (item.value && (item.value as string).toLowerCase().includes(searchLower))
     );
   });
 
@@ -204,7 +204,7 @@ const AdminTable: React.FC<AdminTableProps> = ({
               <div className={styles.noData}>No data found</div>
             ) : (
               currentData.map((item, index) => (
-                <div className={styles.card} key={item.id || index}>
+                <div className={styles.card} key={String(item.id) || index}>
                   <div className={styles.cardContent}>
                     {columns.map((column) => (
                       <div key={column.key} className={styles.cardField}>
@@ -223,9 +223,9 @@ const AdminTable: React.FC<AdminTableProps> = ({
                             }
                             // highlight เฉพาะใน label และ value
                             if (column.key === 'label' || column.key === 'value') {
-                              return highlightText(value || '-', propSearchTerm || '');
+                              return highlightText(String(value) || '-', propSearchTerm || '');
                             }
-                            return value || '-';
+                            return String(value) || '-';
                           })()}
                         </span>
                       </div>
@@ -241,7 +241,7 @@ const AdminTable: React.FC<AdminTableProps> = ({
                     </button>
                     <button
                       className={styles.deleteButton}
-                      onClick={() => handleDelete(item.id)}
+                      onClick={() => handleDelete(String(item.id))}
                       title="Delete"
                     >
                       <AiOutlineDelete />
@@ -282,7 +282,7 @@ const AdminTable: React.FC<AdminTableProps> = ({
                   </tr>
                 ) : (
                   currentData.map((item, index) => (
-                    <tr key={item.id || index}>
+                    <tr key={String(item.id) || index}>
                       {columns.map((column) => (
                         <td key={column.key}>
                           {(() => {
@@ -298,9 +298,9 @@ const AdminTable: React.FC<AdminTableProps> = ({
                             }
                             // highlight เฉพาะใน label และ value
                             if (column.key === 'label' || column.key === 'value') {
-                              return highlightText(value || '-', propSearchTerm || '');
+                              return highlightText(String(value) || '-', propSearchTerm || '');
                             }
-                            return value || '-';
+                            return String(value) || '-';
                           })()}
                         </td>
                       ))}
@@ -314,7 +314,7 @@ const AdminTable: React.FC<AdminTableProps> = ({
                         </button>
                         <button
                           className={styles.deleteButton}
-                          onClick={() => handleDelete(item.id)}
+                          onClick={() => handleDelete(String(item.id))}
                           title="Delete"
                         >
                           <AiOutlineDelete />

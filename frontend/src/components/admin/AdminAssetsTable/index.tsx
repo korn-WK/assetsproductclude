@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
-import { AiOutlineCalendar, AiOutlinePlus, AiOutlineSearch, AiOutlineDown, AiOutlineCamera, AiOutlineDownload } from 'react-icons/ai';
+import { AiOutlinePlus, AiOutlineDown, AiOutlineCamera, AiOutlineDownload } from 'react-icons/ai';
 import Swal from 'sweetalert2';
 import styles from './AdminAssetsTable.module.css';
 import Pagination from '../../common/Pagination';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
 import { useAssets } from '../../../contexts/AssetContext';
-import { formatDate } from '../../../lib/utils';
-import dayjs from 'dayjs';
+
 import { useDropdown } from '../../../contexts/DropdownContext';
 import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import { useStatusOptions } from '../../../lib/statusOptions';
@@ -39,12 +38,11 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
   const [selectedDepartment, setSelectedDepartment] = useState<string>('All');
   const filterButtonRef = useRef<HTMLButtonElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [dropdownPosition, setDropdownPosition] = useState<{ top: number; left: number; width: number }>({ top: 0, left: 0, width: 180 });
-  const { options: statusOptions, loading: statusLoading } = useStatusOptions();
+  const { options: statusOptions } = useStatusOptions();
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
-  const { departments, loading: dropdownLoading, error: dropdownError, fetchDropdownData } = useDropdown();
+  const { departments } = useDropdown();
   const [dateRange, setDateRange] = useState<{ startDate?: Date; endDate?: Date }>({});
-  const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: any }>({});
+  const [pendingTransfers, setPendingTransfers] = useState<{ [assetId: string]: { id: number; status: string; requested_at: string } }>({});
   
   // Multi-select states
   const [selectedAssets, setSelectedAssets] = useState<Set<string>>(new Set());
@@ -53,7 +51,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
 
   // Auto-refresh states
   const [isPageVisible, setIsPageVisible] = useState(true);
-  const [lastRefreshTime, setLastRefreshTime] = useState<Date>(new Date());
+
   const autoRefreshIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const focusRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -79,7 +77,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     const fetchTransfers = async () => {
       const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
       const data = await res.json();
-      const map: { [assetId: string]: any } = {};
+      const map: { [assetId: string]: { id: number; status: string; requested_at: string } } = {};
       for (const t of data) {
         map[String(t.asset_id)] = t;
       }
@@ -92,7 +90,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
         const res = await fetch('/api/assets/audits/list', { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
-          const auditMap: { [assetId: string]: any } = {};
+          const auditMap: { [assetId: string]: { confirmed?: boolean; asset_id?: string; status: string; note: string } } = {};
           for (const audit of data) {
             if (!audit.confirmed && audit.asset_id) {
               auditMap[String(audit.asset_id)] = audit;
@@ -122,7 +120,6 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
             // Only refresh if there might be updates (reduced frequency)
             await refreshAssets();
             await refreshPendingData();
-            setLastRefreshTime(new Date());
           } catch (error) {
             console.error('❌ Auto-refresh error:', error);
             // Don't show error to user for auto-refresh failures
@@ -145,7 +142,6 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     try {
       await refreshAssets();
       await refreshPendingData();
-      setLastRefreshTime(new Date());
     } catch (error) {
       console.error('Manual refresh error:', error);
     }
@@ -166,7 +162,6 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
         // Refresh data immediately when tab becomes visible
         refreshAssets();
         refreshPendingData();
-        setLastRefreshTime(new Date());
         
         // Also refresh after a short delay to ensure we get the latest data
         focusRefreshTimeoutRef.current = setTimeout(() => {
@@ -176,25 +171,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
       }
     };
 
-    const handleFocus = () => {
-      if (isPageVisible) {
-        // Only refresh if popup is not open to prevent refresh loops
-        if (!isPopupOpen) {
-          refreshAssets();
-          refreshPendingData();
-          setLastRefreshTime(new Date());
-        }
-      }
-    };
 
-    // Disable focus refresh when popup is open
-    const handleFocusWithPopupCheck = () => {
-      if (isPageVisible && !isPopupOpen) {
-        refreshAssets();
-        refreshPendingData();
-        setLastRefreshTime(new Date());
-      }
-    };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
 
@@ -227,7 +204,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     const fetchTransfers = async () => {
       const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
       const data = await res.json();
-      const map: { [assetId: string]: any } = {};
+      const map: { [assetId: string]: { id: number; status: string; requested_at: string } } = {};
       for (const t of data) {
         map[String(t.asset_id)] = t;
       }
@@ -243,10 +220,9 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  useEffect(() => {
-    fetchDropdownData();
-    // eslint-disable-next-line
-  }, []);
+  // useEffect(() => {
+  //   fetchDropdownData(); // Removed as this function doesn't exist
+  // }, []);
 
   useEffect(() => {
     if (selectedDepartment === 'All') {
@@ -287,11 +263,11 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     const hasTransfer = !!pendingTransfers[String(asset.id)];
     return {
     ...asset,
-    inventory_number: (asset as any).inventory_number || '',
-    room: (asset as any).room || '',
-    created_at: (asset as any).created_at || '',
-    has_pending_audit: (asset as any).has_pending_audit || false,
-    pending_status: (asset as any).pending_status || null,
+    inventory_number: (asset as Asset & { inventory_number?: string }).inventory_number || '',
+    room: (asset as Asset & { room?: string }).room || '',
+    created_at: (asset as Asset & { created_at?: string }).created_at || '',
+    has_pending_audit: (asset as Asset & { has_pending_audit?: boolean }).has_pending_audit || false,
+    pending_status: (asset as Asset & { pending_status?: string | null }).pending_status || null,
       has_pending_transfer: hasTransfer,
     } as Asset;
   });
@@ -305,8 +281,8 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     const matchesDepartment = selectedDepartment === 'All' || asset.department === selectedDepartment;
     // Filter by createdAt (ช่วงวันที่)
     let matchesDate = true;
-    if (dateRange.startDate && dateRange.endDate && (asset as any).created_at) {
-      const created = new Date((asset as any).created_at);
+    if (dateRange.startDate && dateRange.endDate && (asset as Asset & { created_at?: string }).created_at) {
+      const created = new Date((asset as Asset & { created_at?: string }).created_at || '');
       const start = new Date(dateRange.startDate);
       start.setHours(0, 0, 0, 0);
       const end = new Date(dateRange.endDate);
@@ -329,21 +305,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     currentPage * itemsPerPage
   );
 
-  // ปรับ getStatusClass และ getStatusDisplay ให้รองรับ transferring แบบ virtual
-  const getStatusClass = (status: string, hasPending: boolean, hasPendingTransfer: boolean) => {
-    if (hasPendingTransfer) return styles.statusTransferring;
-    if (hasPending) return styles.statusPending;
-    switch (status) {
-      case 'active': return styles.statusActive;
-      case 'transferring': return styles.statusTransferring;
-      case 'audited': return styles.statusAudited;
-      case 'missing': return styles.statusMissing;
-      case 'broken': return styles.statusBroken;
-      case 'disposed': return styles.statusDisposed;
-      case 'no_longer_required': return styles.statusDisposed; // ใช้สีเทา
-      default: return '';
-    }
-  };
+
   // ใช้ statusLabels ในการแสดงผล status
   const getStatusDisplay = (status: string, hasPending: boolean, pendingStatus?: string, hasPendingTransfer?: boolean) => {
     if (hasPendingTransfer) return 'Transferring';
@@ -460,7 +422,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     setIsPopupOpen(true);
   };
 
-  const handleAssetCreate = (newAsset: Asset) => {
+  const handleAssetCreate = () => {
     // Trigger manual refresh to get latest data
     triggerManualRefresh();
     
@@ -477,26 +439,9 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     });
   };
 
-  const handleSearch = () => {
-    // Implement search functionality
-    // console.log('Searching for:', searchTerm);
-  };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
 
   const handleShowDropdown = () => {
-    if (filterButtonRef.current) {
-      const rect = filterButtonRef.current.getBoundingClientRect();
-      setDropdownPosition({
-        top: rect.bottom + window.scrollY + 4,
-        left: rect.left + window.scrollX,
-        width: rect.width,
-      });
-    }
     setShowDepartmentDropdown((prev) => !prev);
   };
 
@@ -551,7 +496,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       if (typeof column.eachCell === 'function') {
-        column.eachCell({ includeEmpty: true }, (cell: any) => {
+        column.eachCell({ includeEmpty: true }, (cell: { value?: unknown }) => {
           const cellValue = cell.value ? cell.value.toString() : '';
           maxLength = Math.max(maxLength, cellValue.length + 2);
         });
@@ -581,7 +526,6 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
 
   const handleSelectAll = () => {
     // Check if all filtered assets are selected
-    const allFilteredAssetIds = new Set(filteredAssets.map(asset => asset.id));
     const allSelected = filteredAssets.every(asset => selectedAssets.has(asset.id));
     
     if (allSelected) {
@@ -780,7 +724,7 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                 className={styles.mobileSearchInput}
                 value={searchTerm}
                 onChange={e => onSearch(e.target.value)}
-                onKeyDown={handleKeyDown}
+
                 style={{width: '100%'}} />
             </div>
             <div className={styles.assetCardList}>
@@ -810,11 +754,13 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
                   </div>
                   <div style={{ display: 'flex', gap: '1rem', width: '100%', alignItems: 'center' }}>
                     <div style={{ flexShrink: 0 }}>
-                      <img 
+                      <Image 
                         src={asset.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'} 
                         alt={asset.name} 
                         className={styles.assetCardImage}
                         style={{ marginTop: 0, marginRight: 0 }}
+                        width={100}
+                        height={100}
                       />
                     </div>
                     <div className={styles.assetCardContent} style={{ flex: 1, paddingRight: '2rem' }}>
@@ -1088,7 +1034,6 @@ const AdminAssetsTable: React.FC<AdminAssetsTableProps> = ({ onScanBarcodeClick,
         onClose={handleClosePopup}
         onUpdate={isCreating ? handleAssetCreate : handleAssetUpdate}
         onDelete={handleDeleteAsset}
-        isAdmin={true}
         isCreating={isCreating}
         showUserEdit={true}
       />

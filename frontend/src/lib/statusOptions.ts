@@ -17,7 +17,7 @@ export function useStatusOptions() {
     axios.get('/api/statuses')
       .then(res => {
         if (Array.isArray(res.data)) {
-          setOptions(res.data.map((s: any) => ({
+          setOptions(res.data.map((s: { id: number; value: string; label: string; color?: string }) => ({
             id: s.id, // เพิ่ม id ตรงนี้
             value: s.value,
             label: s.label,

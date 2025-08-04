@@ -1,23 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import styles from '../../user/AssetsTable/AssetsTable.module.css';
 import statusBadgeStyles from '../../common/statusBadge.module.css';
-import { formatDate } from '../../../lib/utils';
 import AssetAuditHistoryPopup from '../../common/AssetAuditHistoryPopup';
-import { useAuth } from '../../../contexts/AuthContext';
+import { parse, isAfter, isBefore, isEqual, format } from 'date-fns';
+
 import Image from 'next/image';
 import Pagination from '../../common/Pagination';
-import ExcelJS from 'exceljs';
 import { AiOutlineDownload, AiOutlineCalendar, AiOutlineDown } from 'react-icons/ai';
 import { DateRange } from 'react-date-range';
-import { format, parse, isAfter, isBefore, isEqual } from 'date-fns';
+
 import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import { useStatusOptions } from '../../../lib/statusOptions';
-import DateRangeFilterButton from '../../common/DateRangeFilterButton';
 import Swal from 'sweetalert2';
 import { AiOutlineEye } from 'react-icons/ai';
 import AssetDetailPopup from '../../common/AssetDetailPopup';
 import { highlightText } from '../../common/highlightText';
+
+// Helper function to format date
+const formatDate = (dateString: string | undefined): string => {
+  if (!dateString) return '';
+  try {
+    return format(new Date(dateString), 'dd/MM/yyyy HH:mm');
+  } catch {
+    return dateString;
+  }
+};
 
 interface PendingAudit {
   id: number;
@@ -37,32 +45,11 @@ interface PendingAudit {
 
 
 
-// เพิ่มฟังก์ชันแปลง PendingAudit -> Asset
-function mapPendingAuditToAsset(audit: PendingAudit) {
-  return {
-    id: String(audit.asset_id ?? audit.id),
-    asset_code: audit.asset_code || '',
-    inventory_number: audit.inventory_number || '',
-    serial_number: '',
-    name: audit.asset_name || '',
-    description: audit.note || '',
-    location_id: '',
-    location: '',
-    department: audit.department_name || '',
-    department_id: '',
-    owner: audit.user_name || '',
-    status: audit.status || '',
-    image_url: audit.image_url || '',
-    acquired_date: audit.checked_at || '',
-    created_at: '',
-    updated_at: '',
-  };
-}
+
 
 interface AssetVerificationTableSuperAdminProps {
   searchTerm?: string;
-  verificationPeriod?: { startDate?: Date; endDate?: Date };
-  extraActionButton?: React.ReactElement<any, any>; // ปรับ type ตรงนี้
+  extraActionButton?: React.ReactElement; // ปรับ type ตรงนี้
   onSearch?: (term: string) => void;
 }
 
@@ -82,44 +69,23 @@ function ThreeDotsMenu({ onHistory }: { onHistory: () => void }) {
   );
 }
 
-const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdminProps> = ({ searchTerm = '', verificationPeriod, extraActionButton, onSearch }) => {
+const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdminProps> = ({ searchTerm = '', extraActionButton, onSearch }) => {
   const [pendingAudits, setPendingAudits] = useState<PendingAudit[]>([]);
   const [totalAudits, setTotalAudits] = useState(0);
   const [departments, setDepartments] = useState<{ id: number, name_th: string }[]>([]);
   const [departmentFilter, setDepartmentFilter] = useState<'all' | number>('all');
+  const [verificationFilter, setVerificationFilter] = useState<'all' | 'pending' | 'approved'>('all');
   const [selected, setSelected] = useState<number[]>([]);
   const [showPopup, setShowPopup] = useState(false);
   const [popupAssetId, setPopupAssetId] = useState<number | null>(null);
-  const { user } = useAuth();
-  const [verificationFilter, setVerificationFilter] = useState<'all' | 'pending' | 'approved'>('all');
+
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 5;
   const [range, setRange] = useState<Array<{ startDate?: Date; endDate?: Date; key: string }>>([{ startDate: undefined, endDate: undefined, key: 'selection' }]);
   const [showPicker, setShowPicker] = useState(false);
-  const { options: statusOptions, loading: statusLoading } = useStatusOptions();
+  const { options: statusOptions } = useStatusOptions();
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
-  const statusColors: Record<string, string> = {
-    'พร้อมใช้งาน': '#28a745',
-    'รอใช้งาน': '#b35f00',
-    'รอตัดจำหน่าย': '#6f42c1',
-    'ชำรุด': '#adb5bd',
-    'รอซ่อม': '#dc3545',
-    'ระหว่างการปรับปรุง': '#b02a37',
-    'ไม่มีความจำเป็นต้องใช้': '#795548',
-    'สูญหาย': '#218838',
-    'รอแลกเปลี่ยน': '#6c757d',
-    'แลกเปลี่ยน': '#17a2b8',
-    'มีกรรมสิทธิ์ภายใต้สัญญาเช่า': '#fd7e14',
-    'รอโอนย้าย': '#e0a800',
-    'รอโอนกรรมสิทธิ์': '#007bff',
-    'ชั่วคราว': '#6c757d',
-    'ขาย': '#5bc0de',
-    'แปรสภาพ': '#ffc107',
-    'ทำลาย': '#6cb2eb',
-    'สอบข้อเท็จจริง': '#20c997',
-    'เงินชดเชยที่ดินและอาสิน': '#c82333',
-    'ระหว่างทาง': '#bd2130',
-  };
+
   const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
@@ -240,10 +206,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
     });
   };
 
-  const openHistoryPopup = (assetId: number) => {
-    setPopupAssetId(assetId);
-    setShowPopup(true);
-  };
+
 
   // Export XLSX logic (reuse from ReportAssetsTable)
   const handleExportXLSX = async () => {
@@ -307,8 +270,8 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
     worksheet.columns = columnWidths;
     
     // Apply formatting to all cells
-    worksheet.eachRow((row: any, rowNumber: number) => {
-      row.eachCell((cell: any, colNumber: number) => {
+    worksheet.eachRow((row, rowNumber: number) => {
+      row.eachCell((cell, colNumber: number) => {
         // Set text format for inventory number column
         if (colNumber === 1 && rowNumber > 1) {
           cell.value = String(cell.value ?? '');
@@ -353,12 +316,12 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
     window.URL.revokeObjectURL(url);
   };
 
-  const popupAsset = pendingAudits.find(a => a.asset_id === popupAssetId);
+
 
   // เพิ่ม state และ AssetDetailPopup
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [selectedAudit, setSelectedAudit] = useState<PendingAudit | null>(null);
-  const [assetDetail, setAssetDetail] = useState<any>(null);
+  const [assetDetail, setAssetDetail] = useState<Record<string, unknown> | null>(null);
 
   return (
     <>
@@ -395,18 +358,25 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
               </div>
             </div>
             <div style={{ display: 'flex', gap: '0.7rem', alignItems: 'center', justifyContent: 'center', marginBottom: 10, position: 'relative' }}>
-              <button
-                style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
-                onClick={() => setShowPicker(v => !v)}
-                type="button"
-              >
-                <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {range[0].startDate && range[0].endDate && (
+                  <span style={{ fontWeight: 500, color: '#11998e', fontSize: '0.9rem' }}>
+                    {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                  </span>
+                )}
+                <button
+                  style={{ background: '#fff', border: '1.5px solid #e5e7eb', borderRadius: 10, width: 44, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, flexShrink: 0 }}
+                  onClick={() => setShowPicker(v => !v)}
+                  type="button"
+                >
+                  <AiOutlineCalendar style={{ fontSize: '1.3rem', color: '#222' }} />
+                </button>
+              </div>
               {showPicker && (
                 <div style={{ position: 'absolute', zIndex: 90, top: 50, left: 0, border: '1.5px solid #e5e7eb', borderRadius: 12, background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                   <DateRange
                     editableDateInputs={true}
-                    onChange={(item: any) => setRange([item.selection])}
+                    onChange={(item: { selection: { startDate: undefined; endDate: undefined; key: string } }) => setRange([item.selection])}
                     moveRangeOnFirstSelection={false}
                     ranges={range}
                     showSelectionPreview={true}
@@ -468,7 +438,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   ? React.cloneElement(
                       extraActionButton,
                       {
-                        ...(extraActionButton.props as any),
+                        ...(extraActionButton.props as Record<string, unknown>),
                         style: {
                           background: 'linear-gradient(90deg, #4F8CFF 0%, #6BD6FF 100%)',
                           color: '#fff',
@@ -487,11 +457,11 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                           marginLeft: 0,
                           marginRight: 0,
                           justifyContent: 'center',
-                          ...(extraActionButton.props && (extraActionButton.props as any).style),
+                          ...(extraActionButton.props && (extraActionButton.props as Record<string, unknown>).style ? (extraActionButton.props as Record<string, unknown>).style as React.CSSProperties : {}),
                         },
-                        onMouseOver: (e: any) => e.currentTarget.style.background = 'linear-gradient(90deg, #3576E6 0%, #4FC3F7 100%)',
-                        onMouseOut: (e: any) => e.currentTarget.style.background = 'linear-gradient(90deg, #4F8CFF 0%, #6BD6FF 100%)',
-                      }
+                        onMouseOver: (e: React.MouseEvent<HTMLButtonElement>) => e.currentTarget.style.background = 'linear-gradient(90deg, #3576E6 0%, #4FC3F7 100%)',
+                        onMouseOut: (e: React.MouseEvent<HTMLButtonElement>) => e.currentTarget.style.background = 'linear-gradient(90deg, #4F8CFF 0%, #6BD6FF 100%)',
+                      } as unknown as React.HTMLProps<HTMLButtonElement>
                     )
                   : extraActionButton
               }
@@ -556,7 +526,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                   
                   {/* รูป asset ตรงกลาง */}
                   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, padding: '16px 0', marginTop: 45 }}>
-                    <img
+                    <Image
                       src={audit.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                       alt={audit.asset_name}
                       style={{ 
@@ -567,7 +537,9 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                         border: '3px solid #e5e7eb',
                         boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                       }}
-                      onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                      width={90}
+                      height={90}
+                      onError={() => {}}
                     />
                   </div>
                   
@@ -623,7 +595,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
                     <select
                       className={styles.departmentDropdown}
                       value={verificationFilter}
-                      onChange={e => setVerificationFilter(e.target.value as any)}
+                      onChange={e => setVerificationFilter(e.target.value as 'all' | 'pending' | 'approved')}
                     >
                       <option value="all">All</option>
                       <option value="pending">Pending</option>
@@ -650,34 +622,41 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
               </div>
               {/* Calendar + Export (right) */}
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginLeft: 'auto' }}>
-                <button
-                  onClick={() => setShowPicker(v => !v)}
-                  style={{
-                    background: '#fafbfc',
-                    border: '1.5px solid #e5e7eb',
-                    borderRadius: '12px',
-                    padding: '0.6rem 0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: 0,
-                    minHeight: 0,
-                    height: '44px',
-                    width:'48px',
-                    boxShadow: 'none',
-                    cursor: 'pointer',
-                    transition: 'border 0.2s',
-                    outline: showPicker ? '2px solid #11998e' : 'none',
-                  }}
-                  title="เลือกช่วงวันที่"
-                >
-                  <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
-                </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {range[0].startDate && range[0].endDate && (
+                    <span style={{ marginRight: 8, fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
+                      {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                    </span>
+                  )}
+                  <button
+                    onClick={() => setShowPicker(v => !v)}
+                    style={{
+                      background: '#fafbfc',
+                      border: '1.5px solid #e5e7eb',
+                      borderRadius: '12px',
+                      padding: '0.6rem 0.9rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      minWidth: 0,
+                      minHeight: 0,
+                      height: '44px',
+                      width:'48px',
+                      boxShadow: 'none',
+                      cursor: 'pointer',
+                      transition: 'border 0.2s',
+                      outline: showPicker ? '2px solid #11998e' : 'none',
+                    }}
+                    title="เลือกช่วงวันที่"
+                  >
+                    <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
+                  </button>
+                </div>
                 {showPicker && (
                   <div style={{ position: 'absolute', zIndex: 90, top: 230,  border: '1.5px solid #e5e7eb', borderRadius: 12 ,background: '#fff' }}>
                     <DateRange
                       editableDateInputs={true}
-                      onChange={(item: any) => setRange([item.selection])}
+                      onChange={(item: { selection: { startDate: undefined; endDate: undefined; key: string } }) => setRange([item.selection])}
                       moveRangeOnFirstSelection={false}
                       ranges={range}
                       showSelectionPreview={true}
@@ -847,7 +826,7 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
               </button>
             </div>
             {totalPages > 1 && (
-              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
+              <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
                 <Pagination
                   currentPage={currentPage}
                   totalPages={totalPages}
@@ -869,47 +848,52 @@ const AssetVerificationTableSuperAdmin: React.FC<AssetVerificationTableSuperAdmi
         {showDetailPopup && selectedAudit && (
           <AssetDetailPopup
             asset={assetDetail ? {
-              ...assetDetail,
               id: String(assetDetail.id || assetDetail.asset_id || selectedAudit.asset_id || selectedAudit.id),
-              asset_code: assetDetail.asset_code || '',
-              inventory_number: assetDetail.inventory_number || '',
-              serial_number: assetDetail.serial_number || '',
-              name: assetDetail.name || selectedAudit.asset_name || '',
-              description: assetDetail.description || '',
-              location_id: assetDetail.location_id || '',
-              location: assetDetail.location || '',
-              room: assetDetail.room || '',
-              department: assetDetail.department || selectedAudit.department_name || '',
-              department_id: assetDetail.department_id || '',
-              owner: assetDetail.owner || selectedAudit.user_name || '',
-              status: assetDetail.status || selectedAudit.status,
-              image_url: assetDetail.image_url || selectedAudit.image_url || '',
-              acquired_date: assetDetail.acquired_date || selectedAudit.checked_at || '',
-              created_at: assetDetail.created_at || '',
-              updated_at: assetDetail.updated_at || '',
+              asset_code: String(assetDetail.asset_code || ''),
+              inventory_number: String(assetDetail.inventory_number || ''),
+              serial_number: String(assetDetail.serial_number || ''),
+              name: String(assetDetail.name || selectedAudit.asset_name || ''),
+              description: String(assetDetail.description || ''),
+              location_id: String(assetDetail.location_id || ''),
+              location: String(assetDetail.location || ''),
+              room: String(assetDetail.room || ''),
+              department: String(assetDetail.department || selectedAudit.department_name || ''),
+              department_id: String(assetDetail.department_id || ''),
+              owner: String(assetDetail.owner || selectedAudit.user_name || ''),
+              status: String(assetDetail.status || selectedAudit.status || ''),
+              image_url: (assetDetail.image_url || selectedAudit.image_url || undefined) as string | null | undefined,
+              acquired_date: String(assetDetail.acquired_date || selectedAudit.checked_at || ''),
+              created_at: String(assetDetail.created_at || ''),
+              updated_at: String(assetDetail.updated_at || ''),
+              has_pending_audit: Boolean(assetDetail.has_pending_audit || false),
+              pending_status: (assetDetail.pending_status || null) as string | null | undefined,
+              has_pending_transfer: Boolean(assetDetail.has_pending_transfer || false)
             } : {
               id: String(selectedAudit.asset_id || selectedAudit.id),
               asset_code: '',
               inventory_number: '',
               serial_number: '',
-              name: selectedAudit.asset_name || '',
+              name: String(selectedAudit.asset_name || ''),
               description: '',
               location_id: '',
               location: '',
               room: '',
-              department: selectedAudit.department_name || '',
+              department: String(selectedAudit.department_name || ''),
               department_id: '',
-              owner: selectedAudit.user_name || '',
-              status: selectedAudit.status,
-              image_url: selectedAudit.image_url || '',
-              acquired_date: selectedAudit.checked_at || '',
+              owner: String(selectedAudit.user_name || ''),
+              status: String(selectedAudit.status || ''),
+              image_url: (selectedAudit.image_url || undefined) as string | null | undefined,
+              acquired_date: String(selectedAudit.checked_at || ''),
               created_at: '',
               updated_at: '',
+              has_pending_audit: false,
+              pending_status: null as string | null | undefined,
+              has_pending_transfer: false
             }}
             isOpen={showDetailPopup}
             onClose={() => setShowDetailPopup(false)}
-            isAdmin={false}
             isCreating={false}
+            showUserEdit={false}
           />
         )}
       </div>

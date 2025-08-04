@@ -76,7 +76,7 @@ const DepartmentManagementPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: { name_th: string; name_en?: string; description?: string }) => {
     try {
       const url = editingDepartment 
         ? `/api/departments/${editingDepartment.id}`
@@ -165,10 +165,13 @@ const DepartmentManagementPage: React.FC = () => {
           <div>
             <AdminTable
               title="Department"
-              data={departments}
-              columns={columns}
+              data={departments as unknown as { [key: string]: unknown }[]}
+              columns={columns.map(col => ({
+                ...col,
+                render: col.render ? (value: unknown) => col.render!(value as string) : undefined
+              }))}
               onAdd={handleAdd}
-              onEdit={handleEdit}
+              onEdit={(item: { [key: string]: unknown }) => handleEdit(item as unknown as Department)}
               onDelete={handleDelete}
               loading={loading}
               searchPlaceholder="Search departments..."
@@ -178,9 +181,9 @@ const DepartmentManagementPage: React.FC = () => {
             <FormModal
               isOpen={isModalOpen}
               onClose={() => setIsModalOpen(false)}
-              onSubmit={handleSubmit}
+              onSubmit={(data: Record<string, unknown>) => handleSubmit(data as { name_th: string; name_en?: string; description?: string })}
               fields={formFields}
-              initialData={editingDepartment || {}}
+              initialData={editingDepartment ? editingDepartment as unknown as Record<string, unknown> : {}}
               title={editingDepartment ? 'Edit Department' : 'Add Department'}
               submitText={editingDepartment ? 'Update Department' : 'Add Department'}
             />

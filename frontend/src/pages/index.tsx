@@ -2,6 +2,7 @@
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useEffect } from 'react';
+import Image from 'next/image';
 import { useAuth } from '../contexts/AuthContext';
 
 const LoginPage = () => {
@@ -224,34 +225,34 @@ const LoginPage = () => {
         <div className="left" style={styles.left}>
           <div className="menuBox" style={{ ...styles.menuBox, animation: 'fadeInUp 0.8s cubic-bezier(.39,.575,.565,1) both' }}>
             <div className="logoBox" style={{ ...styles.logoBox, animation: 'fadeInUp 1.2s cubic-bezier(.39,.575,.565,1) both', boxShadow: 'none', filter: 'none' }}>
-              <img src="mfu-logo.png" alt="MFU Logo" className="logo" style={{ ...styles.logo, boxShadow: 'none', filter: 'none' }} />
+              <Image src="/mfu-logo.png" alt="MFU Logo" width={80} height={80} className="logo" style={{ ...styles.logo, boxShadow: 'none', filter: 'none' }} />
             </div>
             <h1 className="title" style={styles.title}>MFU ASSET AUDIT & INVENTORY SYSTEM</h1>
             <p className="subtitle" style={styles.subtitle}>Division of Procurement and Supplies<br />Mae Fah Luang University</p>
             <div className="menuGrid" style={styles.menuGrid}>
               <div className="menuCard" style={styles.menuCard}>
-                <img src="/content-management.png" alt="Asset Management" className="menuIcon" style={styles.menuIcon} />
+                <Image src="/content-management.png" alt="Asset Management" width={24} height={24} className="menuIcon" style={styles.menuIcon} />
                 <div>
                   <div className="menuTitle" style={styles.menuTitle}>Asset Management</div>
                   <div className="menuDesc" style={styles.menuDesc}>Add, search, and edit assets</div>
                 </div>
               </div>
               <div className="menuCard" style={styles.menuCard}>
-                <img src="/location.png" alt="Location Info" className="menuIcon" style={styles.menuIcon} />
+                <Image src="/location.png" alt="Location Info" width={24} height={24} className="menuIcon" style={styles.menuIcon} />
                 <div>
                   <div className="menuTitle" style={styles.menuTitle}>Location Info</div>
                   <div className="menuDesc" style={styles.menuDesc}>Manage storage locations</div>
                 </div>
               </div>
               <div className="menuCard" style={styles.menuCard}>
-                <img src="/department.png" alt="Departments" className="menuIcon" style={styles.menuIcon} />
+                <Image src="/department.png" alt="Departments" width={24} height={24} className="menuIcon" style={styles.menuIcon} />
                 <div>
                   <div className="menuTitle" style={styles.menuTitle}>Departments</div>
                   <div className="menuDesc" style={styles.menuDesc}>Department management</div>
                 </div>
               </div>
               <div className="menuCard" style={styles.menuCard}>
-                <img src="/report.png" alt="Reports" className="menuIcon" style={styles.menuIcon} />
+                <Image src="/report.png" alt="Reports" width={24} height={24} className="menuIcon" style={styles.menuIcon} />
                 <div>
                   <div className="menuTitle" style={styles.menuTitle}>Reports</div>
                   <div className="menuDesc" style={styles.menuDesc}>Summary & download reports</div>
@@ -259,7 +260,7 @@ const LoginPage = () => {
               </div>
             </div>
             <button onClick={handleMFUSSO} className="ssoButton" style={styles.ssoButton}>
-              <img src="/key.png" alt="MFU SSO logo" className="ssoLogo" style={styles.ssoLogo} />
+              <Image src="/key.png" alt="MFU SSO logo" width={20} height={20} className="ssoLogo" style={styles.ssoLogo} />
               Sign in with MFU SSO
             </button>
             {error && (
@@ -285,7 +286,7 @@ const LoginPage = () => {
           }}>
             <div className="header" style={{...styles.header, position: 'static', margin: 0, padding: 0}}>
               {/* โลโก้ MFU */}
-              <img src="mfu-logo.png" alt="logo" className="headerLogo" style={{...styles.headerLogo, marginTop: 4}} />
+              <Image src="/mfu-logo.png" alt="logo" width={40} height={40} className="headerLogo" style={{...styles.headerLogo, marginTop: 4}} />
               {/* เส้นแนวตั้ง */}
               <div style={{width: 6, height: 80, background: 'linear-gradient(180deg, #D7263D 0%, #E2AE37 100%)', borderRadius: 3, margin: '0 18px 0 8px'}} />
               {/* ข้อความ */}
@@ -296,7 +297,7 @@ const LoginPage = () => {
             </div>
           </div>
           <div style={styles.bgOverlay}></div>
-          <img src="maefahluang.jpg" alt="MFU Campus" style={{ ...styles.bgImg, animation: 'bgZoom 16s ease-in-out infinite alternate' }} />
+          <Image src="/maefahluang.jpg" alt="MFU Campus" fill style={{ ...styles.bgImg, animation: 'bgZoom 16s ease-in-out infinite alternate' }} />
         </div>
       </div>
     </>

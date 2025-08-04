@@ -49,7 +49,7 @@ const UserEditPopup: React.FC<UserEditPopupProps> = ({ user, onClose, onUpdate }
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.originalRole,
+        role: user.role,
         department_id: user.department_id,
         department_name: user.department_name,
         picture: user.picture,

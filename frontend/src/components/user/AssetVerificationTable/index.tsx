@@ -8,7 +8,7 @@ import Image from 'next/image';
 import Pagination from '../../common/Pagination';
 import ExcelJS from 'exceljs';
 import { AiOutlineDownload, AiOutlineCalendar, AiOutlineDown } from 'react-icons/ai';
-// @ts-ignore
+
 import { DateRange } from 'react-date-range';
 import { format, parse, isAfter, isBefore, isEqual } from 'date-fns';
 import 'react-date-range/dist/styles.css';
@@ -91,11 +91,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   const [popupAssetId, setPopupAssetId] = useState<number | null>(null);
   const { user } = useAuth();
   const [verificationFilter, setVerificationFilter] = useState<'all' | 'pending' | 'approved'>('all');
-  const filterTabs = [
-    { key: 'all', label: 'All' },
-    { key: 'pending', label: 'Pending' },
-    { key: 'approved', label: 'Approved' },
-  ];
+
   const [currentPage, setCurrentPage] = React.useState(1);
   const rowsPerPage = 5;
   const [range, setRange] = useState<[{ startDate?: Date; endDate?: Date; key: string }]>([
@@ -111,15 +107,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   const [isMobile, setIsMobile] = useState(false);
   const [showDetailPopup, setShowDetailPopup] = useState(false);
   const [detailAsset, setDetailAsset] = useState<Asset | null>(null);
-  const [showAuditPeriodModal, setShowAuditPeriodModal] = useState(false);
-  const [auditPeriodRange, setAuditPeriodRange] = useState<[{ startDate?: Date; endDate?: Date; key: string }]>([
-    {
-      startDate: undefined,
-      endDate: undefined,
-      key: 'selection',
-    },
-  ]);
-  const [loadingAuditPeriod, setLoadingAuditPeriod] = useState(false);
+
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 600);
     handleResize();
@@ -128,7 +116,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
   }, []);
 
 
-  const { options: statusOptions, loading: statusLoading } = useStatusOptions();
+  const { options: statusOptions } = useStatusOptions();
   const statusLabels = Object.fromEntries(statusOptions.map(opt => [opt.value, opt.label]));
 
   useEffect(() => {
@@ -138,77 +126,9 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
       .catch(() => setPendingAudits([]));
   }, []);
 
-  // โหลดการตั้งค่าวันที่การตรวจนับ
-  useEffect(() => {
-    fetch('/api/settings/user-edit-window')
-      .then(res => res.json())
-      .then(data => {
-        if (data.start_date && data.end_date) {
-          setAuditPeriodRange([
-            {
-              startDate: new Date(data.start_date),
-              endDate: new Date(data.end_date),
-              key: 'selection',
-            },
-          ]);
-        }
-      })
-      .catch(() => {
-        // ถ้าไม่มีข้อมูล ให้ใช้ค่าเริ่มต้น
-        setAuditPeriodRange([
-          {
-            startDate: new Date(),
-            endDate: new Date(),
-            key: 'selection',
-          },
-        ]);
-      });
-  }, []);
 
-  const handleSaveAuditPeriod = async () => {
-    setLoadingAuditPeriod(true);
-    try {
-      // ตรวจสอบ transfer pending ก่อน
-      const res = await fetch('/api/asset-transfers?status=pending', { credentials: 'include' });
-      const transfers = await res.json();
-      if (Array.isArray(transfers) && transfers.length > 0) {
-        setLoadingAuditPeriod(false);
-        Swal.fire({
-          icon: 'warning',
-          title: 'ไม่สามารถบันทึกได้',
-          text: 'กรุณาอนุมัติหรือปฏิเสธรายการโอนย้ายค้างอยู่ในหน้า Asset Transfer Verification ให้หมดก่อน!',
-          confirmButtonText: 'ตกลง',
-        });
-        return;
-      }
 
-      await fetch('/api/settings/user-edit-window', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          start_date: auditPeriodRange[0].startDate?.toISOString().slice(0, 19).replace('T', ' '),
-          end_date: auditPeriodRange[0].endDate?.toISOString().slice(0, 19).replace('T', ' '),
-        }),
-      });
-      
-      setLoadingAuditPeriod(false);
-      Swal.fire({
-        icon: 'success',
-        title: 'บันทึกช่วงเวลาตรวจนับเรียบร้อยแล้ว',
-        confirmButtonText: 'ตกลง',
-      }).then(() => {
-        setShowAuditPeriodModal(false);
-      });
-    } catch (error) {
-      setLoadingAuditPeriod(false);
-      Swal.fire({
-        icon: 'error',
-        title: 'เกิดข้อผิดพลาด',
-        text: 'ไม่สามารถบันทึกการตั้งค่าได้',
-        confirmButtonText: 'ตกลง',
-      });
-    }
-  };
+
 
   // Filter audits by date range (using react-date-range)
   const filteredAudits = pendingAudits.filter(audit => {
@@ -303,36 +223,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     });
   };
 
-  const openHistoryPopup = (assetId: number) => {
-    setPopupAssetId(assetId);
-    setShowPopup(true);
-  };
 
-  const handleExport = () => {
-    if (filteredAudits.length === 0) return;
-    const rows = filteredAudits.map(audit => ({
-      'Inventory Number': `\t${audit.inventory_number || ''}`,
-      'Name': audit.asset_name,
-      'Status': statusLabels[audit.status] || audit.status,
-      'Note': audit.note,
-      'Auditor': audit.user_name,
-      'Date': formatDate(audit.checked_at),
-      'Verification Status': audit.confirmed ? 'Approved' : 'Pending',
-    }));
-    const csv = [
-      Object.keys(rows[0]).join(','),
-      ...rows.map(row => Object.values(row).map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')),
-    ].join('\n');
-    // Add UTF-8 BOM to fix Thai/Unicode in Excel
-    const csvWithBom = '\uFEFF' + csv;
-    const blob = new Blob([csvWithBom], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'asset_verification.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
 
   const handleExportXLSX = async () => {
     if (filteredAudits.length === 0) return;
@@ -389,7 +280,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     worksheet.columns.forEach((column) => {
       let maxLength = 10;
       if (typeof column.eachCell === 'function') {
-        column.eachCell({ includeEmpty: true }, (cell: any) => {
+        column.eachCell({ includeEmpty: true }, (cell: { value?: unknown }) => {
           const cellValue = cell.value ? cell.value.toString() : '';
           maxLength = Math.max(maxLength, cellValue.length + 2);
         });
@@ -432,7 +323,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
     window.URL.revokeObjectURL(url);
   };
 
-  const popupAsset = pendingAudits.find(a => a.asset_id === popupAssetId);
+
 
   return (
     <>
@@ -464,7 +355,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
               <div style={{ position: 'absolute', zIndex: 90, top: 50, left: 0, border: '1.5px solid #e5e7eb', borderRadius: 12, background: '#fff', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
                 <DateRange
                   editableDateInputs={true}
-                  onChange={(item: any) => setRange([item.selection])}
+                  onChange={(item: { selection: { startDate?: Date; endDate?: Date; key: string } }) => setRange([item.selection])}
                   moveRangeOnFirstSelection={false}
                   ranges={range}
                   showSelectionPreview={true}
@@ -584,18 +475,18 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                 
                 {/* รูป asset ตรงกลาง */}
                 <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: 16, padding: '16px 0', marginTop: 45 }}>
-                  <img
+                  <Image
                     src={audit.image_url || '/522733693_1501063091226628_5759500172344140771_n.jpg'}
                     alt={audit.asset_name}
+                    width={90}
+                    height={90}
                     style={{ 
-                      width: 90, 
-                      height: 90, 
                       objectFit: 'cover', 
                       borderRadius: 12,
                       border: '3px solid #e5e7eb',
                       boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                     }}
-                    onError={e => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = '/522733693_1501063091226628_5759500172344140771_n.jpg'; }}
                   />
                 </div>
                 
@@ -695,7 +586,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   <div style={{ position: 'absolute', zIndex: 20, top: '110%', left: 0 ,border: '1.5px solid #e5e7eb'}}>
                     <DateRange
                       editableDateInputs={true}
-                      onChange={(item: any) => setRange([item.selection])}
+                      onChange={(item: { selection: { startDate?: Date; endDate?: Date; key: string } }) => setRange([item.selection])}
                       moveRangeOnFirstSelection={false}
                       ranges={range}
                       showSelectionPreview={true}
@@ -858,7 +749,7 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
           asset={detailAsset}
           isOpen={showDetailPopup}
           onClose={() => setShowDetailPopup(false)}
-          isAdmin={false}
+          
           isCreating={false}
           showUserEdit={true}
         />

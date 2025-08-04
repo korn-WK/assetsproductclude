@@ -5,7 +5,6 @@ import AdminSidebar from '../../components/admin/AdminSidebar';
 import Layout from '../../components/common/Layout';
 import Navbar from '../../components/common/Navbar';
 import AssetTransferVerificationTable from '../../components/admin/AssetTransferVerificationTable';
-import DepartmentSelector from '../../components/common/DepartmentSelector';
 
 const AssetTransferVerificationAdminPage: React.FC = () => {
   const { user, loading } = useAuth();
@@ -42,7 +41,7 @@ const AssetTransferVerificationAdminPage: React.FC = () => {
   return (
     <Layout sidebar={<AdminSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />}>
       <Navbar
-        title="Asset Transfer Verification (All)"
+        title="Asset Transfer Verification"
         isAdmin={true}
         onMenuClick={() => setSidebarOpen(true)}
         onSearch={setSearchTerm}

@@ -54,10 +54,10 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       user.name?.toLowerCase().includes(q) ||
       user.email?.toLowerCase().includes(q) ||
       user.department_name?.toLowerCase().includes(q) ||
-                      user.originalRole?.toLowerCase().includes(q) ||
+                      user.role?.toLowerCase().includes(q) ||
       formatDate(user.created_at).toLowerCase().includes(q)
     );
-          const matchRole = roleFilter === 'all' || user.originalRole.toLowerCase() === roleFilter.toLowerCase();
+          const matchRole = roleFilter === 'all' || user.role.toLowerCase() === roleFilter.toLowerCase();
     
     // Date range filter
     let matchDate = true;
@@ -165,26 +165,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
     });
   };
 
-  const handleExportPDF = async () => {
-    try {
-      const { generateUsersPDF } = await import('../../../lib/pdfGenerator');
-      generateUsersPDF(filteredUsers);
-      Swal.fire({
-        title: "Export Successful!",
-        text: "PDF file has been generated",
-        icon: "success",
-        timer: 1500,
-        showConfirmButton: false
-      });
-    } catch (error) {
-      console.error('Error exporting PDF:', error);
-      Swal.fire({
-        title: "Error!",
-        text: "Failed to export PDF",
-        icon: "error"
-      });
-    }
-  };
+
 
   const handleExportXLSX = async () => {
     if (filteredUsers.length === 0) return;
@@ -193,7 +174,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       user.name || '',
       user.email || '',
       user.department_name || '',
-      user.originalRole || '',
+      user.role || '',
       formatDate(user.created_at),
     ]));
     const workbook = new ExcelJS.Workbook();
@@ -226,7 +207,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
     }
     // Center align and add border to all cells
     worksheet.eachRow((row, rowNumber) => {
-      row.eachCell((cell, colNumber) => {
+      row.eachCell((cell) => {
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
         cell.border = {
           top: { style: 'thin', color: { argb: 'FF000000' } },
@@ -315,7 +296,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
     }
   };
 
-  let userTitle = `Total of ${filteredUsers.length} users`;
+  const userTitle = `Total of ${filteredUsers.length} users`;
 
   console.log('filteredUsers', filteredUsers);
 
@@ -414,7 +395,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
                 </div>
                 <div className={styles.cardFields}>
                   <div className={styles.cardField}><span>Department:</span> {highlightText(user.department_name || 'Not Assigned', searchTerm || '')}</div>
-                  <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.originalRole === 'SuperAdmin' ? styles.roleSuperAdmin : user.originalRole === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.originalRole, searchTerm || '')}</span></div>
+                  <div className={styles.cardField}><span>Role:</span> <span className={`${styles.roleBadge} ${user.role === 'SuperAdmin' ? styles.roleSuperAdmin : user.role === 'Admin' ? styles.roleAdmin : styles.roleUser}`}>{highlightText(user.role, searchTerm || '')}</span></div>
                   <div className={styles.cardField}><span>Created At:</span> {highlightText(formatDate(user.created_at), searchTerm || '')}</div>
                 </div>
                 <div className={styles.cardActions}>
@@ -451,7 +432,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
         <div className={styles.header}>
           <div>
             <p className={styles.totalAssets}>{userTitle}</p>
-                            {user?.originalRole === 'SuperAdmin' ? (
+                            {user?.role === 'SuperAdmin' ? (
               <p style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-color-primary)', marginTop: '1rem', marginBottom: 0 }}>User management for administrators</p>
             ) : (
               <p style={{ fontSize: '1.1rem', fontWeight: 500, color: 'var(--text-color-primary)', marginTop: '1rem', marginBottom: 0 }}>Asset management for user</p>
@@ -548,17 +529,17 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
                   <td>
                     <span className={
                       `${styles.roleBadge} ${
-                        user.originalRole === 'SuperAdmin'
+                        user.role === 'SuperAdmin'
                           ? styles.roleSuperAdmin
-                          : user.originalRole === 'Admin'
+                          : user.role === 'Admin'
                           ? styles.roleAdmin
                           : styles.roleUser
                       }`
                     }>
-                      {user.originalRole === 'SuperAdmin' && <FaCrown style={{marginRight: 4}} />}
-                      {user.originalRole === 'Admin' && <FaUserShield style={{marginRight: 4}} />}
-                      {user.originalRole === 'User' && <FaUser style={{marginRight: 4}} />}
-                      {highlightText(user.originalRole, searchTerm || '')}
+                      {user.role === 'SuperAdmin' && <FaCrown style={{marginRight: 4}} />}
+                      {user.role === 'Admin' && <FaUserShield style={{marginRight: 4}} />}
+                      {user.role === 'User' && <FaUser style={{marginRight: 4}} />}
+                      {highlightText(user.role, searchTerm || '')}
                     </span>
                   </td>
                   <td>{highlightText(formatDate(user.created_at), searchTerm || '')}</td>
@@ -597,8 +578,22 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
       {showAddUserPopup && (
         <AddUserPopup
           onClose={handleCloseAddUserPopup}
-          onUserAdded={handleUserAdded}
-          onUsersImported={handleUsersImported}
+          onUserAdded={(user) => handleUserAdded({
+            ...user,
+            role: user.role as 'SuperAdmin' | 'Admin' | 'User',
+            department_id: user.department_id || null,
+            department_name: null,
+            picture: null,
+            created_at: new Date().toISOString()
+          })}
+          onUsersImported={(users) => handleUsersImported(users.map(user => ({
+            ...user,
+            role: user.role as 'SuperAdmin' | 'Admin' | 'User',
+            department_id: user.department_id || null,
+            department_name: null,
+            picture: null,
+            created_at: new Date().toISOString()
+          })))}
         />
       )}
 
@@ -606,7 +601,7 @@ const UserManagementTable: React.FC<UserManagementTableProps> = ({ searchTerm })
         <UserEditPopup
           user={editingUser}
           onClose={handleClosePopup}
-          onUpdate={handleUpdateUser as any}
+          onUpdate={handleUpdateUser}
         />
       )}
     </>

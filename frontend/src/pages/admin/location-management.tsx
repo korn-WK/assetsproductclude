@@ -76,7 +76,7 @@ const LocationManagementPage: React.FC = () => {
     }
   };
 
-  const handleSubmit = async (formData: any) => {
+  const handleSubmit = async (formData: { name: string; description?: string; address?: string }) => {
     try {
       const url = editingLocation 
         ? `/api/locations/${editingLocation.id}`
@@ -165,10 +165,13 @@ const LocationManagementPage: React.FC = () => {
           <div>
             <AdminTable
               title="Location"
-              data={locations}
-              columns={columns}
+              data={locations as unknown as { [key: string]: unknown }[]}
+              columns={columns.map(col => ({
+                ...col,
+                render: col.render ? (value: unknown) => col.render!(value as string) : undefined
+              }))}
               onAdd={handleAdd}
-              onEdit={handleEdit}
+              onEdit={(item: { [key: string]: unknown }) => handleEdit(item as unknown as Location)}
               onDelete={handleDelete}
               loading={loading}
               searchPlaceholder="Search locations..."
@@ -178,9 +181,9 @@ const LocationManagementPage: React.FC = () => {
             <FormModal
               isOpen={isModalOpen}
               onClose={() => setIsModalOpen(false)}
-              onSubmit={handleSubmit}
+              onSubmit={(data: Record<string, unknown>) => handleSubmit(data as { name: string; description?: string; address?: string })}
               fields={formFields}
-              initialData={editingLocation || {}}
+              initialData={editingLocation ? editingLocation as unknown as Record<string, unknown> : {}}
               title={editingLocation ? 'Edit Location' : 'Add Location'}
               submitText={editingLocation ? 'Update Location' : 'Add Location'}
             />
