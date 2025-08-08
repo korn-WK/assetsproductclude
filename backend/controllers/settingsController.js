@@ -2,7 +2,9 @@ const pool = require("../lib/db.js");
 
 exports.getUserEditWindow = async (req, res) => {
   try {
-    const [rows] = await pool.query("SELECT start_date, end_date FROM system_settings WHERE key_name = 'user_edit_window'");
+    const [rows] = await pool.query(
+      "SELECT start_date, end_date FROM system_settings WHERE key_name = 'user_edit_window'"
+    );
     if (rows && rows.length > 0) {
       res.json({ start_date: rows[0].start_date, end_date: rows[0].end_date });
     } else {
@@ -10,18 +12,20 @@ exports.getUserEditWindow = async (req, res) => {
       res.json({ start_date: null, end_date: null });
     }
   } catch (err) {
-    console.error('Error in getUserEditWindow:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error in getUserEditWindow:", err);
+    res.status(500).json({ error: "Database error" });
   }
 };
 
 exports.setUserEditWindow = async (req, res) => {
   try {
     const { start_date, end_date } = req.body;
-    
+
     // Check if record exists
-    const [existing] = await pool.query("SELECT id FROM system_settings WHERE key_name = 'user_edit_window'");
-    
+    const [existing] = await pool.query(
+      "SELECT id FROM system_settings WHERE key_name = 'user_edit_window'"
+    );
+
     if (existing && existing.length > 0) {
       // Update existing record
       await pool.query(
@@ -35,10 +39,10 @@ exports.setUserEditWindow = async (req, res) => {
         [start_date, end_date]
       );
     }
-    
+
     res.json({ success: true });
   } catch (err) {
-    console.error('Error in setUserEditWindow:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error in setUserEditWindow:", err);
+    res.status(500).json({ error: "Database error" });
   }
-}; 
+};

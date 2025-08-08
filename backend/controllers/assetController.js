@@ -40,7 +40,9 @@ const transformAsset = (asset) => {
     ) {
       imageUrl = asset.image_url;
     } else {
-      imageUrl = `${process.env.SERVER_URL || "http://localhost:4000"}${asset.image_url}`;
+      imageUrl = `${process.env.SERVER_URL || "http://localhost:4000"}${
+        asset.image_url
+      }`;
     }
   }
 
@@ -81,20 +83,22 @@ const formatDateTimeForDB = (dateString) => {
 async function getAssetByBarcode(req, res) {
   try {
     const { barcode } = req.params;
-    if (!barcode || barcode.trim() === '') {
+    if (!barcode || barcode.trim() === "") {
       return res.status(400).json({ error: "Barcode is required" });
     }
-    
+
     const cleanBarcode = barcode.trim();
     console.log(`Searching for barcode: "${cleanBarcode}"`);
-    
+
     const asset = await findAssetByBarcode(cleanBarcode);
     if (!asset) {
       console.log(`Asset not found for barcode: "${cleanBarcode}"`);
       return res.status(404).json({ error: "Asset not found" });
     }
-    
-    console.log(`Found asset: ${asset.name} (ID: ${asset.id}, Asset Code: ${asset.asset_code}, Inventory Number: ${asset.inventory_number})`);
+
+    console.log(
+      `Found asset: ${asset.name} (ID: ${asset.id}, Asset Code: ${asset.asset_code}, Inventory Number: ${asset.inventory_number})`
+    );
     const transformedAsset = transformAsset(asset);
     res.json(transformedAsset);
   } catch (error) {
@@ -112,9 +116,14 @@ async function patchAssetStatus(req, res) {
     // Check if user can update status (SuperAdmin or user/admin with department)
     const userRoleHash = user.role;
     const originalUserRole = getOriginalRole(userRoleHash);
-    if (originalUserRole !== 'SuperAdmin' && originalUserRole !== 'Admin' && user.department_id === null) {
-      return res.status(403).json({ 
-        error: "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department." 
+    if (
+      originalUserRole !== "SuperAdmin" &&
+      originalUserRole !== "Admin" &&
+      user.department_id === null
+    ) {
+      return res.status(403).json({
+        error:
+          "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department.",
       });
     }
 
@@ -129,7 +138,9 @@ async function patchAssetStatus(req, res) {
     // Validate status
     if (!validateAssetStatus(status)) {
       return res.status(400).json({
-        error: `Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(", ")}`,
+        error: `Invalid status: ${status}. Valid statuses are: ${VALID_STATUSES.join(
+          ", "
+        )}`,
       });
     }
 
@@ -190,14 +201,18 @@ async function getAssets(req, res) {
     // --- เพิ่ม logic เช็ค pending audit log ต่อ asset ---
     const { getAssetAudits } = require("../models/assetAudit.js");
     // ดึง audit log pending ทั้งหมด (confirmed = 0)
-    const pendingAudits = await getAssetAudits({ confirmed: 0, limit: 1000, offset: 0 });
+    const pendingAudits = await getAssetAudits({
+      confirmed: 0,
+      limit: 1000,
+      offset: 0,
+    });
     // map asset_id ที่มี pending audit
     const pendingMap = {};
     for (const audit of pendingAudits) {
       pendingMap[audit.asset_id] = audit.status; // เก็บ status ที่ pending
     }
 
-    const transformedAssets = assets.map(asset => {
+    const transformedAssets = assets.map((asset) => {
       const transformed = transformAsset(asset);
       if (pendingMap[asset.id]) {
         // ถ้ามี pending audit log ให้เพิ่ม field
@@ -226,14 +241,17 @@ async function getStats(req, res) {
 
     let assets;
 
-    if (department && department !== 'All Departments') {
+    if (department && department !== "All Departments") {
       // filter ตาม department ที่เลือก
       const departmentId = await getDepartmentIdByName(department);
       if (!departmentId) {
         return res.status(400).json({ error: "Invalid department name" });
       }
       assets = await getAssetsByUserDepartment(departmentId);
-    } else if (originalUserRole === "SuperAdmin" || originalUserRole === "admin") {
+    } else if (
+      originalUserRole === "SuperAdmin" ||
+      originalUserRole === "admin"
+    ) {
       assets = await getAllAssets();
     } else {
       assets = await getAssetsByUserDepartment(userDepartmentId);
@@ -245,18 +263,20 @@ async function getStats(req, res) {
 
     // Dynamic status count (ภาษาไทยหรืออะไรก็ได้)
     const statusCounts = {};
-    assets.forEach(asset => {
+    assets.forEach((asset) => {
       statusCounts[asset.status] = (statusCounts[asset.status] || 0) + 1;
     });
 
     // Create statuses array with all statuses from statuses table, including those with 0 count
-    console.log('getStats: allStatuses:', allStatuses);
-    console.log('getStats: statusCounts:', statusCounts);
-    const statuses = allStatuses.map(status => ({
-      status: status.label, // Use the label for display
-      count: statusCounts[status.value] || 0 // Count from assets using value, default to 0
-    })).sort((a, b) => a.status.localeCompare(b.status, 'th'));
-    console.log('getStats: final statuses array:', statuses);
+    console.log("getStats: allStatuses:", allStatuses);
+    console.log("getStats: statusCounts:", statusCounts);
+    const statuses = allStatuses
+      .map((status) => ({
+        status: status.label, // Use the label for display
+        count: statusCounts[status.value] || 0, // Count from assets using value, default to 0
+      }))
+      .sort((a, b) => a.status.localeCompare(b.status, "th"));
+    console.log("getStats: final statuses array:", statuses);
 
     // Calculate monthly data for chart (12 months of selected year)
     let targetYear = parseInt(year);
@@ -358,9 +378,14 @@ async function updateAssetById(req, res) {
     // Check if user can edit (SuperAdmin or user with department)
     const userRoleHash = user.role;
     const originalUserRole = getOriginalRole(userRoleHash);
-    if (originalUserRole !== 'SuperAdmin' && originalUserRole !== 'Admin' && user.department_id === null) {
-      return res.status(403).json({ 
-        error: "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department." 
+    if (
+      originalUserRole !== "SuperAdmin" &&
+      originalUserRole !== "Admin" &&
+      user.department_id === null
+    ) {
+      return res.status(403).json({
+        error:
+          "Access denied. Users without department assignment can only view assets. Please contact your administrator to assign a department.",
       });
     }
 
@@ -371,10 +396,14 @@ async function updateAssetById(req, res) {
 
     // Validate status using new validateAssetStatus
     if (updateData.status) {
-      const { isValid, validStatuses } = await validateAssetStatus(updateData.status);
+      const { isValid, validStatuses } = await validateAssetStatus(
+        updateData.status
+      );
       if (!isValid) {
         throw new Error(
-          `สถานะไม่ถูกต้อง: ${updateData.status}. สถานะที่อนุญาตคือ: ${validStatuses.join(", ")}`
+          `สถานะไม่ถูกต้อง: ${
+            updateData.status
+          }. สถานะที่อนุญาตคือ: ${validStatuses.join(", ")}`
         );
       }
     }
@@ -385,7 +414,9 @@ async function updateAssetById(req, res) {
     delete updateData.updated_at;
 
     // Map frontend fields to database fields
-    const departmentId = updateData.department_id || await getDepartmentIdByName(updateData.department);
+    const departmentId =
+      updateData.department_id ||
+      (await getDepartmentIdByName(updateData.department));
     const ownerId = req.user.id;
     const locationId = updateData.location_id || null;
 
@@ -398,10 +429,17 @@ async function updateAssetById(req, res) {
 
     // ตรวจสอบว่าเปลี่ยน department หรือ status หรือทั้งสอง
     const assetBefore = await getAssetById(id);
-    const isDepartmentChanged = departmentId && departmentId !== assetBefore.department_id;
-    const isStatusChanged = updateData.status && updateData.status !== assetBefore.status;
+    const isDepartmentChanged =
+      departmentId && departmentId !== assetBefore.department_id;
+    const isStatusChanged =
+      updateData.status && updateData.status !== assetBefore.status;
     if (isDepartmentChanged && isStatusChanged) {
-      return res.status(400).json({ error: 'Cannot transfer department and verify status at the same time. Please do one action at a time.' });
+      return res
+        .status(400)
+        .json({
+          error:
+            "Cannot transfer department and verify status at the same time. Please do one action at a time.",
+        });
     }
     // ตรวจนับ: สร้าง audit log เฉพาะเมื่อเปลี่ยน status (และ department ไม่เปลี่ยน)
     if (isStatusChanged && !isDepartmentChanged) {
@@ -454,9 +492,9 @@ async function deleteAssetById(req, res) {
     // Check if user can delete (SuperAdmin only)
     const userRoleHash = user.role;
     const originalUserRole = getOriginalRole(userRoleHash);
-    if (originalUserRole !== 'SuperAdmin') {
-      return res.status(403).json({ 
-        error: "Access denied. Only SuperAdmins can delete assets." 
+    if (originalUserRole !== "SuperAdmin") {
+      return res.status(403).json({
+        error: "Access denied. Only SuperAdmins can delete assets.",
       });
     }
 
@@ -526,9 +564,14 @@ async function createAssetController(req, res) {
     // Check if user can create (SuperAdmin or user with department)
     const userRoleHash = user.role;
     const originalUserRole = getOriginalRole(userRoleHash);
-    if (originalUserRole !== 'SuperAdmin' && originalUserRole !== 'Admin' && user.department_id === null) {
-      return res.status(403).json({ 
-        error: "Access denied. Users without department assignment cannot create assets. Please contact your administrator to assign a department." 
+    if (
+      originalUserRole !== "SuperAdmin" &&
+      originalUserRole !== "Admin" &&
+      user.department_id === null
+    ) {
+      return res.status(403).json({
+        error:
+          "Access denied. Users without department assignment cannot create assets. Please contact your administrator to assign a department.",
       });
     }
 
@@ -539,9 +582,7 @@ async function createAssetController(req, res) {
 
     // Basic validation
     if (!assetData.name) {
-      return res
-        .status(400)
-        .json({ error: "Asset name is required" });
+      return res.status(400).json({ error: "Asset name is required" });
     }
 
     // Validate status if provided
@@ -555,7 +596,9 @@ async function createAssetController(req, res) {
 
     // Map names to IDs before insertion
     // Use department_id directly from frontend instead of mapping department name
-    const departmentId = assetData.department_id || await getDepartmentIdByName(assetData.department);
+    const departmentId =
+      assetData.department_id ||
+      (await getDepartmentIdByName(assetData.department));
     // Use location_id directly from frontend instead of mapping location name
     const locationId = assetData.location_id || null;
 
@@ -596,11 +639,11 @@ async function getDashboardGraphs(req, res) {
         }).length
     );
     // กำหนด status หลักที่ต้องการแสดงในกราฟ
-    const mainStatuses = ['พร้อมใช้งาน', 'ชำรุด', 'รอโอนย้าย', 'สูญหาย'];
+    const mainStatuses = ["พร้อมใช้งาน", "ชำรุด", "รอโอนย้าย", "สูญหาย"];
     // Dynamic statuses (ภาษาไทย)
-    const allStatuses = Array.from(new Set(assets.map(a => a.status)))
-      .filter(s => mainStatuses.includes(s))
-      .sort((a, b) => a.localeCompare(b, 'th'));
+    const allStatuses = Array.from(new Set(assets.map((a) => a.status)))
+      .filter((s) => mainStatuses.includes(s))
+      .sort((a, b) => a.localeCompare(b, "th"));
     // Bar Chart: Status per month (เฉพาะ status หลัก)
     const barSeries = allStatuses.map((status) => ({
       name: status,
@@ -638,15 +681,15 @@ async function getAssetAuditList(req, res) {
     const userRoleHash = user.role;
     const originalUserRole = getOriginalRole(userRoleHash);
     const filter = {};
-    if (originalUserRole !== 'SuperAdmin') {
+    if (originalUserRole !== "SuperAdmin") {
       filter.department_id = user.department_id;
     }
     // ดึงทั้ง pending และ approved
     const audits = await getAssetAudits({ ...filter, confirmed: null });
     res.json(audits);
   } catch (error) {
-    console.error('Error fetching audits:', error);
-    res.status(500).json({ error: 'Failed to fetch audits' });
+    console.error("Error fetching audits:", error);
+    res.status(500).json({ error: "Failed to fetch audits" });
   }
 }
 
@@ -655,27 +698,34 @@ async function confirmAssetAudits(req, res) {
   try {
     const { ids } = req.body;
     if (!Array.isArray(ids) || ids.length === 0) {
-      return res.status(400).json({ error: 'No audit ids provided' });
+      return res.status(400).json({ error: "No audit ids provided" });
     }
     // 1. อัปเดต confirmed = 1 ใน asset_audits
-    const pool = require('../lib/db.js');
+    const pool = require("../lib/db.js");
     await pool.query(
-      `UPDATE asset_audits SET confirmed = 1 WHERE id IN (${ids.map(() => '?').join(',')})`,
+      `UPDATE asset_audits SET confirmed = 1 WHERE id IN (${ids
+        .map(() => "?")
+        .join(",")})`,
       ids
     );
     // 2. อัปเดต status จริงใน assets table ตาม log ล่าสุดที่ถูก confirm
     // (อัปเดตเฉพาะ log ที่ถูก confirm)
     const [rows] = await pool.query(
-      `SELECT asset_id, status FROM asset_audits WHERE id IN (${ids.map(() => '?').join(',')})`,
+      `SELECT asset_id, status FROM asset_audits WHERE id IN (${ids
+        .map(() => "?")
+        .join(",")})`,
       ids
     );
     for (const row of rows) {
-      await pool.query('UPDATE assets SET status = ? WHERE id = ?', [row.status, row.asset_id]);
+      await pool.query("UPDATE assets SET status = ? WHERE id = ?", [
+        row.status,
+        row.asset_id,
+      ]);
     }
-    res.json({ message: 'Confirmed successfully' });
+    res.json({ message: "Confirmed successfully" });
   } catch (error) {
-    console.error('Error confirming audits:', error);
-    res.status(500).json({ error: 'Failed to confirm audits' });
+    console.error("Error confirming audits:", error);
+    res.status(500).json({ error: "Failed to confirm audits" });
   }
 }
 
@@ -686,8 +736,8 @@ async function getAssetAuditHistory(req, res) {
     const audits = await getAssetAudits({ asset_id: assetId });
     res.json(audits);
   } catch (error) {
-    console.error('Error fetching audit history:', error);
-    res.status(500).json({ error: 'Failed to fetch audit history' });
+    console.error("Error fetching audit history:", error);
+    res.status(500).json({ error: "Failed to fetch audit history" });
   }
 }
 
@@ -696,18 +746,20 @@ async function getAllAssetAudits(req, res) {
   try {
     const userRoleHash = req.user?.role;
     const originalUserRole = getOriginalRole(userRoleHash);
-    if (!req.user || originalUserRole !== 'SuperAdmin') {
-      return res.status(403).json({ error: 'Access denied' });
+    if (!req.user || originalUserRole !== "SuperAdmin") {
+      return res.status(403).json({ error: "Access denied" });
     }
     const limit = parseInt(req.query.limit) || 50;
     const offset = parseInt(req.query.offset) || 0;
-    const department_id = req.query.department_id ? parseInt(req.query.department_id) : null;
+    const department_id = req.query.department_id
+      ? parseInt(req.query.department_id)
+      : null;
     // นับจำนวนทั้งหมด
-    const pool = require('../lib/db.js');
-    let countQuery = 'SELECT COUNT(*) as total FROM asset_audits';
+    const pool = require("../lib/db.js");
+    let countQuery = "SELECT COUNT(*) as total FROM asset_audits";
     let countParams = [];
     if (department_id) {
-      countQuery += ' WHERE department_id = ?';
+      countQuery += " WHERE department_id = ?";
       countParams.push(department_id);
     }
     const [countRows] = await pool.query(countQuery, countParams);
@@ -716,18 +768,18 @@ async function getAllAssetAudits(req, res) {
     const audits = await getAssetAudits({ limit, offset, department_id });
     res.json({ total, audits });
   } catch (error) {
-    console.error('Error fetching all asset audits:', error);
-    res.status(500).json({ error: 'Failed to fetch all asset audits' });
+    console.error("Error fetching all asset audits:", error);
+    res.status(500).json({ error: "Failed to fetch all asset audits" });
   }
 }
 
 async function getAssetTransferLogs(req, res) {
   const { id } = req.params;
   try {
-    const logs = await require('../models/asset').getAssetTransferLogs(id);
+    const logs = await require("../models/asset").getAssetTransferLogs(id);
     res.json(logs);
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch transfer logs' });
+    res.status(500).json({ error: "Failed to fetch transfer logs" });
   }
 }
 
@@ -735,14 +787,14 @@ async function getAssetTransferLogs(req, res) {
 async function getAssetDetailById(req, res) {
   try {
     const { id } = req.params;
-    if (!id) return res.status(400).json({ error: 'Asset ID is required' });
+    if (!id) return res.status(400).json({ error: "Asset ID is required" });
     const asset = await getAssetById(id);
-    if (!asset) return res.status(404).json({ error: 'Asset not found' });
+    if (!asset) return res.status(404).json({ error: "Asset not found" });
     const transformed = transformAsset(asset);
     res.json(transformed);
   } catch (error) {
-    console.error('Error fetching asset detail:', error);
-    res.status(500).json({ error: 'Failed to fetch asset detail' });
+    console.error("Error fetching asset detail:", error);
+    res.status(500).json({ error: "Failed to fetch asset detail" });
   }
 }
 

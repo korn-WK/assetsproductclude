@@ -1,4 +1,4 @@
-const db = require('../lib/db');
+const db = require("../lib/db");
 
 exports.getAllUsers = async (req, res) => {
   const query = `
@@ -22,8 +22,8 @@ exports.getAllUsers = async (req, res) => {
     const [results] = await db.query(query);
     res.json(results);
   } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error fetching users:", err);
+    res.status(500).json({ error: "Database error" });
   }
 };
 
@@ -33,17 +33,18 @@ exports.updateUser = async (req, res) => {
 
   // Basic validation
   if (!name || !email || !role) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return res.status(400).json({ error: "Missing required fields" });
   }
-  
+
   const query = `
     UPDATE users 
     SET name = ?, email = ?, role = ?, department_id = ?
     WHERE id = ?
   `;
-  
+
   // Convert empty string or undefined department_id to null
-  const finalDepartmentId = (department_id === '' || department_id === undefined) ? null : department_id;
+  const finalDepartmentId =
+    department_id === "" || department_id === undefined ? null : department_id;
 
   try {
     await db.query(query, [name, email, role, finalDepartmentId, id]);
@@ -52,17 +53,18 @@ exports.updateUser = async (req, res) => {
       `SELECT u.id, u.username, u.name, u.email, u.role, u.department_id, d.name_th as department_name, u.picture, u.created_at
        FROM users u 
        LEFT JOIN departments d ON u.department_id = d.id 
-       WHERE u.id = ?`, [id]
+       WHERE u.id = ?`,
+      [id]
     );
 
     if (updatedUserRows.length === 0) {
-      return res.status(404).json({ error: 'User not found after update' });
+      return res.status(404).json({ error: "User not found after update" });
     }
 
     res.json(updatedUserRows[0]);
   } catch (err) {
-    console.error('Error updating user:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error updating user:", err);
+    res.status(500).json({ error: "Database error" });
   }
 };
 
@@ -70,22 +72,26 @@ exports.deleteUser = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const [result] = await db.query('DELETE FROM users WHERE id = ?', [id]);
-    
+    const [result] = await db.query("DELETE FROM users WHERE id = ?", [id]);
+
     if (result.affectedRows === 0) {
-      return res.status(404).json({ error: 'User not found' });
+      return res.status(404).json({ error: "User not found" });
     }
 
-    res.status(200).json({ message: 'User deleted successfully' });
+    res.status(200).json({ message: "User deleted successfully" });
   } catch (err) {
-    console.error('Error deleting user:', err);
+    console.error("Error deleting user:", err);
     // Handle foreign key constraint error specifically
-    if (err.code === 'ER_ROW_IS_REFERENCED_2') {
-      return res.status(400).json({ error: 'Cannot delete user. They are linked to existing assets.' });
+    if (err.code === "ER_ROW_IS_REFERENCED_2") {
+      return res
+        .status(400)
+        .json({
+          error: "Cannot delete user. They are linked to existing assets.",
+        });
     }
-    res.status(500).json({ error: 'Database error' });
+    res.status(500).json({ error: "Database error" });
   }
-}; 
+};
 
 // Create a new user (manual add, for SuperAdmin)
 exports.createUser = async (req, res) => {
@@ -93,33 +99,45 @@ exports.createUser = async (req, res) => {
 
   // Basic validation
   if (!username || !name || !email || !role) {
-    return res.status(400).json({ error: 'Missing required fields' });
+    return res.status(400).json({ error: "Missing required fields" });
   }
 
   // Normalize role (robust)
-  let normalizedRole = '';
+  let normalizedRole = "";
   if (role) {
-    let roleRaw = role.toString().trim().toLowerCase().replace(/\s|_/g, '');
+    let roleRaw = role.toString().trim().toLowerCase().replace(/\s|_/g, "");
     // Map common variants
-    if (roleRaw === 'user') normalizedRole = 'User';
-    else if (roleRaw === 'admin') normalizedRole = 'Admin';
-    else if (roleRaw === 'superadmin' || roleRaw === 'superadministrator' || roleRaw === 'superadminuser') normalizedRole = 'SuperAdmin';
+    if (roleRaw === "user") normalizedRole = "User";
+    else if (roleRaw === "admin") normalizedRole = "Admin";
+    else if (
+      roleRaw === "superadmin" ||
+      roleRaw === "superadministrator" ||
+      roleRaw === "superadminuser"
+    )
+      normalizedRole = "SuperAdmin";
     else normalizedRole = role.toString().trim();
   }
-  console.log('role received:', role, 'normalized:', normalizedRole);
-  const allowedRoles = ['SuperAdmin', 'Admin', 'User'];
+  console.log("role received:", role, "normalized:", normalizedRole);
+  const allowedRoles = ["SuperAdmin", "Admin", "User"];
   if (!allowedRoles.includes(normalizedRole)) {
-    return res.status(400).json({ error: 'Invalid role', received: normalizedRole });
+    return res
+      .status(400)
+      .json({ error: "Invalid role", received: normalizedRole });
   }
 
   // Check for duplicate username or email
   try {
-    const [existing] = await db.query('SELECT id FROM users WHERE username = ? OR email = ?', [username, email]);
+    const [existing] = await db.query(
+      "SELECT id FROM users WHERE username = ? OR email = ?",
+      [username, email]
+    );
     if (existing.length > 0) {
-      return res.status(409).json({ error: 'Username or email already exists' });
+      return res
+        .status(409)
+        .json({ error: "Username or email already exists" });
     }
   } catch (err) {
-    return res.status(500).json({ error: 'Database error' });
+    return res.status(500).json({ error: "Database error" });
   }
 
   // Insert user (no password, as login is via Google OAuth)
@@ -136,7 +154,7 @@ exports.createUser = async (req, res) => {
     );
     res.status(201).json(rows[0]);
   } catch (err) {
-    console.error('Error creating user:', err);
-    res.status(500).json({ error: 'Database error' });
+    console.error("Error creating user:", err);
+    res.status(500).json({ error: "Database error" });
   }
-}; 
+};

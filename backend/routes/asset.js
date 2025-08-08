@@ -121,14 +121,14 @@ router.get("/last-updated", verifyToken, async (req, res) => {
     // Get the latest updated_at timestamp from assets table
     const query = "SELECT MAX(updated_at) as lastUpdated FROM assets";
     const [results] = await db.query(query);
-    
+
     const lastUpdated = results[0]?.lastUpdated || new Date();
-    console.log('Returning lastUpdated:', lastUpdated);
-    
+    console.log("Returning lastUpdated:", lastUpdated);
+
     res.json({ lastUpdated });
   } catch (error) {
-    console.error('Error in last-updated endpoint:', error);
-    res.status(500).json({ error: 'Internal server error' });
+    console.error("Error in last-updated endpoint:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
@@ -136,7 +136,7 @@ router.get("/last-updated", verifyToken, async (req, res) => {
 router.put("/:id", verifyToken, updateAssetById);
 router.delete("/:id", verifyToken, deleteAssetById);
 router.get("/dashboard-graphs", verifyToken, getDashboardGraphs);
-router.get('/:id/transfer-logs', verifyToken, getAssetTransferLogs);
-router.get('/:id', verifyToken, getAssetDetailById);
+router.get("/:id/transfer-logs", verifyToken, getAssetTransferLogs);
+router.get("/:id", verifyToken, getAssetDetailById);
 
 module.exports = router;

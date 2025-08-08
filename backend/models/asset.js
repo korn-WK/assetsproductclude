@@ -21,21 +21,24 @@ const VALID_STATUSES = [
   "ทำลาย",
   "สอบข้อเท็จจริง",
   "เงินชดเชยที่ดินและอาสิน",
-  "ระหว่างทาง"
+  "ระหว่างทาง",
 ];
 
 // Validate asset status (dynamic from DB)
 async function getValidStatuses() {
-  const [rows] = await pool.query('SELECT value FROM statuses');
-  console.log('getValidStatuses:', rows.map(r => r.value));
-  return rows.map(r => r.value);
+  const [rows] = await pool.query("SELECT value FROM statuses");
+  console.log(
+    "getValidStatuses:",
+    rows.map((r) => r.value)
+  );
+  return rows.map((r) => r.value);
 }
 
 async function validateAssetStatus(status) {
   const validStatuses = await getValidStatuses();
   return {
     isValid: validStatuses.includes(status),
-    validStatuses
+    validStatuses,
   };
 }
 
@@ -103,11 +106,18 @@ async function getAssetsByUserDepartment(userDepartmentId) {
     const [rows] = await pool.query(query, params);
     return rows;
   } catch (error) {
-    console.error('Error in getAssetsByUserDepartment:', error);
+    console.error("Error in getAssetsByUserDepartment:", error);
     // If the statuses table doesn't exist, try without it
-    if (error.code === 'ER_NO_SUCH_TABLE' || error.message.includes('statuses')) {
-      console.log('Statuses table not found, falling back to query without status_color');
-      const fallbackQuery = query.replace(', s.color as status_color', '').replace('LEFT JOIN statuses s ON a.status = s.value', '');
+    if (
+      error.code === "ER_NO_SUCH_TABLE" ||
+      error.message.includes("statuses")
+    ) {
+      console.log(
+        "Statuses table not found, falling back to query without status_color"
+      );
+      const fallbackQuery = query
+        .replace(", s.color as status_color", "")
+        .replace("LEFT JOIN statuses s ON a.status = s.value", "");
       const [rows] = await pool.query(fallbackQuery, params);
       return rows;
     }
@@ -429,7 +439,9 @@ async function updateAssetStatus(assetId, status) {
   const { isValid, validStatuses } = await validateAssetStatus(status);
   if (!isValid) {
     throw new Error(
-      `Invalid status: ${status}. Valid statuses are: ${validStatuses.join(", ")}`
+      `Invalid status: ${status}. Valid statuses are: ${validStatuses.join(
+        ", "
+      )}`
     );
   }
 
@@ -444,10 +456,14 @@ async function updateAssetStatus(assetId, status) {
 async function createAsset(assetData) {
   // Validate status if provided
   if (assetData.status) {
-    const { isValid, validStatuses } = await validateAssetStatus(assetData.status);
+    const { isValid, validStatuses } = await validateAssetStatus(
+      assetData.status
+    );
     if (!isValid) {
       throw new Error(
-        `Invalid status: ${assetData.status}. Valid statuses are: ${validStatuses.join(", ")}`
+        `Invalid status: ${
+          assetData.status
+        }. Valid statuses are: ${validStatuses.join(", ")}`
       );
     }
   }
@@ -481,10 +497,14 @@ async function createAsset(assetData) {
 async function updateAsset(assetId, assetData) {
   // Validate status if provided
   if (assetData.status) {
-    const { isValid, validStatuses } = await validateAssetStatus(assetData.status);
+    const { isValid, validStatuses } = await validateAssetStatus(
+      assetData.status
+    );
     if (!isValid) {
       throw new Error(
-        `Invalid status: ${assetData.status}. Valid statuses are: ${validStatuses.join(", ")}`
+        `Invalid status: ${
+          assetData.status
+        }. Valid statuses are: ${validStatuses.join(", ")}`
       );
     }
   }
@@ -544,13 +564,25 @@ async function deleteAsset(assetId) {
 }
 
 // Create asset transfer request
-async function createAssetTransfer({ asset_id, from_department_id, to_department_id, requested_by, note = null }) {
+async function createAssetTransfer({
+  asset_id,
+  from_department_id,
+  to_department_id,
+  requested_by,
+  note = null,
+}) {
   const query = `
     INSERT INTO asset_transfers (
       asset_id, from_department_id, to_department_id, requested_by, status, note, requested_at
     ) VALUES (?, ?, ?, ?, 'pending', ?, NOW())
   `;
-  const params = [asset_id, from_department_id, to_department_id, requested_by, note];
+  const params = [
+    asset_id,
+    from_department_id,
+    to_department_id,
+    requested_by,
+    note,
+  ];
   const [result] = await pool.query(query, params);
   return result.insertId;
 }

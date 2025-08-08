@@ -1,32 +1,33 @@
-const pool = require('../lib/db.js');
+const pool = require("../lib/db.js");
 
 // GET /api/asset-transfers?status=pending
 exports.getAssetTransfers = async (req, res) => {
   const { status, forVerification } = req.query;
   const user = req.user;
-  let where = '';
+  let where = "";
   let params = [];
 
-  if (forVerification === '1') {
+  if (forVerification === "1") {
     // Transfer In: เฉพาะปลายทาง
-    where = 'WHERE t.to_department_id = ?';
+    where = "WHERE t.to_department_id = ?";
     params = [user.department_id];
-  } else if (forVerification === 'history') {
+  } else if (forVerification === "history") {
     // Transfer Out: เฉพาะต้นทาง
-    where = 'WHERE t.from_department_id = ?';
+    where = "WHERE t.from_department_id = ?";
     params = [user.department_id];
   } else {
     // สำหรับ asset table: ทุก role เห็น transfer pending ทั้งหมด
-    where = '';
+    where = "";
     params = [];
   }
 
-  if (status && status !== 'all') {
-    where += (where ? ' AND ' : 'WHERE ') + 't.status = ?';
+  if (status && status !== "all") {
+    where += (where ? " AND " : "WHERE ") + "t.status = ?";
     params.push(status);
   }
 
-  const [rows] = await pool.query(`
+  const [rows] = await pool.query(
+    `
     SELECT t.*, 
       a.name as asset_name, 
       a.image_url as image_url,
@@ -42,7 +43,9 @@ exports.getAssetTransfers = async (req, res) => {
     LEFT JOIN users u2 ON t.approved_by = u2.id
     ${where}
     ORDER BY t.requested_at DESC
-  `, params);
+  `,
+    params
+  );
   res.json(rows);
 };
 
@@ -50,18 +53,31 @@ exports.getAssetTransfers = async (req, res) => {
 exports.approveAssetTransfer = async (req, res) => {
   const { id } = req.params;
   if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
   // 1. ดึงข้อมูล transfer
-  const [[transfer]] = await pool.query('SELECT * FROM asset_transfers WHERE id = ?', [id]);
-  if (!transfer || transfer.status !== 'pending') return res.status(404).json({ error: 'Not found' });
+  const [[transfer]] = await pool.query(
+    "SELECT * FROM asset_transfers WHERE id = ?",
+    [id]
+  );
+  if (!transfer || transfer.status !== "pending")
+    return res.status(404).json({ error: "Not found" });
   // 2. อัปเดต asset
-  await pool.query('UPDATE assets SET department_id = ? WHERE id = ?', [transfer.to_department_id, transfer.asset_id]);
+  await pool.query("UPDATE assets SET department_id = ? WHERE id = ?", [
+    transfer.to_department_id,
+    transfer.asset_id,
+  ]);
   // 3. อัปเดต transfer
-  const [result] = await pool.query('UPDATE asset_transfers SET status = "approved", approved_by = ?, approved_at = NOW() WHERE id = ?', [req.user.id, id]);
+  const [result] = await pool.query(
+    'UPDATE asset_transfers SET status = "approved", approved_by = ?, approved_at = NOW() WHERE id = ?',
+    [req.user.id, id]
+  );
   if (result.affectedRows === 0) {
-    console.error('Failed to update asset_transfers status to approved for id', id);
-    return res.status(500).json({ error: 'Failed to update transfer status' });
+    console.error(
+      "Failed to update asset_transfers status to approved for id",
+      id
+    );
+    return res.status(500).json({ error: "Failed to update transfer status" });
   }
   res.json({ success: true });
 };
@@ -70,12 +86,18 @@ exports.approveAssetTransfer = async (req, res) => {
 exports.rejectAssetTransfer = async (req, res) => {
   const { id } = req.params;
   if (!req.user || !req.user.id) {
-    return res.status(401).json({ error: 'Unauthorized' });
+    return res.status(401).json({ error: "Unauthorized" });
   }
-  const [result] = await pool.query('UPDATE asset_transfers SET status = "rejected", approved_by = ?, approved_at = NOW() WHERE id = ?', [req.user.id, id]);
+  const [result] = await pool.query(
+    'UPDATE asset_transfers SET status = "rejected", approved_by = ?, approved_at = NOW() WHERE id = ?',
+    [req.user.id, id]
+  );
   if (result.affectedRows === 0) {
-    console.error('Failed to update asset_transfers status to rejected for id', id);
-    return res.status(500).json({ error: 'Failed to update transfer status' });
+    console.error(
+      "Failed to update asset_transfers status to rejected for id",
+      id
+    );
+    return res.status(500).json({ error: "Failed to update transfer status" });
   }
   res.json({ success: true });
 };
@@ -83,9 +105,10 @@ exports.rejectAssetTransfer = async (req, res) => {
 // GET /api/asset-transfers/history/:assetId
 exports.getAssetTransferHistory = async (req, res) => {
   const { assetId } = req.params;
-  
+
   try {
-    const [rows] = await pool.query(`
+    const [rows] = await pool.query(
+      `
       SELECT t.*, 
         fd.name_th as from_department_name, 
         td.name_th as to_department_name, 
@@ -98,11 +121,13 @@ exports.getAssetTransferHistory = async (req, res) => {
       LEFT JOIN users u2 ON t.approved_by = u2.id
       WHERE t.asset_id = ?
       ORDER BY t.requested_at DESC
-    `, [assetId]);
-    
+    `,
+      [assetId]
+    );
+
     res.json(rows);
   } catch (error) {
-    console.error('Error fetching asset transfer history:', error);
-    res.status(500).json({ error: 'Failed to fetch transfer history' });
+    console.error("Error fetching asset transfer history:", error);
+    res.status(500).json({ error: "Failed to fetch transfer history" });
   }
-}; 
+};
