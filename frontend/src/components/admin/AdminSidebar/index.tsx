@@ -73,7 +73,7 @@ const AdminSidebar: React.FC<AdminSidebarProps> = ({ open, onClose }) => {
             <li className={styles.navItem}>
               <Link href="/admin/asset-verification-all" className={styles.navLink + (currentPath === '/admin/asset-verification-all' ? ' ' + styles.active : '')} onClick={handleNavClick}>
                   <AiOutlineFileText className={styles.icon} />
-                  <span>Asset Verification </span>
+                  <span>Asset Verification</span>
               </Link>
             </li>
             <li className={styles.navItem}>

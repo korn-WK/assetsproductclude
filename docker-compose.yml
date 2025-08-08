@@ -16,6 +16,7 @@ services:
       - "3306:3306"
     volumes:
       - ./assets.sql:/docker-entrypoint-initdb.d/assets.sql
+      - ./assets_data:/var/lib/mysql
     networks:
       - assets_network
 

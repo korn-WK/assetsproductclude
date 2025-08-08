@@ -554,6 +554,11 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
             {/* Right: date picker + export */}
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, position: 'relative' }}>
+                {range[0].startDate && range[0].endDate && (
+                  <span style={{ marginLeft: 8, fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
+                    {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
+                  </span>
+                )}
                 <button
                   onClick={() => setShowPicker(v => !v)}
                   style={{
@@ -575,13 +580,10 @@ const AssetVerificationTable: React.FC<AssetVerificationTableProps> = ({ searchT
                   }}
                   title="เลือกช่วงวันที่"
                 >
+                
                   <AiOutlineCalendar style={{ fontSize: '1.35em', color: '#222' }} />
                 </button>
-                {range[0].startDate && range[0].endDate && (
-                  <span style={{ marginLeft: 8, fontWeight: 500, color: '#11998e', fontSize: '1.05em' }}>
-                    {`${format(range[0].startDate, 'dd MMM yy')} - ${format(range[0].endDate, 'dd MMM yy')}`}
-                  </span>
-                )}
+                
                 {showPicker && (
                   <div style={{ position: 'absolute', zIndex: 20, top: '110%', left: 0 ,border: '1.5px solid #e5e7eb'}}>
                     <DateRange
