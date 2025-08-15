@@ -1,5 +1,4 @@
 # docker-compose.yml
-version: "3.8"
 
 services:
   # MySQL Database
@@ -16,7 +15,7 @@ services:
       - "3306:3306"
     volumes:
       - ./assets.sql:/docker-entrypoint-initdb.d/assets.sql
-      - ./assets_data:/var/lib/mysql
+      - mysql_data:/var/lib/mysql
     networks:
       - assets_network
 
@@ -37,8 +36,8 @@ services:
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - CLIENT_URL=http://localhost
-      - SERVER_URL=http://localhost
+      - CLIENT_URL=http://p-inverntory.mfu.ac.th
+      - SERVER_URL=http://p-inverntory.mfu.ac.th
     volumes:
       - ./backend/uploads:/app/uploads
     depends_on:
@@ -55,7 +54,7 @@ services:
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://localhost
+      - NEXT_PUBLIC_API_URL=http://p-inverntory.mfu.ac.th/api
     depends_on:
       - backend
     networks:

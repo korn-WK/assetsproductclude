@@ -1,6 +1,6 @@
 module.exports = {
-  host: process.env.DB_HOST || '172.18.0.2',
-  user: process.env.DB_USER || 'admin',
+  host: process.env.DB_HOST || 'mysql',
+  user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || '1234',
   database: process.env.DB_NAME || 'assets',
   waitForConnections: true,
@@ -9,4 +9,4 @@ module.exports = {
   timezone: '+07:00', // Set timezone to Thailand (UTC+7)
   charset: 'utf8mb4',
   dateStrings: true, // Return dates as strings to avoid timezone conversion issues
-}; 
+};
