@@ -3,9 +3,9 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 07, 2025 at 05:20 PM
+-- Generation Time: Aug 15, 2025 at 11:39 AM
 -- Server version: 10.4.32-MariaDB
--- PHP Version: 8.2.12
+-- PHP Version: 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -4021,6 +4021,7 @@ INSERT INTO `users` (`id`, `username`, `password_hash`, `name`, `email`, `role`,
 (136, '6531501115@lamduan.mfu.ac.th', '', 'WEERAPHONG KHALA', '6531501115@lamduan.mfu.ac.th', 'SuperAdmin', NULL, 1, '2025-07-30 17:30:26', '2025-08-05 23:57:04', 'https://lh3.googleusercontent.com/a-/ALV-UjVPJNJWoRBHms71Ec8LWWscaDbDa7nwbxnEiXlLYta3qOuxysYrGB00b5fPpcGLx8CFaOgarzhWmPvdXLDTpXpxF1rX2yFF3r02EHDTsFYNrGrVQtAbNtDUCZSwK_MAvOhB8AIhTVFo_n4HXAibh58QC5sawn11b4MQPtSTPjsDIECZvovEB9VhvWGkfEfDJm6WQ9Wzr0j8n5vujUtjX24hp8n5lJJHsrFnQoh_VNjMVMU0lhlxgg6gSVgJW2pIJjKo88PmsJ6zxh5UKhfz1S622UsZI-qioxDFbIdSpigq2EaI6EnibHyl79u69zFm-tn5wS5gsXel3KVZZB4pTA18YgG31zeGq6P8uyy5F0cHx5sHhgoaUUq6hjlFTzMM_DEZ4r_PPJULyoO8lsLgJOyMvCw9Nz0_wUfOn1GahmPhaXlIJyG5AgwS3613sE6GxfFehpKOp7UcI-Ann3U4F6y'),
 (137, 'pkphoney85@gmail.com', '', 'Weeraphong _Korn', 'pkphoney85@gmail.com', 'Admin', 1, 1, '2025-07-30 17:34:51', '2025-07-30 17:48:55', 'https://lh3.googleusercontent.com/a/ACg8ocLmtN7oklVHPhQGJVG7r9mY4AojpX1N1VujZoTEaANQK6Cy111R=s96-c'),
 (138, '6531501031@lamduan.mfu.ac.th', '', 'YANIDA BOONCHALERM', '6531501031@lamduan.mfu.ac.th', 'User', 1, 1, '2025-07-30 17:48:43', '2025-07-30 17:50:41', 'https://lh3.googleusercontent.com/a/ACg8ocLCyMFt0RwakOvtoNgn7c-XYNgbT7O-l1S-Q54GPP7pPzZqlg=s96-c');
+
 --
 -- Indexes for dumped tables
 --
@@ -4046,7 +4047,8 @@ ALTER TABLE `asset_audits`
 --
 -- Indexes for table `asset_locations`
 --
-
+ALTER TABLE `asset_locations`
+  ADD PRIMARY KEY (`id`);
 
 --
 -- Indexes for table `asset_transfers`
@@ -4137,43 +4139,7 @@ ALTER TABLE `system_settings`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=136;
-
---
--- Constraints for dumped tables
---
-
---
--- Constraints for table `assets`
---
-ALTER TABLE `assets`
-  ADD CONSTRAINT `assets_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`),
-  ADD CONSTRAINT `assets_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`),
-  ADD CONSTRAINT `assets_ibfk_3` FOREIGN KEY (`location_id`) REFERENCES `asset_locations` (`id`);
-
---
--- Constraints for table `asset_audits`
---
-ALTER TABLE `asset_audits`
-  ADD CONSTRAINT `asset_audits_ibfk_1` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
-  ADD CONSTRAINT `asset_audits_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
-  ADD CONSTRAINT `asset_audits_ibfk_3` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`);
-
---
--- Constraints for table `asset_transfers`
---
-ALTER TABLE `asset_transfers`
-  ADD CONSTRAINT `asset_transfers_ibfk_1` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
-  ADD CONSTRAINT `asset_transfers_ibfk_2` FOREIGN KEY (`from_department_id`) REFERENCES `departments` (`id`),
-  ADD CONSTRAINT `asset_transfers_ibfk_3` FOREIGN KEY (`to_department_id`) REFERENCES `departments` (`id`),
-  ADD CONSTRAINT `asset_transfers_ibfk_4` FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`),
-  ADD CONSTRAINT `asset_transfers_ibfk_5` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`);
-
---
--- Constraints for table `users`
---
-ALTER TABLE `users`
-  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`);
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=139;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
