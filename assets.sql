@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Aug 15, 2025 at 11:39 AM
+-- Generation Time: Jul 30, 2025 at 12:27 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.0.30
 
@@ -3816,6 +3816,7 @@ INSERT INTO `asset_locations` (`id`, `name`, `description`, `address`, `created_
 (13, 'E2', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (14, 'F3', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (15, 'D1', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
+(16, 'WANASOM', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (17, 'AD2', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (18, 'LD1', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (19, 'S7A', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
@@ -3856,6 +3857,7 @@ INSERT INTO `asset_locations` (`id`, `name`, `description`, `address`, `created_
 (54, 'อาคารสวนพฤกษ์ศาสตร์', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (55, 'E4', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (56, 'Chinese Center', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
+(57, 'อาคารสวนพฤกศาสตร์', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (58, 'สำนักวิชาแพทยศาสตร์', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (59, 'โรงพยาบาล มฟล.', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (60, 'หอพัก F', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
@@ -3875,6 +3877,7 @@ INSERT INTO `asset_locations` (`id`, `name`, `description`, `address`, `created_
 (74, 'วนาศรม', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (75, 'อ.กีฬา 3', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (76, 'อ.กีฬา 2', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
+(77, 'สต๊อกAS', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (78, 'C2', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (79, 'Stadium', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
 (80, 'S3(ศูนย์เครื่องมือ)', NULL, NULL, '2025-07-06 16:09:09', '2025-07-06 16:09:09'),
@@ -4002,7 +4005,7 @@ CREATE TABLE `users` (
   `is_active` tinyint(1) NOT NULL DEFAULT 1,
   `created_at` datetime DEFAULT current_timestamp(),
   `updated_at` datetime DEFAULT current_timestamp() ON UPDATE current_timestamp(),
-  `picture` text DEFAULT NULL
+  `picture` varchar(512) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
@@ -4017,10 +4020,7 @@ INSERT INTO `users` (`id`, `username`, `password_hash`, `name`, `email`, `role`,
 (116, 'japanza7890@gmail.com', '', 'Gummiebear', 'japanza7890@gmail.com', 'Admin', 1, 1, '2025-07-16 01:33:47', '2025-07-16 23:28:55', 'https://lh3.googleusercontent.com/a/ACg8ocI65fV9ZNdsk7hYT_shmJ4oXn5xFGSHzReV3tFVBgNZ_FOTM503=s96-c'),
 (117, 'janjiw1x@gmail.com', '', 'JanJiw', 'janjiw1x@gmail.com', 'User', 2, 1, '2025-07-20 19:39:49', '2025-07-29 01:31:10', 'https://lh3.googleusercontent.com/a/ACg8ocIUEP7ChMjOshmwB93oGiD46mLCSWirnhOT1NeAxGELp5o4L3s=s96-c'),
 (121, 'janjiw2x@gmail.com', '', 'JanJiw2x', 'janjiw2x@gmail.com', 'User', NULL, 1, '2025-07-24 11:00:19', '2025-07-24 11:00:19', 'https://lh3.googleusercontent.com/a/ACg8ocLAb3ow237r3vG8A4P613lO6aGV7a_c-QbB9gHPYz-XZKNWtHY=s96-c'),
-(122, '6531501148@lamduan.mfu.ac.th', '', 'NATTAPON SRIPRAYUNPRISAN', '6531501148@lamduan.mfu.ac.th', 'User', NULL, 1, '2025-07-26 16:51:43', '2025-07-26 16:51:43', 'https://lh3.googleusercontent.com/a-/ALV-UjXYaWWiuut7wH7uaxCp3YNPl5PUrXox5mZUVe3Gu0BaNDv2ylfpPEp8KMVxj2ErK2LJUNR_7iLeT1I3ZkCLcAQMH4-GMghuu6KJCShxMhiUwL9e1zBTZAFrmoMPm9YGhCt-oZbS9heDweSJDjkuFDv3Oz_DGNpwHRXZW5XwQ07wYkXnpwU08pgUCM_7RLCUB2nOES-uWvuCM68ZfHBayckExx7xT-_Vjkc-ton1_3V1_6sYeXj6hrdEAqXC8b2YTgLdoRJMjidvVKM_xWmdiWzkd7xkxoDm-f9KhzAyN3caXWtfCwcUcIVRZAbR_YOlq14bswcySETzx-WjqRel8RLyzMugM-em1Mf4rl1vdHsN1qrIhAB8EXYPWxcdBw7tgI-oz17F-REWv9oVu_Zn0H6PlKYN2MmKDdyt1JjyF6anwjc2qD02IxEzJxkdojdUDFdoHnHhSfH2zX4aXAWEKCv'),
-(136, '6531501115@lamduan.mfu.ac.th', '', 'WEERAPHONG KHALA', '6531501115@lamduan.mfu.ac.th', 'SuperAdmin', NULL, 1, '2025-07-30 17:30:26', '2025-08-05 23:57:04', 'https://lh3.googleusercontent.com/a-/ALV-UjVPJNJWoRBHms71Ec8LWWscaDbDa7nwbxnEiXlLYta3qOuxysYrGB00b5fPpcGLx8CFaOgarzhWmPvdXLDTpXpxF1rX2yFF3r02EHDTsFYNrGrVQtAbNtDUCZSwK_MAvOhB8AIhTVFo_n4HXAibh58QC5sawn11b4MQPtSTPjsDIECZvovEB9VhvWGkfEfDJm6WQ9Wzr0j8n5vujUtjX24hp8n5lJJHsrFnQoh_VNjMVMU0lhlxgg6gSVgJW2pIJjKo88PmsJ6zxh5UKhfz1S622UsZI-qioxDFbIdSpigq2EaI6EnibHyl79u69zFm-tn5wS5gsXel3KVZZB4pTA18YgG31zeGq6P8uyy5F0cHx5sHhgoaUUq6hjlFTzMM_DEZ4r_PPJULyoO8lsLgJOyMvCw9Nz0_wUfOn1GahmPhaXlIJyG5AgwS3613sE6GxfFehpKOp7UcI-Ann3U4F6y'),
-(137, 'pkphoney85@gmail.com', '', 'Weeraphong _Korn', 'pkphoney85@gmail.com', 'Admin', 1, 1, '2025-07-30 17:34:51', '2025-07-30 17:48:55', 'https://lh3.googleusercontent.com/a/ACg8ocLmtN7oklVHPhQGJVG7r9mY4AojpX1N1VujZoTEaANQK6Cy111R=s96-c'),
-(138, '6531501031@lamduan.mfu.ac.th', '', 'YANIDA BOONCHALERM', '6531501031@lamduan.mfu.ac.th', 'User', 1, 1, '2025-07-30 17:48:43', '2025-07-30 17:50:41', 'https://lh3.googleusercontent.com/a/ACg8ocLCyMFt0RwakOvtoNgn7c-XYNgbT7O-l1S-Q54GPP7pPzZqlg=s96-c');
+(122, '6531501148@lamduan.mfu.ac.th', '', 'NATTAPON SRIPRAYUNPRISAN', '6531501148@lamduan.mfu.ac.th', 'User', NULL, 1, '2025-07-26 16:51:43', '2025-07-26 16:51:43', 'https://lh3.googleusercontent.com/a-/ALV-UjXYaWWiuut7wH7uaxCp3YNPl5PUrXox5mZUVe3Gu0BaNDv2ylfpPEp8KMVxj2ErK2LJUNR_7iLeT1I3ZkCLcAQMH4-GMghuu6KJCShxMhiUwL9e1zBTZAFrmoMPm9YGhCt-oZbS9heDweSJDjkuFDv3Oz_DGNpwHRXZW5XwQ07wYkXnpwU08pgUCM_7RLCUB2nOES-uWvuCM68ZfHBayckExx7xT-_Vjkc-ton1_3V1_6sYeXj6hrdEAqXC8b2YTgLdoRJMjidvVKM_xWmdiWzkd7xkxoDm-f9KhzAyN3caXWtfCwcUcIVRZAbR_YOlq14bswcySETzx-WjqRel8RLyzMugM-em1Mf4rl1vdHsN1qrIhAB8EXYPWxcdBw7tgI-oz17F-REWv9oVu_Zn0H6PlKYN2MmKDdyt1JjyF6anwjc2qD02IxEzJxkdojdUDFdoHnHhSfH2zX4aXAWEKCv');
 
 --
 -- Indexes for dumped tables
@@ -4048,7 +4048,8 @@ ALTER TABLE `asset_audits`
 -- Indexes for table `asset_locations`
 --
 ALTER TABLE `asset_locations`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `name` (`name`);
 
 --
 -- Indexes for table `asset_transfers`
@@ -4139,7 +4140,43 @@ ALTER TABLE `system_settings`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=139;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=136;
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `assets`
+--
+ALTER TABLE `assets`
+  ADD CONSTRAINT `assets_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`),
+  ADD CONSTRAINT `assets_ibfk_2` FOREIGN KEY (`owner_id`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `assets_ibfk_3` FOREIGN KEY (`location_id`) REFERENCES `asset_locations` (`id`);
+
+--
+-- Constraints for table `asset_audits`
+--
+ALTER TABLE `asset_audits`
+  ADD CONSTRAINT `asset_audits_ibfk_1` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
+  ADD CONSTRAINT `asset_audits_ibfk_2` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `asset_audits_ibfk_3` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`);
+
+--
+-- Constraints for table `asset_transfers`
+--
+ALTER TABLE `asset_transfers`
+  ADD CONSTRAINT `asset_transfers_ibfk_1` FOREIGN KEY (`asset_id`) REFERENCES `assets` (`id`),
+  ADD CONSTRAINT `asset_transfers_ibfk_2` FOREIGN KEY (`from_department_id`) REFERENCES `departments` (`id`),
+  ADD CONSTRAINT `asset_transfers_ibfk_3` FOREIGN KEY (`to_department_id`) REFERENCES `departments` (`id`),
+  ADD CONSTRAINT `asset_transfers_ibfk_4` FOREIGN KEY (`requested_by`) REFERENCES `users` (`id`),
+  ADD CONSTRAINT `asset_transfers_ibfk_5` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`);
+
+--
+-- Constraints for table `users`
+--
+ALTER TABLE `users`
+  ADD CONSTRAINT `users_ibfk_1` FOREIGN KEY (`department_id`) REFERENCES `departments` (`id`);
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
