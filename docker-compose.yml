@@ -1,30 +1,32 @@
-# docker-compose.yml
+version: '3.8'
 
 services:
   # MySQL Database
   mysql:
     image: mysql:8.0
-    container_name: mysql-con
+    container_name: mysql-db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: 1234
       MYSQL_DATABASE: assets
-      # MYSQL_USER: root
-      # MYSQL_PASSWORD: 1234
     ports:
       - "3306:3306"
     volumes:
-      - ./assets.sql:/docker-entrypoint-initdb.d/assets.sql
       - mysql_data:/var/lib/mysql
+      - ./mysql/init:/docker-entrypoint-initdb.d
     networks:
-      - assets_network
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 20s
+      retries: 10
 
-  # Backend API
+  # Backend API (Node.js)
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: backend-con
+    container_name: nodejs-api
     restart: unless-stopped
     environment:
       - PORT=4000
@@ -32,52 +34,61 @@ services:
       - DB_USER=root
       - DB_PASSWORD=1234
       - DB_NAME=assets
+      - DB_PORT=3306
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
       - JWT_SECRET=${JWT_SECRET}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
-      - CLIENT_URL=http://p-inverntory.mfu.ac.th
-      - SERVER_URL=http://p-inverntory.mfu.ac.th
-    volumes:
-      - ./backend/uploads:/app/uploads
+      - NODE_ENV=production
+    ports:
+      - "4000:4000"
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
     networks:
-      - assets_network
+      - app-network
+    volumes:
+      - ./backend/logs:/app/logs
 
-  # Frontend React/Next.js
+  # Frontend (Next.js)
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: frontend-con
+    container_name: nextjs-app
     restart: unless-stopped
     environment:
       - NODE_ENV=production
-      - NEXT_PUBLIC_API_URL=http://p-inverntory.mfu.ac.th/api
+      - NEXT_PUBLIC_BACKEND_URL=https://p-inventory.mfu.ac.th/api
+    ports:
+      - "3000:3000"
     depends_on:
       - backend
     networks:
-      - assets_network
+      - app-network
 
   # Nginx Reverse Proxy
   nginx:
-    build:
-      context: .
-      dockerfile: Dockerfile.nginx
-    container_name: nginx-con
+    image: nginx:alpine
+    container_name: nginx-proxy
     restart: unless-stopped
     ports:
       - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - ./nginx/p-inventory.mfu.ac.th.conf:/etc/nginx/conf.d/p-inventory.mfu.ac.th.conf
+      - ./ssl:/etc/ssl/certs
+      - ./nginx/logs:/var/log/nginx
     depends_on:
       - frontend
       - backend
     networks:
-      - assets_network
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
   mysql_data:
-
-networks:
-  assets_network:
-    driver: bridge
